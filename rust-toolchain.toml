@@ -1,0 +1,15 @@
+[toolchain]
+channel = "nightly"
+components = ["rustfmt", "clippy"]
+targets = []
+
+# NOTE: Nightly is required due to transitive dependencies requiring edition2024
+# Specifically: base64ct 1.8.0+ (pulled by cryptography crates) requires edition2024
+# which is only available in nightly as of Rust 1.83.
+#
+# This is a temporary requirement until:
+# 1. Rust 1.85+ stabilizes edition2024 (expected early 2025), OR
+# 2. Dependencies update to support stable Rust without edition2024
+#
+# We do NOT use any nightly-specific features in our code - all code is edition2021 compatible.
+# See MSRV.md for detailed explanation.

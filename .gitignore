@@ -1,0 +1,18 @@
+# Backup files
+*_backup.rs
+*_original_backup.rs
+
+# Build artifacts
+target/
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+/tmp/
+*.tmp
+*.rlib

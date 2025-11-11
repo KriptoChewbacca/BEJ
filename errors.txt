@@ -1,0 +1,2568 @@
+warning: crate `Boot` should have a snake case name
+  |
+  = help: convert the identifier to snake case: `boot`
+  = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: `Boot` (lib) generated 1 warning
+error: unused import: `std::time::Duration`
+  --> src/config.rs:7:5
+   |
+ 7 | use std::time::Duration;
+   |     ^^^^^^^^^^^^^^^^^^^
+   |
+note: the lint level is defined here
+  --> src/main.rs:17:9
+   |
+17 | #![deny(unused_imports)]
+   |         ^^^^^^^^^^^^^^
+
+error: unused import: `Counter`
+ --> src/metrics.rs:3:18
+  |
+3 | use prometheus::{Counter, Histogram, HistogramOpts, IntCounter, IntGauge, Opts, Registry};
+  |                  ^^^^^^^
+
+error: unused import: `std::sync::Arc`
+ --> src/metrics.rs:4:5
+  |
+4 | use std::sync::Arc;
+  |     ^^^^^^^^^^^^^^
+
+error: unused import: `std::sync::Arc`
+ --> src/structured_logging.rs:4:5
+  |
+4 | use std::sync::Arc;
+  |     ^^^^^^^^^^^^^^
+
+error: unused import: `std::sync::Arc`
+ --> src/observability.rs:4:5
+  |
+4 | use std::sync::Arc;
+  |     ^^^^^^^^^^^^^^
+
+error: unused import: `std::sync::Arc`
+ --> src/endpoints.rs:4:5
+  |
+4 | use std::sync::Arc;
+  |     ^^^^^^^^^^^^^^
+
+error: unused import: `AtomicU32`
+ --> src/nonce manager/nonce_retry.rs:6:36
+  |
+6 | use std::sync::atomic::{AtomicU64, AtomicU32, Ordering};
+  |                                    ^^^^^^^^^
+
+error: unused imports: `debug` and `error`
+  --> src/nonce manager/nonce_authority.rs:19:15
+   |
+19 | use tracing::{debug, error, info, warn, instrument};
+   |               ^^^^^  ^^^^^
+
+error: unused imports: `Keypair`, `VersionedTransaction`, and `hash::Hash`
+  --> src/nonce manager/nonce_integration.rs:10:5
+   |
+10 |     hash::Hash,
+   |     ^^^^^^^^^^
+...
+13 |     signature::{Keypair, Signature},
+   |                 ^^^^^^^
+14 |     transaction::{Transaction, VersionedTransaction},
+   |                                ^^^^^^^^^^^^^^^^^^^^
+
+error: unused import: `NonceError`
+  --> src/nonce manager/nonce_lease.rs:11:27
+   |
+11 | use super::nonce_errors::{NonceError, NonceResult};
+   |                           ^^^^^^^^^^
+
+error: unused imports: `ErrorClassification`, `NonceResult`, and `UniverseErrorType`
+  --> src/nonce manager/mod.rs:27:36
+   |
+27 | pub use nonce_errors::{NonceError, NonceResult, UniverseErrorType, ErrorClassification};
+   |                                    ^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^
+
+error: unused imports: `CircuitBreaker`, `CircuitState`, `ErrorClassifier`, and `GlobalCircuitBreaker`
+  --> src/nonce manager/mod.rs:28:23
+   |
+28 | pub use nonce_retry::{CircuitBreaker, CircuitState, GlobalCircuitBreaker, ErrorClassifier};
+   |                       ^^^^^^^^^^^^^^  ^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^
+
+error: unused import: `solana_client::rpc_response::RpcVersionInfo`
+  --> src/rpc manager/rpc_pool.rs:16:5
+   |
+16 | use solana_client::rpc_response::RpcVersionInfo;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: unused import: `AtomicBool`
+  --> src/rpc manager/rpc_pool.rs:20:25
+   |
+20 | use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+   |                         ^^^^^^^^^^
+
+error: unused import: `std::time::Duration`
+ --> src/rpc manager/rpc_config.rs:2:5
+  |
+2 | use std::time::Duration;
+  |     ^^^^^^^^^^^^^^^^^^^
+
+error: unused import: `std::fmt`
+ --> src/rpc manager/rpc_errors.rs:1:5
+  |
+1 | use std::fmt;
+  |     ^^^^^^^^
+
+error: unused imports: `Duration` and `Instant`
+ --> src/rpc manager/rpc_metrics.rs:3:17
+  |
+3 | use std::time::{Duration, Instant};
+  |                 ^^^^^^^^  ^^^^^^^
+
+error: unused imports: `HealthStatus` and `RpcPool`
+  --> src/rpc manager/mod.rs:18:50
+   |
+18 | pub use rpc_pool::{EndpointConfig, EndpointType, HealthStatus, RpcPool};
+   |                                                  ^^^^^^^^^^^^  ^^^^^^^
+
+error: unused import: `rpc_errors::RpcManagerError`
+  --> src/rpc manager/mod.rs:19:9
+   |
+19 | pub use rpc_errors::RpcManagerError;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: unused import: `error`
+ --> src/sniffer/core.rs:9:22
+  |
+9 | use tracing::{debug, error, info, warn};
+  |                      ^^^^^
+
+warning: unexpected `cfg` condition value: `prod_parse`
+ --> src/sniffer/prefilter.rs:8:7
+  |
+8 | #[cfg(feature = "prod_parse")]
+  |       ^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: expected values for `feature` are: `default`, `dex-all`, `mock-mode`, `orca`, `pumpfun`, `raydium`, `test_utils`, and `zk_enabled`
+  = help: consider adding `prod_parse` as a feature in `Cargo.toml`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: `#[warn(unexpected_cfgs)]` on by default
+
+warning: unexpected `cfg` condition value: `perf`
+   --> src/sniffer/prefilter.rs:88:15
+    |
+ 88 |         #[cfg(feature = "perf")]
+    |               ^^^^^^^^^^^^^^^^
+...
+109 |     check_program_id_with_perf!(tx_bytes, &PUMP_FUN_PROGRAM_ID, "contains_pump_fun")
+    |     -------------------------------------------------------------------------------- in this macro invocation
+    |
+    = note: expected values for `feature` are: `default`, `dex-all`, `mock-mode`, `orca`, `pumpfun`, `raydium`, `test_utils`, and `zk_enabled`
+    = help: consider adding `perf` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `check_program_id_with_perf` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `perf`
+   --> src/sniffer/prefilter.rs:99:19
+    |
+ 99 |         #[cfg(not(feature = "perf"))]
+    |                   ^^^^^^^^^^^^^^^^
+...
+109 |     check_program_id_with_perf!(tx_bytes, &PUMP_FUN_PROGRAM_ID, "contains_pump_fun")
+    |     -------------------------------------------------------------------------------- in this macro invocation
+    |
+    = note: expected values for `feature` are: `default`, `dex-all`, `mock-mode`, `orca`, `pumpfun`, `raydium`, `test_utils`, and `zk_enabled`
+    = help: consider adding `perf` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `check_program_id_with_perf` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `perf`
+   --> src/sniffer/prefilter.rs:88:15
+    |
+ 88 |         #[cfg(feature = "perf")]
+    |               ^^^^^^^^^^^^^^^^
+...
+115 |     check_program_id_with_perf!(tx_bytes, &SPL_TOKEN_PROGRAM_ID, "contains_spl_token")
+    |     ---------------------------------------------------------------------------------- in this macro invocation
+    |
+    = note: expected values for `feature` are: `default`, `dex-all`, `mock-mode`, `orca`, `pumpfun`, `raydium`, `test_utils`, and `zk_enabled`
+    = help: consider adding `perf` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `check_program_id_with_perf` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `perf`
+   --> src/sniffer/prefilter.rs:99:19
+    |
+ 99 |         #[cfg(not(feature = "perf"))]
+    |                   ^^^^^^^^^^^^^^^^
+...
+115 |     check_program_id_with_perf!(tx_bytes, &SPL_TOKEN_PROGRAM_ID, "contains_spl_token")
+    |     ---------------------------------------------------------------------------------- in this macro invocation
+    |
+    = note: expected values for `feature` are: `default`, `dex-all`, `mock-mode`, `orca`, `pumpfun`, `raydium`, `test_utils`, and `zk_enabled`
+    = help: consider adding `perf` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `check_program_id_with_perf` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `prod_parse`
+   --> src/sniffer/prefilter.rs:180:11
+    |
+180 |     #[cfg(feature = "prod_parse")]
+    |           ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: expected values for `feature` are: `default`, `dex-all`, `mock-mode`, `orca`, `pumpfun`, `raydium`, `test_utils`, and `zk_enabled`
+    = help: consider adding `prod_parse` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+
+warning: unexpected `cfg` condition value: `prod_parse`
+   --> src/sniffer/prefilter.rs:200:15
+    |
+200 |     #[cfg(not(feature = "prod_parse"))]
+    |               ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: expected values for `feature` are: `default`, `dex-all`, `mock-mode`, `orca`, `pumpfun`, `raydium`, `test_utils`, and `zk_enabled`
+    = help: consider adding `prod_parse` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+
+warning: unexpected `cfg` condition value: `prod_parse`
+   --> src/sniffer/prefilter.rs:223:11
+    |
+223 |     #[cfg(feature = "prod_parse")]
+    |           ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: expected values for `feature` are: `default`, `dex-all`, `mock-mode`, `orca`, `pumpfun`, `raydium`, `test_utils`, and `zk_enabled`
+    = help: consider adding `prod_parse` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+
+warning: unexpected `cfg` condition value: `prod_parse`
+   --> src/sniffer/prefilter.rs:247:15
+    |
+247 |     #[cfg(not(feature = "prod_parse"))]
+    |               ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: expected values for `feature` are: `default`, `dex-all`, `mock-mode`, `orca`, `pumpfun`, `raydium`, `test_utils`, and `zk_enabled`
+    = help: consider adding `prod_parse` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+
+error: unused import: `super::dataflow::SnifferEvent`
+ --> src/sniffer/handoff.rs:9:5
+  |
+9 | use super::dataflow::SnifferEvent;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: unused import: `AtomicBool`
+  --> src/sniffer/supervisor.rs:10:25
+   |
+10 | use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+   |                         ^^^^^^^^^^
+
+error: unused imports: `BatchSendMode`, `DropPolicy`, and `SnifferConfig`
+  --> src/sniffer/mod.rs:16:18
+   |
+16 | pub use config::{SnifferConfig, DropPolicy, BatchSendMode};
+   |                  ^^^^^^^^^^^^^  ^^^^^^^^^^  ^^^^^^^^^^^^^
+
+error: unused imports: `EventCollector`, `SnifferApi`, and `Sniffer`
+  --> src/sniffer/mod.rs:17:23
+   |
+17 | pub use integration::{Sniffer, SnifferApi, EventCollector};
+   |                       ^^^^^^^  ^^^^^^^^^^  ^^^^^^^^^^^^^^
+
+error: unused imports: `PremintCandidate` and `PriorityLevel`
+  --> src/sniffer/mod.rs:18:21
+   |
+18 | pub use extractor::{PremintCandidate, PriorityLevel};
+   |                     ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^
+
+error: unused imports: `AccountExtractError`, `ExponentialBackoff`, `MintExtractError`, and `SnifferError`
+  --> src/sniffer/mod.rs:19:18
+   |
+19 | pub use errors::{SnifferError, MintExtractError, AccountExtractError, ExponentialBackoff};
+   |                  ^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^
+
+error: unused imports: `HandoffDiagnostics` and `SnifferMetrics`
+  --> src/sniffer/mod.rs:20:21
+   |
+20 | pub use telemetry::{SnifferMetrics, HandoffDiagnostics};
+   |                     ^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^
+
+error: unused import: `analytics::PredictiveAnalytics`
+  --> src/sniffer/mod.rs:21:9
+   |
+21 | pub use analytics::PredictiveAnalytics;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: unused imports: `CandidateId`, `SnifferEvent`, and `ValidatedCandidate`
+  --> src/sniffer/mod.rs:22:20
+   |
+22 | pub use dataflow::{SnifferEvent, ValidatedCandidate, CandidateId};
+   |                    ^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^
+
+error: unused imports: `SnifferState`, `SupervisorCommand`, `Supervisor`, and `WorkerHandle`
+  --> src/sniffer/mod.rs:23:22
+   |
+23 | pub use supervisor::{Supervisor, SnifferState, SupervisorCommand, WorkerHandle};
+   |                      ^^^^^^^^^^  ^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^
+
+error: unused import: `Semaphore`
+  --> src/buy_engine.rs:90:34
+   |
+90 | use tokio::sync::{Mutex, RwLock, Semaphore};
+   |                                  ^^^^^^^^^
+
+warning: use of deprecated module `solana_sdk::system_instruction`: Use `solana_system_interface` crate instead
+  --> src/nonce manager/nonce_authority.rs:12:5
+   |
+12 |     system_instruction,
+   |     ^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated module `solana_sdk::system_instruction`: Use `solana_system_interface` crate instead
+  --> src/nonce manager/nonce_manager_integrated.rs:26:5
+   |
+26 |     system_instruction,
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: use of deprecated module `solana_sdk::system_instruction`: Use `solana_system_interface` crate instead
+    --> src/nonce manager/nonce_manager_integrated.rs:1235:25
+     |
+1235 |         use solana_sdk::system_instruction;
+     |                         ^^^^^^^^^^^^^^^^^^
+
+warning: use of deprecated module `solana_sdk::system_instruction`: Use `solana_system_interface` crate instead
+  --> src/nonce manager/nonce_security.rs:14:5
+   |
+14 |     system_instruction,
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: use of deprecated function `base64::decode`: Use Engine::decode
+    --> src/tx_builder.rs:3067:36
+     |
+3067 |                 let data = base64::decode(data_b64).map_err(|e| {
+     |                                    ^^^^^^
+
+warning: use of deprecated function `base64::decode`: Use Engine::decode
+    --> src/tx_builder.rs:3098:36
+     |
+3098 |                 let data = base64::decode(b64).map_err(|e| {
+     |                                    ^^^^^^
+
+error: variable does not need to be mutable
+   --> src/sniffer/integration.rs:185:13
+    |
+185 |         let mut last_batch_send = Instant::now();
+    |             ----^^^^^^^^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+    |
+note: the lint level is defined here
+   --> src/main.rs:18:9
+    |
+ 18 | #![deny(unused_mut)]
+    |         ^^^^^^^^^^
+
+error[E0689]: can't call method `max` on ambiguous numeric type `{float}`
+   --> src/nonce manager/nonce_circuit_breaker.rs:250:37
+    |
+250 |             max_next_q = max_next_q.max(next_q);
+    |                                     ^^^
+    |
+help: you must specify a type for this binding, like `f32`
+    |
+247 |         let mut max_next_q: f32 = 0.0;
+    |                           +++++
+
+error[E0599]: no method named `pubkey` found for reference `&solana_sdk::signature::Keypair` in the current scope
+   --> src/nonce manager/nonce_authority.rs:331:40
+    |
+331 |             &current_authority_keypair.pubkey(),
+    |                                        ^^^^^^
+    |
+    = help: items from traits can only be used if the trait is in scope
+help: trait `Signer` which provides `pubkey` is implemented but not in scope; perhaps you want to import it
+    |
+  1 + use solana_sdk::signature::Signer;
+    |
+help: there is a method `try_pubkey` with a similar name
+    |
+331 |             &current_authority_keypair.try_pubkey(),
+    |                                        ++++
+
+error[E0599]: no method named `pubkey` found for reference `&solana_sdk::signature::Keypair` in the current scope
+   --> src/nonce manager/nonce_authority.rs:337:45
+    |
+337 |             Some(&current_authority_keypair.pubkey()),
+    |                                             ^^^^^^
+    |
+    = help: items from traits can only be used if the trait is in scope
+help: trait `Signer` which provides `pubkey` is implemented but not in scope; perhaps you want to import it
+    |
+  1 + use solana_sdk::signature::Signer;
+    |
+help: there is a method `try_pubkey` with a similar name
+    |
+337 |             Some(&current_authority_keypair.try_pubkey()),
+    |                                             ++++
+
+error[E0599]: no method named `pubkey` found for reference `&solana_sdk::signature::Keypair` in the current scope
+   --> src/nonce manager/nonce_authority.rs:362:46
+    |
+362 |             actor: current_authority_keypair.pubkey(),
+    |                                              ^^^^^^
+    |
+    = help: items from traits can only be used if the trait is in scope
+help: trait `Signer` which provides `pubkey` is implemented but not in scope; perhaps you want to import it
+    |
+  1 + use solana_sdk::signature::Signer;
+    |
+help: there is a method `try_pubkey` with a similar name
+    |
+362 |             actor: current_authority_keypair.try_pubkey(),
+    |                                              ++++
+
+error[E0615]: attempted to take value of method `err` on type `Result<(), solana_sdk::transaction::TransactionError>`
+   --> src/nonce manager/nonce_authority.rs:411:43
+    |
+411 |                 if let Some(err) = result.err {
+    |                                           ^^^ method, not a field
+    |
+help: use parentheses to call the method
+    |
+411 |                 if let Some(err) = result.err() {
+    |                                              ++
+
+error[E0282]: type annotations needed
+   --> src/nonce manager/nonce_authority.rs:416:32
+    |
+416 |                         error: err.to_string(),
+    |                                ^^^ cannot infer type
+
+error[E0599]: no variant or associated item named `from_account` found for enum `solana_sdk::nonce::State` in the current scope
+   --> src/nonce manager/nonce_manager_integrated.rs:500:34
+    |
+500 |         let nonce_state = State::from_account(&account)
+    |                                  ^^^^^^^^^^^^ variant or associated item not found in `solana_sdk::nonce::State`
+    |
+note: if you're trying to build a new `solana_sdk::nonce::State`, consider using `solana_sdk::nonce::State::new_initialized` which returns `solana_sdk::nonce::State`
+   --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-nonce-2.2.1/src/state.rs:80:5
+    |
+ 80 | /     pub fn new_initialized(
+ 81 | |         authority: &Pubkey,
+ 82 | |         durable_nonce: DurableNonce,
+ 83 | |         lamports_per_signature: u64,
+ 84 | |     ) -> Self {
+    | |_____________^
+
+error[E0282]: type annotations needed
+   --> src/nonce manager/nonce_manager_integrated.rs:501:23
+    |
+501 |             .map_err(|e| NonceError::InvalidNonceAccount(e.to_string()))?;
+    |                       ^                                  - type must be known at this point
+    |
+help: consider giving this closure parameter an explicit type
+    |
+501 |             .map_err(|e: /* Type */| NonceError::InvalidNonceAccount(e.to_string()))?;
+    |                        ++++++++++++
+
+error[E0599]: no method named `clone` found for struct `tokio::sync::RwLock<T>` in the current scope
+   --> src/nonce manager/nonce_manager_integrated.rs:520:43
+    |
+520 |         let zk_proof_lock = self.zk_proof.clone();
+    |                                           ^^^^^ method not found in `tokio::sync::RwLock<std::option::Option<ZkProofData>>`
+
+error[E0599]: no method named `pubkey` found for struct `solana_sdk::signature::Keypair` in the current scope
+   --> src/nonce manager/nonce_manager_integrated.rs:726:46
+    |
+726 |             let nonce_pubkey = nonce_keypair.pubkey();
+    |                                              ^^^^^^
+    |
+   ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-signer-2.2.1/src/lib.rs:109:8
+    |
+109 |     fn pubkey(&self) -> Pubkey {
+    |        ------ the method is available for `solana_sdk::signature::Keypair` here
+    |
+    = help: items from traits can only be used if the trait is in scope
+help: trait `Signer` which provides `pubkey` is implemented but not in scope; perhaps you want to import it
+    |
+  1 + use solana_sdk::signature::Signer;
+    |
+help: there is a method `try_pubkey` with a similar name
+    |
+726 |             let nonce_pubkey = nonce_keypair.try_pubkey();
+    |                                              ++++
+
+error: variable does not need to be mutable
+   --> src/nonce manager/nonce_manager_integrated.rs:824:13
+    |
+824 |         let mut config = CircuitConfig::default();
+    |             ----^^^^^^
+    |             |
+    |             help: remove this `mut`
+
+error[E0599]: no method named `pubkey` found for reference `&solana_sdk::signature::Keypair` in the current scope
+   --> src/nonce manager/nonce_manager_integrated.rs:860:42
+    |
+860 |         let nonce_pubkey = nonce_keypair.pubkey();
+    |                                          ^^^^^^
+    |
+    = help: items from traits can only be used if the trait is in scope
+help: trait `Signer` which provides `pubkey` is implemented but not in scope; perhaps you want to import it
+    |
+  1 + use solana_sdk::signature::Signer;
+    |
+help: there is a method `try_pubkey` with a similar name
+    |
+860 |         let nonce_pubkey = nonce_keypair.try_pubkey();
+    |                                          ++++
+
+error[E0308]: mismatched types
+   --> src/nonce manager/nonce_manager_integrated.rs:882:52
+    |
+882 |         let mut tx = Transaction::new_with_payer(&[create_ix], Some(payer));
+    |                                                    ^^^^^^^^^ expected `Instruction`, found `Vec<Instruction>`
+    |
+    = note: expected struct `Instruction`
+               found struct `Vec<Instruction>`
+
+error[E0599]: no variant or associated item named `from_account` found for enum `solana_sdk::nonce::State` in the current scope
+   --> src/nonce manager/nonce_manager_integrated.rs:916:34
+    |
+916 |         let nonce_state = State::from_account(&account)
+    |                                  ^^^^^^^^^^^^ variant or associated item not found in `solana_sdk::nonce::State`
+    |
+note: if you're trying to build a new `solana_sdk::nonce::State`, consider using `solana_sdk::nonce::State::new_initialized` which returns `solana_sdk::nonce::State`
+   --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-nonce-2.2.1/src/state.rs:80:5
+    |
+ 80 | /     pub fn new_initialized(
+ 81 | |         authority: &Pubkey,
+ 82 | |         durable_nonce: DurableNonce,
+ 83 | |         lamports_per_signature: u64,
+ 84 | |     ) -> Self {
+    | |_____________^
+
+error[E0282]: type annotations needed
+   --> src/nonce manager/nonce_manager_integrated.rs:917:23
+    |
+917 |             .map_err(|e| NonceError::InvalidNonceAccount(e.to_string()))?;
+    |                       ^                                  - type must be known at this point
+    |
+help: consider giving this closure parameter an explicit type
+    |
+917 |             .map_err(|e: /* Type */| NonceError::InvalidNonceAccount(e.to_string()))?;
+    |                        ++++++++++++
+
+error[E0599]: no method named `pubkey` found for struct `solana_sdk::signature::Keypair` in the current scope
+    --> src/nonce manager/nonce_manager_integrated.rs:1406:42
+     |
+1406 |         let nonce_pubkey = nonce_keypair.pubkey();
+     |                                          ^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-signer-2.2.1/src/lib.rs:109:8
+     |
+ 109 |     fn pubkey(&self) -> Pubkey {
+     |        ------ the method is available for `solana_sdk::signature::Keypair` here
+     |
+     = help: items from traits can only be used if the trait is in scope
+help: trait `Signer` which provides `pubkey` is implemented but not in scope; perhaps you want to import it
+     |
+   1 + use solana_sdk::signature::Signer;
+     |
+help: there is a method `try_pubkey` with a similar name
+     |
+1406 |         let nonce_pubkey = nonce_keypair.try_pubkey();
+     |                                          ++++
+
+error[E0615]: attempted to take value of method `err` on type `Result<(), solana_sdk::transaction::TransactionError>`
+   --> src/nonce manager/nonce_refresh.rs:148:47
+    |
+148 |                     if let Some(err) = status.err {
+    |                                               ^^^ method, not a field
+    |
+help: use parentheses to call the method
+    |
+148 |                     if let Some(err) = status.err() {
+    |                                                  ++
+
+error[E0282]: type annotations needed
+   --> src/nonce manager/nonce_refresh.rs:163:41
+    |
+163 | ...                   error: Some(err.to_string()),
+    |                                   ^^^ cannot infer type
+
+error[E0599]: no method named `satisfies_commitment` found for enum `Result<T, E>` in the current scope
+   --> src/nonce manager/nonce_refresh.rs:177:31
+    |
+177 |                     if status.satisfies_commitment(CommitmentConfig {
+    |                        -------^^^^^^^^^^^^^^^^^^^^ method not found in `Result<(), solana_sdk::transaction::TransactionError>`
+
+error[E0599]: no variant or associated item named `from_account` found for enum `solana_sdk::nonce::State` in the current scope
+   --> src/nonce manager/nonce_refresh.rs:234:49
+    |
+234 |                 match solana_sdk::nonce::State::from_account(&account) {
+    |                                                 ^^^^^^^^^^^^ variant or associated item not found in `solana_sdk::nonce::State`
+    |
+note: if you're trying to build a new `solana_sdk::nonce::State`, consider using `solana_sdk::nonce::State::new_initialized` which returns `solana_sdk::nonce::State`
+   --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-nonce-2.2.1/src/state.rs:80:5
+    |
+ 80 | /     pub fn new_initialized(
+ 81 | |         authority: &Pubkey,
+ 82 | |         durable_nonce: DurableNonce,
+ 83 | |         lamports_per_signature: u64,
+ 84 | |     ) -> Self {
+    | |_____________^
+
+error[E0282]: type annotations needed
+   --> src/nonce manager/nonce_refresh.rs:236:30
+    |
+236 |                         Some(state.last_valid_slot())
+    |                              ^^^^^ cannot infer type
+
+error[E0382]: borrow of moved value
+   --> src/nonce manager/nonce_security.rs:148:9
+    |
+144 |               role,
+    |               ---- value moved here
+...
+148 | /         info!(
+149 | |             pubkey = %pubkey,
+150 | |             role = ?role,
+151 | |             assigned_by = %assigned_by,
+152 | |             "Role assigned"
+153 | |         );
+    | |_________^ value borrowed here after move
+    |
+    = note: move occurs because value has type `Role`, which does not implement the `Copy` trait
+    = note: this error originates in the macro `$crate::valueset` which comes from the expansion of the macro `info` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0382]: borrow of moved value: `proofs`
+   --> src/nonce manager/nonce_security.rs:743:22
+    |
+713 |     proofs: Vec<&ZkProofData>,
+    |     ------ move occurs because `proofs` has type `Vec<&ZkProofData>`, which does not implement the `Copy` trait
+...
+718 |     for proof_data in proofs {
+    |                       ------ `proofs` moved due to this implicit call to `.into_iter()`
+...
+743 |         batch_size = proofs.len(),
+    |                      ^^^^^^ value borrowed here after move
+    |
+note: `into_iter` takes ownership of the receiver `self`, which moves `proofs`
+   --> /rustc/29a69716f2c0f19b5f9163bb4d8c50fb818cf326/library/core/src/iter/traits/collect.rs:310:17
+help: consider iterating over a slice of the `Vec<&ZkProofData>`'s content to avoid moving into the `for` loop
+    |
+718 |     for proof_data in &proofs {
+    |                       +
+
+error[E0599]: no method named `iter_mut` found for opaque type `impl futures::Future<Output = tokio::sync::MutexGuard<'_, Vec<WorkerHandle>>>` in the current scope
+   --> src/sniffer/supervisor.rs:213:42
+    |
+213 |             for (idx, worker) in workers.iter_mut().enumerate() {
+    |                                          ^^^^^^^^ method not found in `impl futures::Future<Output = tokio::sync::MutexGuard<'_, Vec<WorkerHandle>>>`
+    |
+help: consider `await`ing on the `Future` and calling the method on its `Output`
+    |
+213 |             for (idx, worker) in workers.await.iter_mut().enumerate() {
+    |                                          ++++++
+
+error[E0599]: no method named `remove` found for opaque type `impl futures::Future<Output = tokio::sync::MutexGuard<'_, Vec<WorkerHandle>>>` in the current scope
+   --> src/sniffer/supervisor.rs:221:38
+    |
+221 |                 let worker = workers.remove(*idx);
+    |                                      ^^^^^^ method not found in `impl futures::Future<Output = tokio::sync::MutexGuard<'_, Vec<WorkerHandle>>>`
+    |
+help: consider `await`ing on the `Future` and calling the method on its `Output`
+    |
+221 |                 let worker = workers.await.remove(*idx);
+    |                                      ++++++
+
+error[E0609]: no field `program` on type `types::PremintCandidate`
+    --> src/buy_engine.rs:1095:64
+     |
+1095 |         if let Some(tx) = self.program_channels.get(&candidate.program) {
+     |                                                                ^^^^^^^ unknown field
+     |
+     = note: available fields are: `mint`, `accounts`, `priority`, `timestamp`, `price_hint`, `signature`
+
+error[E0609]: no field `program` on type `types::PremintCandidate`
+    --> src/buy_engine.rs:1099:71
+     |
+1099 |             debug!("No channel registered for program: {}", candidate.program);
+     |                                                                       ^^^^^^^ unknown field
+     |
+     = note: available fields are: `mint`, `accounts`, `priority`, `timestamp`, `price_hint`, `signature`
+
+error[E0599]: no method named `is_sniffing` found for struct `tokio::sync::MutexGuard<'_, AppState>` in the current scope
+    --> src/buy_engine.rs:1464:20
+     |
+1464 |                 st.is_sniffing()
+     |                    ^^^^^^^^^^^ method not found in `tokio::sync::MutexGuard<'_, AppState>`
+
+error[E0599]: no method named `increment_counter` found for reference `&'static Metrics` in the current scope
+    --> src/buy_engine.rs:1471:31
+     |
+1471 |                     metrics().increment_counter("predictive_surge_detected");
+     |                               ^^^^^^^^^^^^^^^^^ method not found in `&'static Metrics`
+
+error[E0599]: no method named `increment_counter` found for reference `&'static Metrics` in the current scope
+    --> src/buy_engine.rs:1481:31
+     |
+1481 |                     metrics().increment_counter("buy_engine_backoff");
+     |                               ^^^^^^^^^^^^^^^^^ method not found in `&'static Metrics`
+
+error[E0599]: no method named `increment_counter` found for reference `&'static Metrics` in the current scope
+    --> src/buy_engine.rs:1493:39
+     |
+1493 | ...                   metrics().increment_counter("buy_attempts_mint_rate_limited");
+     |                                 ^^^^^^^^^^^^^^^^^ method not found in `&'static Metrics`
+
+error[E0609]: no field `program` on type `types::PremintCandidate`
+    --> src/buy_engine.rs:1499:86
+     |
+1499 |                         if !self.circuit_breaker.check_program_rate_limit(&candidate.program, 60, 10) {
+     |                                                                                      ^^^^^^^ unknown field
+     |
+     = note: available fields are: `mint`, `accounts`, `priority`, `timestamp`, `price_hint`, `signature`
+
+error[E0599]: no method named `increment_counter` found for reference `&'static Metrics` in the current scope
+    --> src/buy_engine.rs:1500:39
+     |
+1500 | ...                   metrics().increment_counter("buy_attempts_program_rate_limited");
+     |                                 ^^^^^^^^^^^^^^^^^ method not found in `&'static Metrics`
+
+error[E0609]: no field `program` on type `types::PremintCandidate`
+    --> src/buy_engine.rs:1501:55
+     |
+1501 | ...                   debug!(program=%candidate.program, "Program rate limited by circuit breaker");
+     |                                                 ^^^^^^^ unknown field
+     |
+     = note: available fields are: `mint`, `accounts`, `priority`, `timestamp`, `price_hint`, `signature`
+
+error[E0599]: no method named `increment_counter` found for reference `&'static Metrics` in the current scope
+    --> src/buy_engine.rs:1512:39
+     |
+1512 | ...                   metrics().increment_counter("buy_attempts_security_rejected");
+     |                                 ^^^^^^^^^^^^^^^^^ method not found in `&'static Metrics`
+
+error[E0599]: no method named `increment_counter` found for reference `&'static Metrics` in the current scope
+    --> src/buy_engine.rs:1519:39
+     |
+1519 | ...                   metrics().increment_counter("buy_attempts_rate_limited");
+     |                                 ^^^^^^^^^^^^^^^^^ method not found in `&'static Metrics`
+
+error[E0599]: no method named `increment_counter` found for reference `&'static Metrics` in the current scope
+    --> src/buy_engine.rs:1525:39
+     |
+1525 | ...                   metrics().increment_counter("buy_attempts_filtered");
+     |                                 ^^^^^^^^^^^^^^^^^ method not found in `&'static Metrics`
+
+error[E0609]: no field `program` on type `types::PremintCandidate`
+    --> src/buy_engine.rs:1526:77
+     |
+1526 | ...                   debug!(mint=%candidate.mint, program=%candidate.program, "Candidate filtered out");
+     |                                                                       ^^^^^^^ unknown field
+     |
+     = note: available fields are: `mint`, `accounts`, `priority`, `timestamp`, `price_hint`, `signature`
+
+error[E0609]: no field `logger` on type `PipelineContext`
+    --> src/buy_engine.rs:1533:29
+     |
+1533 |                         ctx.logger.log_candidate_processed(&candidate.mint.to_string(), &candidate.program, true);
+     |                             ^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0609]: no field `program` on type `types::PremintCandidate`
+    --> src/buy_engine.rs:1533:100
+     |
+1533 |                         ctx.logger.log_candidate_processed(&candidate.mint.to_string(), &candidate.program, true);
+     |                                                                                                    ^^^^^^^ unknown field
+     |
+     = note: available fields are: `mint`, `accounts`, `priority`, `timestamp`, `price_hint`, `signature`
+
+error[E0609]: no field `program` on type `types::PremintCandidate`
+    --> src/buy_engine.rs:1535:72
+     |
+1535 | ...   info!(mint=%candidate.mint, program=%candidate.program, correlation_id=ctx.correlation_id, trace_id=%trace_ctx.trace_id, "At...
+     |                                                      ^^^^^^^ unknown field
+     |
+     = note: available fields are: `mint`, `accounts`, `priority`, `timestamp`, `price_hint`, `signature`
+
+error[E0609]: no field `correlation_id` on type `PipelineContext`
+    --> src/buy_engine.rs:1535:100
+     |
+1535 | ...   info!(mint=%candidate.mint, program=%candidate.program, correlation_id=ctx.correlation_id, trace_id=%trace_ctx.trace_id, "At...
+     |                                                                                  ^^^^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0599]: no method named `increment_counter` found for reference `&'static Metrics` in the current scope
+    --> src/buy_engine.rs:1536:35
+     |
+1536 |                         metrics().increment_counter("buy_attempts_total");
+     |                                   ^^^^^^^^^^^^^^^^^ method not found in `&'static Metrics`
+
+error[E0061]: this function takes 0 arguments but 1 argument was supplied
+    --> src/buy_engine.rs:1538:41
+     |
+1538 |                         let buy_timer = Timer::new("buy_latency_seconds");
+     |                                         ^^^^^^^^^^ --------------------- unexpected argument of type `&'static str`
+     |
+note: associated function defined here
+    --> src/metrics.rs:182:12
+     |
+ 182 |     pub fn new() -> Self {
+     |            ^^^
+help: remove the extra argument
+     |
+1538 -                         let buy_timer = Timer::new("buy_latency_seconds");
+1538 +                         let buy_timer = Timer::new();
+     |
+
+error[E0599]: no method named `finish` found for struct `Timer` in the current scope
+    --> src/buy_engine.rs:1541:43
+     |
+1541 | ...                   buy_timer.finish();
+     |                                 ^^^^^^ method not found in `Timer`
+     |
+    ::: src/metrics.rs:177:1
+     |
+ 177 | pub struct Timer {
+     | ---------------- method `finish` not found for this struct
+     |
+     = help: items from traits can only be used if the trait is implemented and in scope
+     = note: the following traits define an item `finish`, perhaps you need to implement one of them:
+             candidate #1: `VisitOutput`
+             candidate #2: `compression_codecs::Decode`
+             candidate #3: `compression_codecs::DecodeV2`
+             candidate #4: `compression_codecs::Encode`
+             candidate #5: `compression_codecs::EncodeV2`
+             candidate #6: `flate2::zio::Flush`
+             candidate #7: `form_urlencoded::Target`
+             candidate #8: `iri_string::template::context::AssocVisitor`
+             candidate #9: `iri_string::template::context::ListVisitor`
+             candidate #10: `nom::internal::Finish`
+             candidate #11: `regex_syntax::ast::visitor::Visitor`
+             candidate #12: `regex_syntax::hir::visitor::Visitor`
+             candidate #13: `rustls::crypto::hash::Context`
+             candidate #14: `std::hash::Hasher`
+             candidate #15: `winnow::stream::Stream`
+             candidate #16: `zstd::stream::raw::Operation`
+
+error[E0609]: no field `program` on type `types::PremintCandidate`
+    --> src/buy_engine.rs:1547:88
+     |
+1547 | ...                   self.universe_metrics.record_program_result(&candidate.program, true);
+     |                                                                              ^^^^^^^ unknown field
+     |
+     = note: available fields are: `mint`, `accounts`, `priority`, `timestamp`, `price_hint`, `signature`
+
+error[E0599]: no method named `increment_counter` found for reference `&'static Metrics` in the current scope
+    --> src/buy_engine.rs:1549:43
+     |
+1549 | ...                   metrics().increment_counter("buy_success_total");
+     |                                 ^^^^^^^^^^^^^^^^^ method not found in `&'static Metrics`
+
+error[E0609]: no field `logger` on type `PipelineContext`
+    --> src/buy_engine.rs:1550:37
+     |
+1550 | ...                   ctx.logger.log_buy_success(&candidate.mint.to_string(), &sig.to_string(), latency_ms);
+     |                           ^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0061]: this function takes 1 argument but 0 arguments were supplied
+    --> src/buy_engine.rs:1553:33
+     |
+1553 | ...                   endpoint_server().update_scoreboard(&candidate.mint.to_string(), &candidate.program, true, latency_ms).await;
+     |                       ^^^^^^^^^^^^^^^-- argument #1 of type `u16` is missing
+     |
+note: function defined here
+    --> src/endpoints.rs:8:14
+     |
+   8 | pub async fn endpoint_server(port: u16) -> Result<()> {
+     |              ^^^^^^^^^^^^^^^ ---------
+help: provide the argument
+     |
+1553 |                                 endpoint_server(/* u16 */).update_scoreboard(&candidate.mint.to_string(), &candidate.program, true, latency_ms).await;
+     |                                                 +++++++++
+
+error[E0599]: no method named `update_scoreboard` found for opaque type `impl futures::Future<Output = Result<(), anyhow::Error>>` in the current scope
+    --> src/buy_engine.rs:1553:51
+     |
+1553 | ...                   endpoint_server().update_scoreboard(&candidate.mint.to_string(), &candidate.program, true, latency_ms).await;
+     |                                         ^^^^^^^^^^^^^^^^^ method not found in `impl futures::Future<Output = Result<(), anyhow::Error>>`
+
+error[E0609]: no field `program` on type `types::PremintCandidate`
+    --> src/buy_engine.rs:1553:109
+     |
+1553 | ...                   endpoint_server().update_scoreboard(&candidate.mint.to_string(), &candidate.program, true, latency_ms).await;
+     |                                                                                                   ^^^^^^^ unknown field
+     |
+     = note: available fields are: `mint`, `accounts`, `priority`, `timestamp`, `price_hint`, `signature`
+
+error[E0609]: no field `correlation_id` on type `PipelineContext`
+    --> src/buy_engine.rs:1555:90
+     |
+1555 | ...   info!(mint=%candidate.mint, sig=%sig, correlation_id=ctx.correlation_id, latency_us=%latency_micros, "BUY success, entering ...
+     |                                                                ^^^^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0599]: no variant or associated item named `PassiveToken` found for enum `Mode` in the current scope
+    --> src/buy_engine.rs:1565:53
+     |
+1565 | ...                   st.mode = Mode::PassiveToken(candidate.mint);
+     |                                       ^^^^^^^^^^^^ variant or associated item not found in `Mode`
+     |
+    ::: src/types.rs:10:1
+     |
+  10 | pub enum Mode {
+     | ------------- variant or associated item `PassiveToken` not found for this enum
+
+error[E0609]: no field `active_token` on type `tokio::sync::MutexGuard<'_, AppState>`
+    --> src/buy_engine.rs:1566:40
+     |
+1566 | ...                   st.active_token = Some(candidate.clone());
+     |                          ^^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `mode`, `is_paused`, `stats`
+
+error[E0609]: no field `last_buy_price` on type `tokio::sync::MutexGuard<'_, AppState>`
+    --> src/buy_engine.rs:1567:40
+     |
+1567 | ...                   st.last_buy_price = Some(exec_price);
+     |                          ^^^^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `mode`, `is_paused`, `stats`
+
+error[E0609]: no field `holdings_percent` on type `tokio::sync::MutexGuard<'_, AppState>`
+    --> src/buy_engine.rs:1568:40
+     |
+1568 | ...                   st.holdings_percent = 1.0;
+     |                          ^^^^^^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `mode`, `is_paused`, `stats`
+
+error[E0599]: no method named `detect_surge` found for struct `Arc<buy_engine::PredictiveAnalytics>` in the current scope
+    --> src/buy_engine.rs:1580:91
+     |
+1580 | ...                   if let Some(surge_confidence) = self.predictive_analytics.detect_surge().await {
+     |                                                                                 ^^^^^^^^^^^^
+     |
+help: there is a method `predict_surge` with a similar name
+     |
+1580 -                                 if let Some(surge_confidence) = self.predictive_analytics.detect_surge().await {
+1580 +                                 if let Some(surge_confidence) = self.predictive_analytics.predict_surge().await {
+     |
+
+error[E0599]: no method named `finish` found for struct `Timer` in the current scope
+    --> src/buy_engine.rs:1600:43
+     |
+1600 | ...                   buy_timer.finish();
+     |                                 ^^^^^^ method not found in `Timer`
+     |
+    ::: src/metrics.rs:177:1
+     |
+ 177 | pub struct Timer {
+     | ---------------- method `finish` not found for this struct
+     |
+     = help: items from traits can only be used if the trait is implemented and in scope
+     = note: the following traits define an item `finish`, perhaps you need to implement one of them:
+             candidate #1: `VisitOutput`
+             candidate #2: `compression_codecs::Decode`
+             candidate #3: `compression_codecs::DecodeV2`
+             candidate #4: `compression_codecs::Encode`
+             candidate #5: `compression_codecs::EncodeV2`
+             candidate #6: `flate2::zio::Flush`
+             candidate #7: `form_urlencoded::Target`
+             candidate #8: `iri_string::template::context::AssocVisitor`
+             candidate #9: `iri_string::template::context::ListVisitor`
+             candidate #10: `nom::internal::Finish`
+             candidate #11: `regex_syntax::ast::visitor::Visitor`
+             candidate #12: `regex_syntax::hir::visitor::Visitor`
+             candidate #13: `rustls::crypto::hash::Context`
+             candidate #14: `std::hash::Hasher`
+             candidate #15: `winnow::stream::Stream`
+             candidate #16: `zstd::stream::raw::Operation`
+
+error[E0609]: no field `program` on type `types::PremintCandidate`
+    --> src/buy_engine.rs:1606:88
+     |
+1606 | ...                   self.universe_metrics.record_program_result(&candidate.program, false);
+     |                                                                              ^^^^^^^ unknown field
+     |
+     = note: available fields are: `mint`, `accounts`, `priority`, `timestamp`, `price_hint`, `signature`
+
+error[E0599]: no method named `increment_counter` found for reference `&'static Metrics` in the current scope
+    --> src/buy_engine.rs:1608:43
+     |
+1608 | ...                   metrics().increment_counter("buy_failure_total");
+     |                                 ^^^^^^^^^^^^^^^^^ method not found in `&'static Metrics`
+
+error[E0609]: no field `logger` on type `PipelineContext`
+    --> src/buy_engine.rs:1609:37
+     |
+1609 | ...                   ctx.logger.log_buy_failure(&candidate.mint.to_string(), &e.to_string(), latency_ms);
+     |                           ^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0061]: this function takes 1 argument but 0 arguments were supplied
+    --> src/buy_engine.rs:1612:33
+     |
+1612 | ...                   endpoint_server().update_scoreboard(&candidate.mint.to_string(), &candidate.program, false, latency_ms).await;
+     |                       ^^^^^^^^^^^^^^^-- argument #1 of type `u16` is missing
+     |
+note: function defined here
+    --> src/endpoints.rs:8:14
+     |
+   8 | pub async fn endpoint_server(port: u16) -> Result<()> {
+     |              ^^^^^^^^^^^^^^^ ---------
+help: provide the argument
+     |
+1612 |                                 endpoint_server(/* u16 */).update_scoreboard(&candidate.mint.to_string(), &candidate.program, false, latency_ms).await;
+     |                                                 +++++++++
+
+error[E0599]: no method named `update_scoreboard` found for opaque type `impl futures::Future<Output = Result<(), anyhow::Error>>` in the current scope
+    --> src/buy_engine.rs:1612:51
+     |
+1612 | ...                   endpoint_server().update_scoreboard(&candidate.mint.to_string(), &candidate.program, false, latency_ms).await;
+     |                                         ^^^^^^^^^^^^^^^^^ method not found in `impl futures::Future<Output = Result<(), anyhow::Error>>`
+
+error[E0609]: no field `program` on type `types::PremintCandidate`
+    --> src/buy_engine.rs:1612:109
+     |
+1612 | ...                   endpoint_server().update_scoreboard(&candidate.mint.to_string(), &candidate.program, false, latency_ms).await;
+     |                                                                                                   ^^^^^^^ unknown field
+     |
+     = note: available fields are: `mint`, `accounts`, `priority`, `timestamp`, `price_hint`, `signature`
+
+error[E0609]: no field `correlation_id` on type `PipelineContext`
+    --> src/buy_engine.rs:1617:68
+     |
+1617 | ...                   warn!(error=%e, correlation_id=ctx.correlation_id, "BUY attempt failed; staying in Sniffing");
+     |                                                          ^^^^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0599]: no method named `increment_counter` found for reference `&'static Metrics` in the current scope
+    --> src/buy_engine.rs:1670:27
+     |
+1670 |                 metrics().increment_counter("sandwich_risk_detected");
+     |                           ^^^^^^^^^^^^^^^^^ method not found in `&'static Metrics`
+
+error[E0609]: no field `nonce_count` on type `config::Config`
+    --> src/buy_engine.rs:1687:33
+     |
+1687 |         for _ in 0..self.config.nonce_count {
+     |                                 ^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `rpc`, `wallet`, `trading`, `nonce`, `sniffer`, `monitoring`
+
+error[E0308]: mismatched types
+    --> src/buy_engine.rs:1689:20
+     |
+1688 |             match self.nonce_manager.acquire_nonce().await {
+     |                   ---------------------------------------- this expression has type `Result<NonceLease, NonceError>`
+1689 |                 Ok((_nonce_pubkey, idx)) => {
+     |                    ^^^^^^^^^^^^^^^^^^^^ expected `NonceLease`, found `(_, _)`
+     |
+     = note: expected struct `NonceLease`
+                 found tuple `(_, _)`
+
+error[E0609]: no field `logger` on type `PipelineContext`
+    --> src/buy_engine.rs:1690:25
+     |
+1690 |                     ctx.logger.log_nonce_operation("acquire", Some(idx), true);
+     |                         ^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0609]: no field `logger` on type `PipelineContext`
+    --> src/buy_engine.rs:1700:33
+     |
+1700 | ...                   ctx.logger.log_nonce_operation("release", Some(idx), true);
+     |                           ^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0599]: no method named `release_nonce` found for struct `Arc<UniverseNonceManager>` in the current scope
+    --> src/buy_engine.rs:1701:48
+     |
+1701 | ...                   self.nonce_manager.release_nonce(idx);
+     |                                          ^^^^^^^^^^^^^ method not found in `Arc<UniverseNonceManager>`
+
+error[E0609]: no field `logger` on type `PipelineContext`
+    --> src/buy_engine.rs:1709:25
+     |
+1709 |                     ctx.logger.log_nonce_operation("acquire_failed", None, false);
+     |                         ^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0609]: no field `correlation_id` on type `PipelineContext`
+    --> src/buy_engine.rs:1710:56
+     |
+1710 |                     warn!(error=%e, correlation_id=ctx.correlation_id, "Failed to acquire nonce; proceeding with fewer");
+     |                                                        ^^^^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0609]: no field `logger` on type `PipelineContext`
+    --> src/buy_engine.rs:1718:21
+     |
+1718 |                 ctx.logger.log_nonce_operation("release", Some(idx), true);
+     |                     ^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0599]: no method named `release_nonce` found for struct `Arc<UniverseNonceManager>` in the current scope
+    --> src/buy_engine.rs:1719:36
+     |
+1719 |                 self.nonce_manager.release_nonce(idx);
+     |                                    ^^^^^^^^^^^^^ method not found in `Arc<UniverseNonceManager>`
+
+error[E0609]: no field `logger` on type `PipelineContext`
+    --> src/buy_engine.rs:1724:13
+     |
+1724 |         ctx.logger.log_buy_attempt(&candidate.mint.to_string(), txs.len());
+     |             ^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0609]: no field `nonce_count` on type `config::Config`
+    --> src/buy_engine.rs:1727:34
+     |
+1727 |         let res = if self.config.nonce_count > 1 {
+     |                                  ^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `rpc`, `wallet`, `trading`, `nonce`, `sniffer`, `monitoring`
+
+error[E0609]: no field `logger` on type `PipelineContext`
+    --> src/buy_engine.rs:1739:17
+     |
+1739 |             ctx.logger.log_nonce_operation("release", Some(idx), true);
+     |                 ^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0599]: no method named `release_nonce` found for struct `Arc<UniverseNonceManager>` in the current scope
+    --> src/buy_engine.rs:1740:32
+     |
+1740 |             self.nonce_manager.release_nonce(idx);
+     |                                ^^^^^^^^^^^^^ method not found in `Arc<UniverseNonceManager>`
+
+error[E0599]: no method named `increment_counter` found for reference `&'static Metrics` in the current scope
+    --> src/buy_engine.rs:1798:31
+     |
+1798 |                     metrics().increment_counter(&format!("jito_success_{}", endpoint.region));
+     |                               ^^^^^^^^^^^^^^^^^ method not found in `&'static Metrics`
+
+error[E0599]: no method named `increment_counter` found for reference `&'static Metrics` in the current scope
+    --> src/buy_engine.rs:1803:31
+     |
+1803 |                     metrics().increment_counter(&format!("jito_failure_{}", endpoint.region));
+     |                               ^^^^^^^^^^^^^^^^^ method not found in `&'static Metrics`
+
+error[E0609]: no field `logger` on type `PipelineContext`
+    --> src/buy_engine.rs:1830:21
+     |
+1830 |                 ctx.logger.error("Invalid sell percentage", serde_json::json!({"error": e, "percent": percent}));
+     |                     ^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0277]: the trait bound `anyhow::Error: serde::Serialize` is not satisfied
+    --> src/buy_engine.rs:1830:61
+     |
+1830 |                 ctx.logger.error("Invalid sell percentage", serde_json::json!({"error": e, "percent": percent}));
+     |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |                                                             |
+     |                                                             the trait `Serialize` is not implemented for `anyhow::Error`
+     |                                                             required by a bound introduced by this call
+     |
+     = note: for local types consider adding `#[derive(serde::Serialize)]` to your `anyhow::Error` type
+     = note: for types from other crates check whether the crate offers a `serde` feature flag
+     = help: the following other types implement trait `Serialize`:
+               &'a T
+               &'a mut T
+               ()
+               (T,)
+               (T0, T1)
+               (T0, T1, T2)
+               (T0, T1, T2, T3)
+               (T0, T1, T2, T3, T4)
+             and 533 others
+     = note: required for `&anyhow::Error` to implement `Serialize`
+note: required by a bound in `to_value`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.145/src/value/mod.rs:997:8
+     |
+ 995 | pub fn to_value<T>(value: T) -> Result<Value, Error>
+     |        -------- required by a bound in this function
+ 996 | where
+ 997 |     T: Serialize,
+     |        ^^^^^^^^^ required by this bound in `to_value`
+     = note: this error originates in the macro `$crate::json_internal` which comes from the expansion of the macro `serde_json::json` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0609]: no field `active_token` on type `tokio::sync::MutexGuard<'_, AppState>`
+    --> src/buy_engine.rs:1843:34
+     |
+1843 |             (st.mode.clone(), st.active_token.clone(), st.holdings_percent)
+     |                                  ^^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `mode`, `is_paused`, `stats`
+
+error[E0609]: no field `holdings_percent` on type `tokio::sync::MutexGuard<'_, AppState>`
+    --> src/buy_engine.rs:1843:59
+     |
+1843 |             (st.mode.clone(), st.active_token.clone(), st.holdings_percent)
+     |                                                           ^^^^^^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `mode`, `is_paused`, `stats`
+
+error[E0599]: no variant or associated item named `PassiveToken` found for enum `Mode` in the current scope
+    --> src/buy_engine.rs:1847:19
+     |
+1847 |             Mode::PassiveToken(m) => m,
+     |                   ^^^^^^^^^^^^ variant or associated item not found in `Mode`
+     |
+    ::: src/types.rs:10:1
+     |
+  10 | pub enum Mode {
+     | ------------- variant or associated item `PassiveToken` not found for this enum
+
+error[E0599]: no variant or associated item named `Sniffing` found for enum `Mode` in the current scope
+    --> src/buy_engine.rs:1848:19
+     |
+1848 |             Mode::Sniffing => {
+     |                   ^^^^^^^^ variant or associated item not found in `Mode`
+     |
+    ::: src/types.rs:10:1
+     |
+  10 | pub enum Mode {
+     | ------------- variant or associated item `Sniffing` not found for this enum
+
+error[E0599]: no variant or associated item named `QuantumManual` found for enum `Mode` in the current scope
+    --> src/buy_engine.rs:1853:19
+     |
+1853 |             Mode::QuantumManual => {
+     |                   ^^^^^^^^^^^^^ variant or associated item not found in `Mode`
+     |
+    ::: src/types.rs:10:1
+     |
+  10 | pub enum Mode {
+     | ------------- variant or associated item `QuantumManual` not found for this enum
+
+error[E0609]: no field `logger` on type `PipelineContext`
+    --> src/buy_engine.rs:1849:21
+     |
+1849 |                 ctx.logger.warn("Sell requested in Sniffing mode; ignoring", serde_json::json!({"action": "sell_rejected"}));
+     |                     ^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0609]: no field `correlation_id` on type `PipelineContext`
+    --> src/buy_engine.rs:1850:42
+     |
+1850 |                 warn!(correlation_id=ctx.correlation_id, "Sell requested in Sniffing mode; ignoring");
+     |                                          ^^^^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0609]: no field `logger` on type `PipelineContext`
+    --> src/buy_engine.rs:1854:21
+     |
+1854 |                 ctx.logger.warn("Sell requested in QuantumManual mode; ignoring", serde_json::json!({"action": "sell_rejected"}));
+     |                     ^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0609]: no field `correlation_id` on type `PipelineContext`
+    --> src/buy_engine.rs:1855:42
+     |
+1855 |                 warn!(correlation_id=ctx.correlation_id, "Sell requested in QuantumManual mode; ignoring");
+     |                                          ^^^^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0282]: type annotations needed
+    --> src/buy_engine.rs:1860:26
+     |
+1860 |         let _candidate = candidate_opt.ok_or_else(|| anyhow!("no active token in AppState"))?;
+     |                          ^^^^^^^^^^^^^ cannot infer type
+
+error[E0599]: no method named `increment_counter` found for reference `&'static Metrics` in the current scope
+    --> src/buy_engine.rs:1865:23
+     |
+1865 |             metrics().increment_counter("sell_anomaly_detected");
+     |                       ^^^^^^^^^^^^^^^^^ method not found in `&'static Metrics`
+
+error[E0282]: type annotations needed
+    --> src/buy_engine.rs:1869:71
+     |
+1869 |         let new_holdings = match validator::validate_holdings_percent((current_pct * (1.0 - pct)).max(0.0)) {
+     |                                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^ cannot infer type
+
+error[E0609]: no field `logger` on type `PipelineContext`
+    --> src/buy_engine.rs:1872:21
+     |
+1872 | ...   ctx.logger.error("Holdings calculation overflow", serde_json::json!({"error": e, "current": current_pct, "sell": pct}));
+     |           ^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0277]: the trait bound `anyhow::Error: serde::Serialize` is not satisfied
+    --> src/buy_engine.rs:1872:67
+     |
+1872 | ...calculation overflow", serde_json::json!({"error": e, "current": current_pct, "sell": pct}));
+     |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |                           |
+     |                           the trait `Serialize` is not implemented for `anyhow::Error`
+     |                           required by a bound introduced by this call
+     |
+     = note: for local types consider adding `#[derive(serde::Serialize)]` to your `anyhow::Error` type
+     = note: for types from other crates check whether the crate offers a `serde` feature flag
+     = help: the following other types implement trait `Serialize`:
+               &'a T
+               &'a mut T
+               ()
+               (T,)
+               (T0, T1)
+               (T0, T1, T2)
+               (T0, T1, T2, T3)
+               (T0, T1, T2, T3, T4)
+             and 533 others
+     = note: required for `&anyhow::Error` to implement `Serialize`
+note: required by a bound in `to_value`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.145/src/value/mod.rs:997:8
+     |
+ 995 | pub fn to_value<T>(value: T) -> Result<Value, Error>
+     |        -------- required by a bound in this function
+ 996 | where
+ 997 |     T: Serialize,
+     |        ^^^^^^^^^ required by this bound in `to_value`
+     = note: this error originates in the macro `$crate::json_internal` which comes from the expansion of the macro `serde_json::json` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0609]: no field `logger` on type `PipelineContext`
+    --> src/buy_engine.rs:1877:13
+     |
+1877 |         ctx.logger.log_sell_operation(&mint.to_string(), pct, new_holdings);
+     |             ^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0609]: no field `correlation_id` on type `PipelineContext`
+    --> src/buy_engine.rs:1878:64
+     |
+1878 |         info!(mint=%mint, sell_percent=pct, correlation_id=ctx.correlation_id, "Composing SELL transaction");
+     |                                                                ^^^^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0609]: no field `correlation_id` on type `PipelineContext`
+    --> src/buy_engine.rs:1887:68
+     |
+1887 |                     warn!(mint=%mint, sig=%sig, correlation_id=ctx.correlation_id, "Duplicate signature detected for SELL");
+     |                                                                    ^^^^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0599]: no method named `increment_counter` found for reference `&'static Metrics` in the current scope
+    --> src/buy_engine.rs:1888:31
+     |
+1888 |                     metrics().increment_counter("duplicate_signatures_detected");
+     |                               ^^^^^^^^^^^^^^^^^ method not found in `&'static Metrics`
+
+error[E0609]: no field `correlation_id` on type `PipelineContext`
+    --> src/buy_engine.rs:1891:64
+     |
+1891 |                 info!(mint=%mint, sig=%sig, correlation_id=ctx.correlation_id, "SELL broadcasted");
+     |                                                                ^^^^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0609]: no field `holdings_percent` on type `tokio::sync::MutexGuard<'_, AppState>`
+    --> src/buy_engine.rs:1895:20
+     |
+1895 |                 st.holdings_percent = new_holdings;
+     |                    ^^^^^^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `mode`, `is_paused`, `stats`
+
+error[E0609]: no field `holdings_percent` on type `tokio::sync::MutexGuard<'_, AppState>`
+    --> src/buy_engine.rs:1896:23
+     |
+1896 |                 if st.holdings_percent <= f64::EPSILON {
+     |                       ^^^^^^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `mode`, `is_paused`, `stats`
+
+error[E0609]: no field `correlation_id` on type `PipelineContext`
+    --> src/buy_engine.rs:1897:58
+     |
+1897 |                     info!(mint=%mint, correlation_id=ctx.correlation_id, "Sold 100%; returning to Sniffing mode");
+     |                                                          ^^^^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0599]: no variant or associated item named `Sniffing` found for enum `Mode` in the current scope
+    --> src/buy_engine.rs:1898:37
+     |
+1898 |                     st.mode = Mode::Sniffing;
+     |                                     ^^^^^^^^ variant or associated item not found in `Mode`
+     |
+    ::: src/types.rs:10:1
+     |
+  10 | pub enum Mode {
+     | ------------- variant or associated item `Sniffing` not found for this enum
+
+error[E0609]: no field `active_token` on type `tokio::sync::MutexGuard<'_, AppState>`
+    --> src/buy_engine.rs:1899:24
+     |
+1899 |                     st.active_token = None;
+     |                        ^^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `mode`, `is_paused`, `stats`
+
+error[E0609]: no field `last_buy_price` on type `tokio::sync::MutexGuard<'_, AppState>`
+    --> src/buy_engine.rs:1900:24
+     |
+1900 |                     st.last_buy_price = None;
+     |                        ^^^^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `mode`, `is_paused`, `stats`
+
+error[E0609]: no field `correlation_id` on type `PipelineContext`
+    --> src/buy_engine.rs:1914:65
+     |
+1914 |                 error!(mint=%mint, error=%e, correlation_id=ctx.correlation_id, "SELL failed to broadcast");
+     |                                                                 ^^^^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0609]: no field `nonce_count` on type `config::Config`
+    --> src/buy_engine.rs:1949:33
+     |
+1949 |         for _ in 0..self.config.nonce_count {
+     |                                 ^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `rpc`, `wallet`, `trading`, `nonce`, `sniffer`, `monitoring`
+
+error[E0308]: mismatched types
+    --> src/buy_engine.rs:1952:20
+     |
+1950 |             match self.nonce_manager.acquire_nonce().await {
+     |                   ---------------------------------------- this expression has type `Result<NonceLease, NonceError>`
+1951 |
+1952 |                 Ok((_nonce_pubkey, idx)) => {
+     |                    ^^^^^^^^^^^^^^^^^^^^ expected `NonceLease`, found `(_, _)`
+     |
+     = note: expected struct `NonceLease`
+                 found tuple `(_, _)`
+
+error[E0609]: no field `logger` on type `PipelineContext`
+    --> src/buy_engine.rs:1953:25
+     |
+1953 |                     ctx.logger.log_nonce_operation("acquire", Some(idx), true);
+     |                         ^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0609]: no field `logger` on type `PipelineContext`
+    --> src/buy_engine.rs:1961:25
+     |
+1961 |                     ctx.logger.log_nonce_operation("acquire_failed", None, false);
+     |                         ^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0609]: no field `correlation_id` on type `PipelineContext`
+    --> src/buy_engine.rs:1962:56
+     |
+1962 |                     warn!(error=%e, correlation_id=ctx.correlation_id, "Failed to acquire nonce; proceeding with fewer");
+     |                                                        ^^^^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0609]: no field `logger` on type `PipelineContext`
+    --> src/buy_engine.rs:1974:21
+     |
+1974 |                 ctx.logger.log_nonce_operation("release", Some(idx), true);
+     |                     ^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0599]: no method named `release_nonce` found for struct `Arc<UniverseNonceManager>` in the current scope
+    --> src/buy_engine.rs:1975:36
+     |
+1975 |                 self.nonce_manager.release_nonce(idx);
+     |                                    ^^^^^^^^^^^^^ method not found in `Arc<UniverseNonceManager>`
+
+error[E0609]: no field `logger` on type `PipelineContext`
+    --> src/buy_engine.rs:1984:13
+     |
+1984 |         ctx.logger.log_buy_attempt(&candidate.mint.to_string(), txs.len());
+     |             ^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0609]: no field `logger` on type `PipelineContext`
+    --> src/buy_engine.rs:1993:17
+     |
+1993 |             ctx.logger.log_nonce_operation("release", Some(idx), true);
+     |                 ^^^^^^ unknown field
+     |
+     = note: available fields are: `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, `timestamp`
+
+error[E0599]: no method named `release_nonce` found for struct `Arc<UniverseNonceManager>` in the current scope
+    --> src/buy_engine.rs:1994:32
+     |
+1994 |             self.nonce_manager.release_nonce(idx);
+     |                                ^^^^^^^^^^^^^ method not found in `Arc<UniverseNonceManager>`
+
+error[E0599]: no method named `increment_counter` found for reference `&'static Metrics` in the current scope
+    --> src/buy_engine.rs:2413:23
+     |
+2413 |             metrics().increment_counter("security_tainted_input");
+     |                       ^^^^^^^^^^^^^^^^^ method not found in `&'static Metrics`
+
+error[E0599]: no method named `increment_counter` found for reference `&'static Metrics` in the current scope
+    --> src/buy_engine.rs:2422:23
+     |
+2422 |             metrics().increment_counter("security_zk_failed");
+     |                       ^^^^^^^^^^^^^^^^^ method not found in `&'static Metrics`
+
+error[E0599]: no method named `increment_counter` found for reference `&'static Metrics` in the current scope
+    --> src/buy_engine.rs:2432:23
+     |
+2432 |             metrics().increment_counter("security_sig_failed");
+     |                       ^^^^^^^^^^^^^^^^^ method not found in `&'static Metrics`
+
+error[E0507]: cannot move out of dereference of `tokio::sync::RwLockReadGuard<'_, tx_builder::CircuitState>`
+   --> src/tx_builder.rs:507:9
+    |
+507 |         *self.state.read().await
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^ move occurs because value has type `tx_builder::CircuitState`, which does not implement the `Copy` trait
+    |
+help: consider cloning the value if the performance cost is acceptable
+    |
+507 -         *self.state.read().await
+507 +         self.state.read().await.clone()
+    |
+
+error[E0308]: mismatched types
+    --> src/tx_builder.rs:1248:43
+     |
+1248 |         let pumpfun_client = PumpFun::new(wallet.clone(), config.cluster.clone()).await.map_err(
+     |                              ------------ ^^^^^^^^^^^^^^ expected `Arc<Keypair>`, found `Arc<WalletManager>`
+     |                              |
+     |                              arguments to this function are incorrect
+     |
+     = note: expected struct `Arc<solana_sdk::signature::Keypair>`
+                found struct `Arc<WalletManager>`
+note: associated function defined here
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pumpfun-4.6.0/src/lib.rs:85:12
+     |
+  85 |     pub fn new(payer: Arc<Keypair>, cluster: Cluster) -> Self {
+     |            ^^^
+
+error[E0277]: `PumpFun` is not a future
+    --> src/tx_builder.rs:1248:83
+     |
+1248 |         let pumpfun_client = PumpFun::new(wallet.clone(), config.cluster.clone()).await.map_err(
+     |                              ---------------------------------------------------- ^^^^^ `PumpFun` is not a future
+     |                              |
+     |                              this call returns `PumpFun`
+     |
+     = help: the trait `futures::Future` is not implemented for `PumpFun`
+     = note: PumpFun must be a future or must implement `IntoFuture` to be awaited
+     = note: required for `PumpFun` to implement `std::future::IntoFuture`
+help: remove the `.await`
+     |
+1248 -         let pumpfun_client = PumpFun::new(wallet.clone(), config.cluster.clone()).await.map_err(
+1248 +         let pumpfun_client = PumpFun::new(wallet.clone(), config.cluster.clone()).map_err(
+     |
+
+error[E0282]: type annotations needed
+    --> src/tx_builder.rs:1248:30
+     |
+1248 |         let pumpfun_client = PumpFun::new(wallet.clone(), config.cluster.clone()).await.map_err(
+     |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ cannot infer type
+
+error[E0282]: type annotations needed
+    --> src/tx_builder.rs:1249:14
+     |
+1249 |             |e| TransactionBuilderError::InstructionBuild {
+     |              ^
+1250 |                 program: "pumpfun".to_string(),
+1251 |                 reason: e.to_string(),
+     |                         - type must be known at this point
+     |
+help: consider giving this closure parameter an explicit type
+     |
+1249 |             |e: /* Type */| TransactionBuilderError::InstructionBuild {
+     |               ++++++++++++
+
+error[E0560]: struct `ExecutionContext` has no field named `zk_proof`
+    --> src/tx_builder.rs:1725:21
+     |
+1725 |                     zk_proof,
+     |                     ^^^^^^^^ `ExecutionContext` does not have this field
+     |
+     = note: all struct fields are already assigned
+
+error[E0560]: struct `ExecutionContext` has no field named `zk_proof`
+    --> src/tx_builder.rs:1801:25
+     |
+1801 |                         zk_proof,
+     |                         ^^^^^^^^ `ExecutionContext` does not have this field
+     |
+     = note: all struct fields are already assigned
+
+error[E0609]: no field `program` on type `&types::PremintCandidate`
+    --> src/tx_builder.rs:2035:34
+     |
+2035 |             program = %candidate.program,
+     |                                  ^^^^^^^ unknown field
+     |
+     = note: available fields are: `mint`, `accounts`, `priority`, `timestamp`, `price_hint`, `signature`
+
+error[E0609]: no field `program` on type `&types::PremintCandidate`
+    --> src/tx_builder.rs:2087:54
+     |
+2087 |         let dex_program = DexProgram::from(candidate.program.as_str());
+     |                                                      ^^^^^^^ unknown field
+     |
+     = note: available fields are: `mint`, `accounts`, `priority`, `timestamp`, `price_hint`, `signature`
+
+error[E0609]: no field `program` on type `&types::PremintCandidate`
+    --> src/tx_builder.rs:2328:36
+     |
+2328 |                 program: candidate.program.clone(),
+     |                                    ^^^^^^^ unknown field
+     |
+     = note: available fields are: `mint`, `accounts`, `priority`, `timestamp`, `price_hint`, `signature`
+
+error[E0599]: no method named `sign_transaction` found for struct `Arc<WalletManager>` in the current scope
+    --> src/tx_builder.rs:2340:18
+     |
+2339 | /             self.wallet
+2340 | |                 .sign_transaction(&mut tx)
+     | |                 -^^^^^^^^^^^^^^^^ method not found in `Arc<WalletManager>`
+     | |_________________|
+     |
+     |
+     = help: items from traits can only be used if the trait is implemented and in scope
+note: `SignerService` defines an item `sign_transaction`, perhaps you need to implement it
+    --> src/nonce manager/nonce_signer.rs:19:1
+     |
+  19 | pub trait SignerService: Send + Sync {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0282]: type annotations needed
+    --> src/tx_builder.rs:2341:27
+     |
+2341 |                 .map_err(|e| TransactionBuilderError::SigningFailed(e.to_string()))?;
+     |                           ^                                         - type must be known at this point
+     |
+help: consider giving this closure parameter an explicit type
+     |
+2341 |                 .map_err(|e: /* Type */| TransactionBuilderError::SigningFailed(e.to_string()))?;
+     |                            ++++++++++++
+
+error[E0599]: no method named `sign_transaction` found for struct `Arc<WalletManager>` in the current scope
+    --> src/tx_builder.rs:2638:18
+     |
+2637 | /             self.wallet
+2638 | |                 .sign_transaction(&mut tx)
+     | |                 -^^^^^^^^^^^^^^^^ method not found in `Arc<WalletManager>`
+     | |_________________|
+     |
+     |
+     = help: items from traits can only be used if the trait is implemented and in scope
+note: `SignerService` defines an item `sign_transaction`, perhaps you need to implement it
+    --> src/nonce manager/nonce_signer.rs:19:1
+     |
+  19 | pub trait SignerService: Send + Sync {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0282]: type annotations needed
+    --> src/tx_builder.rs:2639:27
+     |
+2639 |                 .map_err(|e| TransactionBuilderError::SigningFailed(e.to_string()))?;
+     |                           ^                                         - type must be known at this point
+     |
+help: consider giving this closure parameter an explicit type
+     |
+2639 |                 .map_err(|e: /* Type */| TransactionBuilderError::SigningFailed(e.to_string()))?;
+     |                            ++++++++++++
+
+error[E0599]: no method named `get_bonding_curve` found for struct `PumpFun` in the current scope
+    --> src/tx_builder.rs:2781:18
+     |
+2779 |               let bonding_curve = self
+     |  _________________________________-
+2780 | |                 .pumpfun_client
+2781 | |                 .get_bonding_curve(candidate.mint)
+     | |_________________-^^^^^^^^^^^^^^^^^
+     |
+help: there is a method `get_bonding_curve_account` with a similar name
+     |
+2781 |                 .get_bonding_curve_account(candidate.mint)
+     |                                   ++++++++
+
+error[E0282]: type annotations needed
+    --> src/tx_builder.rs:2779:33
+     |
+2779 |               let bonding_curve = self
+     |  _________________________________^
+2780 | |                 .pumpfun_client
+2781 | |                 .get_bonding_curve(candidate.mint)
+2782 | |                 .await
+     | |______________________^ cannot infer type
+
+error[E0282]: type annotations needed
+    --> src/tx_builder.rs:2783:27
+     |
+2783 |                 .map_err(|e| TransactionBuilderError::InstructionBuild {
+     |                           ^
+2784 |                     program: "pumpfun".to_string(),
+2785 |                     reason: e.to_string(),
+     |                             - type must be known at this point
+     |
+help: consider giving this closure parameter an explicit type
+     |
+2783 |                 .map_err(|e: /* Type */| TransactionBuilderError::InstructionBuild {
+     |                            ++++++++++++
+
+error[E0308]: mismatched types
+    --> src/tx_builder.rs:2796:34
+     |
+2796 |                 unit_limit: Some(config.compute_unit_limit as u64),
+     |                             ---- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `u32`, found `u64`
+     |                             |
+     |                             arguments to this enum variant are incorrect
+     |
+help: the type constructed contains `u64` due to the type of the argument passed
+    --> src/tx_builder.rs:2796:29
+     |
+2796 |                 unit_limit: Some(config.compute_unit_limit as u64),
+     |                             ^^^^^--------------------------------^
+     |                                  |
+     |                                  this argument influences the type of `Some`
+note: tuple variant defined here
+    --> /rustc/29a69716f2c0f19b5f9163bb4d8c50fb818cf326/library/core/src/option.rs:608:4
+help: you can convert a `u64` to a `u32` and panic if the converted value doesn't fit
+     |
+2796 |                 unit_limit: Some((config.compute_unit_limit as u64).try_into().unwrap()),
+     |                                  +                                +++++++++++++++++++++
+
+error[E0308]: mismatched types
+    --> src/tx_builder.rs:2805:26
+     |
+2805 |                     Some(min_token_out),
+     |                     ---- ^^^^^^^^^^^^^ expected `bool`, found `u64`
+     |                     |
+     |                     arguments to this enum variant are incorrect
+     |
+help: the type constructed contains `u64` due to the type of the argument passed
+    --> src/tx_builder.rs:2805:21
+     |
+2805 |                     Some(min_token_out),
+     |                     ^^^^^-------------^
+     |                          |
+     |                          this argument influences the type of `Some`
+note: tuple variant defined here
+    --> /rustc/29a69716f2c0f19b5f9163bb4d8c50fb818cf326/library/core/src/option.rs:608:4
+
+error[E0308]: mismatched types
+    --> src/tx_builder.rs:2806:26
+     |
+2806 |                     Some(priority_fee),
+     |                     ---- ^^^^^^^^^^^^ expected `u64`, found `PriorityFee`
+     |                     |
+     |                     arguments to this enum variant are incorrect
+     |
+help: the type constructed contains `PriorityFee` due to the type of the argument passed
+    --> src/tx_builder.rs:2806:21
+     |
+2806 |                     Some(priority_fee),
+     |                     ^^^^^------------^
+     |                          |
+     |                          this argument influences the type of `Some`
+note: tuple variant defined here
+    --> /rustc/29a69716f2c0f19b5f9163bb4d8c50fb818cf326/library/core/src/option.rs:608:4
+
+error[E0061]: this method takes 5 arguments but 4 arguments were supplied
+    --> src/tx_builder.rs:2802:18
+     |
+2802 |                   .buy(
+     |  __________________^^^-
+2803 | |                     candidate.mint,
+2804 | |                     config.buy_amount_lamports,
+2805 | |                     Some(min_token_out),
+2806 | |                     Some(priority_fee),
+2807 | |                 )
+     | |_________________- argument #5 of type `std::option::Option<PriorityFee>` is missing
+     |
+note: method defined here
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pumpfun-4.6.0/src/lib.rs:371:18
+     |
+ 371 |     pub async fn buy(
+     |                  ^^^
+help: provide the argument
+     |
+2802 |                 .buy(
+ ...
+2806 |                     Some(priority_fee),
+2807 ~                     /* std::option::Option<PriorityFee> */,
+2808 ~                 )
+     |
+
+error[E0609]: no field `message` on type `solana_sdk::signature::Signature`
+    --> src/tx_builder.rs:2814:34
+     |
+2814 |             if let Some(ix) = tx.message.instructions.last() {
+     |                                  ^^^^^^^ unknown field
+
+error[E0282]: type annotations needed
+    --> src/tx_builder.rs:2815:27
+     |
+2815 |                 return Ok(ix.clone());
+     |                           ^^ cannot infer type
+
+warning: unreachable expression
+    --> src/tx_builder.rs:2825:9
+     |
+2815 |                 return Ok(ix.clone());
+     |                 --------------------- any code following this expression is unreachable
+...
+2825 |         self.build_pumpportal_or_memo(candidate, config).await
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unreachable expression
+     |
+     = note: `#[warn(unreachable_code)]` (part of `#[warn(unused)]`) on by default
+
+error[E0609]: no field `program` on type `&types::PremintCandidate`
+    --> src/tx_builder.rs:3198:23
+     |
+3198 |             candidate.program, candidate.mint, config.buy_amount_lamports
+     |                       ^^^^^^^ unknown field
+     |
+     = note: available fields are: `mint`, `accounts`, `priority`, `timestamp`, `price_hint`, `signature`
+
+error[E0599]: no method named `get_token_balance` found for struct `PumpFun` in the current scope
+    --> src/tx_builder.rs:3232:18
+     |
+3230 |               let token_balance = self
+     |  _________________________________-
+3231 | |                 .pumpfun_client
+3232 | |                 .get_token_balance(ata)
+     | |                 -^^^^^^^^^^^^^^^^^ method not found in `PumpFun`
+     | |_________________|
+     |
+
+error[E0282]: type annotations needed
+    --> src/tx_builder.rs:3230:33
+     |
+3230 |               let token_balance = self
+     |  _________________________________^
+3231 | |                 .pumpfun_client
+3232 | |                 .get_token_balance(ata)
+3233 | |                 .await
+     | |______________________^ cannot infer type
+
+error[E0282]: type annotations needed
+    --> src/tx_builder.rs:3234:27
+     |
+3234 |                 .map_err(|e| TransactionBuilderError::InstructionBuild {
+     |                           ^
+3235 |                     program: "pumpfun".to_string(),
+3236 |                     reason: e.to_string(),
+     |                             - type must be known at this point
+     |
+help: consider giving this closure parameter an explicit type
+     |
+3234 |                 .map_err(|e: /* Type */| TransactionBuilderError::InstructionBuild {
+     |                            ++++++++++++
+
+error[E0599]: no method named `get_bonding_curve` found for struct `PumpFun` in the current scope
+    --> src/tx_builder.rs:3243:18
+     |
+3241 |               let bonding_curve = self
+     |  _________________________________-
+3242 | |                 .pumpfun_client
+3243 | |                 .get_bonding_curve(*mint)
+     | |_________________-^^^^^^^^^^^^^^^^^
+     |
+help: there is a method `get_bonding_curve_account` with a similar name
+     |
+3243 |                 .get_bonding_curve_account(*mint)
+     |                                   ++++++++
+
+error[E0282]: type annotations needed
+    --> src/tx_builder.rs:3241:33
+     |
+3241 |               let bonding_curve = self
+     |  _________________________________^
+3242 | |                 .pumpfun_client
+3243 | |                 .get_bonding_curve(*mint)
+3244 | |                 .await
+     | |______________________^ cannot infer type
+
+error[E0282]: type annotations needed
+    --> src/tx_builder.rs:3245:27
+     |
+3245 |                 .map_err(|e| TransactionBuilderError::InstructionBuild {
+     |                           ^
+3246 |                     program: "pumpfun".to_string(),
+3247 |                     reason: e.to_string(),
+     |                             - type must be known at this point
+     |
+help: consider giving this closure parameter an explicit type
+     |
+3245 |                 .map_err(|e: /* Type */| TransactionBuilderError::InstructionBuild {
+     |                            ++++++++++++
+
+error[E0308]: mismatched types
+    --> src/tx_builder.rs:3255:34
+     |
+3255 |                 unit_limit: Some(config.compute_unit_limit as u64),
+     |                             ---- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `u32`, found `u64`
+     |                             |
+     |                             arguments to this enum variant are incorrect
+     |
+help: the type constructed contains `u64` due to the type of the argument passed
+    --> src/tx_builder.rs:3255:29
+     |
+3255 |                 unit_limit: Some(config.compute_unit_limit as u64),
+     |                             ^^^^^--------------------------------^
+     |                                  |
+     |                                  this argument influences the type of `Some`
+note: tuple variant defined here
+    --> /rustc/29a69716f2c0f19b5f9163bb4d8c50fb818cf326/library/core/src/option.rs:608:4
+help: you can convert a `u64` to a `u32` and panic if the converted value doesn't fit
+     |
+3255 |                 unit_limit: Some((config.compute_unit_limit as u64).try_into().unwrap()),
+     |                                  +                                +++++++++++++++++++++
+
+error[E0609]: no field `message` on type `solana_sdk::signature::Signature`
+    --> src/tx_builder.rs:3268:34
+     |
+3268 |             if let Some(ix) = tx.message.instructions.last() {
+     |                                  ^^^^^^^ unknown field
+
+error[E0282]: type annotations needed
+    --> src/tx_builder.rs:3269:27
+     |
+3269 |                 return Ok(ix.clone());
+     |                           ^^ cannot infer type
+
+warning: unreachable expression
+    --> src/tx_builder.rs:3278:9
+     |
+3269 |                   return Ok(ix.clone());
+     |                   --------------------- any code following this expression is unreachable
+...
+3278 | /         self.build_placeholder_sell_instruction(mint, sell_percent, config)
+3279 | |             .await
+     | |__________________^ unreachable expression
+
+error[E0599]: no method named `sign_transaction` found for struct `Arc<WalletManager>` in the current scope
+    --> src/tx_builder.rs:3350:14
+     |
+3349 | /         self.wallet
+3350 | |             .sign_transaction(&mut tx_to_sign)
+     | |             -^^^^^^^^^^^^^^^^ method not found in `Arc<WalletManager>`
+     | |_____________|
+     |
+     |
+     = help: items from traits can only be used if the trait is implemented and in scope
+note: `SignerService` defines an item `sign_transaction`, perhaps you need to implement it
+    --> src/nonce manager/nonce_signer.rs:19:1
+     |
+  19 | pub trait SignerService: Send + Sync {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0282]: type annotations needed
+    --> src/tx_builder.rs:3351:23
+     |
+3351 |             .map_err(|e| TransactionBuilderError::SigningFailed(e.to_string()))?;
+     |                       ^                                         - type must be known at this point
+     |
+help: consider giving this closure parameter an explicit type
+     |
+3351 |             .map_err(|e: /* Type */| TransactionBuilderError::SigningFailed(e.to_string()))?;
+     |                        ++++++++++++
+
+error[E0308]: mismatched types
+    --> src/tx_builder.rs:3481:35
+     |
+3481 |             .unwrap_or_else(|arc| (*arc.blocking_lock()).clone())
+     |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Mutex<Vec<(usize, Result<..., ...>)>>`, found `Vec<(usize, Result<..., ...>)>`
+     |
+     = note: expected struct `tokio::sync::Mutex<Vec<_>>`
+                found struct `Vec<_>`
+help: call `Into::into` on this expression to convert `Vec<(usize, Result<solana_sdk::transaction::VersionedTransaction, TransactionBuilderError>)>` into `tokio::sync::Mutex<Vec<(usize, Result<solana_sdk::transaction::VersionedTransaction, TransactionBuilderError>)>>`
+     |
+3481 |             .unwrap_or_else(|arc| (*arc.blocking_lock()).clone().into())
+     |                                                                 +++++++
+
+warning: use of deprecated associated function `solana_sdk::signature::Keypair::from_bytes`: Use Keypair::try_from(&[u8]) instead
+  --> src/wallet.rs:27:22
+   |
+27 |             Keypair::from_bytes(&keypair_bytes)
+   |                      ^^^^^^^^^^
+
+warning: use of deprecated associated function `solana_sdk::signature::Keypair::from_bytes`: Use Keypair::try_from(&[u8]) instead
+  --> src/wallet.rs:33:22
+   |
+33 |             Keypair::from_bytes(&json)
+   |                      ^^^^^^^^^^
+
+warning: use of deprecated associated function `solana_sdk::signature::Keypair::from_bytes`: Use Keypair::try_from(&[u8]) instead
+  --> src/wallet.rs:63:18
+   |
+63 |         Keypair::from_bytes(&self.keypair.to_bytes()).expect("Valid keypair")
+   |                  ^^^^^^^^^^
+
+error[E0061]: this function takes 5 arguments but 4 arguments were supplied
+   --> src/nonce manager/nonce_integration.rs:243:21
+    |
+243 |         let lease = NonceLease::new(
+    |                     ^^^^^^^^^^^^^^^
+...
+246 |             self.config.lease_ttl,
+    |             --------------------- argument #3 of type `solana_sdk::hash::Hash` is missing
+    |
+note: associated function defined here
+   --> src/nonce manager/nonce_lease.rs:85:12
+    |
+ 85 |     pub fn new<F>(
+    |            ^^^
+...
+ 88 |         nonce_blockhash: Hash,
+    |         ---------------------
+help: provide the argument
+    |
+243 ~         let lease = NonceLease::new(
+244 +             nonce_pubkey,
+245 +             1000,
+246 +             /* solana_sdk::hash::Hash */,
+247 +             self.config.lease_ttl,
+248 +             move || {
+249 +                 // Synchronous callback that schedules async cleanup
+250 +                 let active_leases = active_leases.clone();
+251 +                 let lease_id = lease_id_for_callback.clone();
+252 +                 tokio::spawn(async move {
+253 +                     let mut leases = active_leases.write().await;
+254 +                     leases.retain(|l| l.lease_id != lease_id);
+255 +                     debug!(lease_id = %lease_id, "Nonce lease released");
+256 +                 });
+257 +             },
+258 ~         );
+    |
+
+warning: use of deprecated associated function `solana_sdk::signature::Keypair::from_bytes`: Use Keypair::try_from(&[u8]) instead
+  --> src/nonce manager/nonce_security.rs:41:32
+   |
+41 |         let keypair = Keypair::from_bytes(&bytes)
+   |                                ^^^^^^^^^^
+
+warning: use of deprecated associated function `solana_sdk::signature::Keypair::generate`: Use `Keypair::new()` instead or generate 32 random bytes and use `Keypair::new_from_array`
+   --> src/nonce manager/nonce_security.rs:540:32
+    |
+540 |         let keypair = Keypair::generate(&mut OsRng);
+    |                                ^^^^^^^^
+
+error[E0277]: the trait bound `OsRng: rand_core::CryptoRng` is not satisfied
+   --> src/nonce manager/nonce_security.rs:540:41
+    |
+540 |         let keypair = Keypair::generate(&mut OsRng);
+    |                       ----------------- ^^^^^^^^^^ the trait `rand_core::CryptoRng` is not implemented for `OsRng`
+    |                       |
+    |                       required by a bound introduced by this call
+    |
+help: trait impl with same name found
+   --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rand_core-0.9.3/src/lib.rs:206:1
+    |
+206 | impl<T: DerefMut> CryptoRng for T where T::Target: CryptoRng {}
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: perhaps two different versions of crate `rand_core` are being used?
+note: there are multiple different versions of crate `rand_core` in the dependency graph
+   --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rand_core-0.5.1/src/lib.rs:208:1
+    |
+208 | pub trait CryptoRng {}
+    | ^^^^^^^^^^^^^^^^^^^ this is the required trait
+    |
+   ::: src/compat.rs:44:5
+    |
+ 44 | use solana_sdk::{
+    |     ----------
+    |     |
+    |     one version of crate `rand_core` used here, as a dependency of crate `rand`
+    |     one version of crate `rand_core` used here, as a dependency of crate `rand`
+    |
+   ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rand_core-0.6.4/src/os.rs:48:1
+    |
+ 48 | pub struct OsRng;
+    | ---------------- this type doesn't implement the required trait
+    |
+   ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rand_core-0.5.1/src/os.rs:48:1
+    |
+ 48 | pub struct OsRng;
+    | ---------------- this type implements the required trait
+    |
+   ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rand_core-0.6.4/src/block.rs:68:1
+    |
+ 68 | pub trait BlockRngCore {
+    | ---------------------- this is the found trait
+    = note: two types coming from two different versions of the same crate are different types even if they look the same
+    = help: you can use `cargo tree` to explore your dependency tree
+note: required by a bound in `solana_sdk::signature::Keypair::generate`
+   --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-keypair-2.2.3/src/lib.rs:41:12
+    |
+ 39 |     pub fn generate<R>(csprng: &mut R) -> Self
+    |            -------- required by a bound in this associated function
+ 40 |     where
+ 41 |         R: CryptoRng + RngCore,
+    |            ^^^^^^^^^ required by this bound in `Keypair::generate`
+
+error[E0277]: the trait bound `OsRng: rand_core::RngCore` is not satisfied
+   --> src/nonce manager/nonce_security.rs:540:41
+    |
+540 |         let keypair = Keypair::generate(&mut OsRng);
+    |                       ----------------- ^^^^^^^^^^ the trait `rand_core::RngCore` is not implemented for `OsRng`
+    |                       |
+    |                       required by a bound introduced by this call
+    |
+help: trait impl with same name found
+   --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rand_core-0.9.3/src/lib.rs:158:1
+    |
+158 | / impl<T: DerefMut> RngCore for T
+159 | | where
+160 | |     T::Target: RngCore,
+    | |_______________________^
+    = note: perhaps two different versions of crate `rand_core` are being used?
+note: there are multiple different versions of crate `rand_core` in the dependency graph
+   --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rand_core-0.5.1/src/lib.rs:137:1
+    |
+137 | pub trait RngCore {
+    | ^^^^^^^^^^^^^^^^^ this is the required trait
+    |
+   ::: src/compat.rs:44:5
+    |
+ 44 | use solana_sdk::{
+    |     ----------
+    |     |
+    |     one version of crate `rand_core` used here, as a dependency of crate `rand`
+    |     one version of crate `rand_core` used here, as a dependency of crate `rand`
+    |
+   ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rand_core-0.6.4/src/os.rs:48:1
+    |
+ 48 | pub struct OsRng;
+    | ---------------- this type doesn't implement the required trait
+    |
+   ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rand_core-0.5.1/src/os.rs:48:1
+    |
+ 48 | pub struct OsRng;
+    | ---------------- this type implements the required trait
+    |
+   ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rand_core-0.6.4/src/block.rs:68:1
+    |
+ 68 | pub trait BlockRngCore {
+    | ---------------------- this is the found trait
+    = note: two types coming from two different versions of the same crate are different types even if they look the same
+    = help: you can use `cargo tree` to explore your dependency tree
+note: required by a bound in `solana_sdk::signature::Keypair::generate`
+   --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-keypair-2.2.3/src/lib.rs:41:24
+    |
+ 39 |     pub fn generate<R>(csprng: &mut R) -> Self
+    |            -------- required by a bound in this associated function
+ 40 |     where
+ 41 |         R: CryptoRng + RngCore,
+    |                        ^^^^^^^ required by this bound in `Keypair::generate`
+
+warning: use of deprecated associated function `solana_sdk::signature::Keypair::from_bytes`: Use Keypair::try_from(&[u8]) instead
+  --> src/nonce manager/nonce_signer.rs:69:18
+   |
+69 |         Keypair::from_bytes(bytes)
+   |                  ^^^^^^^^^^
+
+error[E0277]: the trait bound `std::time::Instant: serde::Serialize` is not satisfied
+    --> src/nonce manager/nonce_telemetry.rs:501:24
+     |
+ 501 | #[derive(Debug, Clone, Serialize, Deserialize)]
+     |                        ^^^^^^^^^ the trait `Serialize` is not implemented for `std::time::Instant`
+...
+ 507 |     pub start_time: Instant,
+     |     ----------------------- required by a bound introduced by this call
+     |
+     = note: for local types consider adding `#[derive(serde::Serialize)]` to your `std::time::Instant` type
+     = note: for types from other crates check whether the crate offers a `serde` feature flag
+     = help: the following other types implement trait `Serialize`:
+               &'a T
+               &'a mut T
+               ()
+               (T,)
+               (T0, T1)
+               (T0, T1, T2)
+               (T0, T1, T2, T3)
+               (T0, T1, T2, T3, T4)
+             and 533 others
+note: required by a bound in `config::_::_serde::ser::SerializeStruct::serialize_field`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.228/src/ser/mod.rs:1917:21
+     |
+1915 |     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
+     |        --------------- required by a bound in this associated function
+1916 |     where
+1917 |         T: ?Sized + Serialize;
+     |                     ^^^^^^^^^ required by this bound in `SerializeStruct::serialize_field`
+     = note: this error originates in the derive macro `Serialize` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `std::time::Instant: serde::Deserialize<'de>` is not satisfied
+    --> src/nonce manager/nonce_telemetry.rs:507:21
+     |
+ 507 |     pub start_time: Instant,
+     |                     ^^^^^^^ the trait `Deserialize<'_>` is not implemented for `std::time::Instant`
+     |
+     = note: for local types consider adding `#[derive(serde::Deserialize)]` to your `std::time::Instant` type
+     = note: for types from other crates check whether the crate offers a `serde` feature flag
+     = help: the following other types implement trait `Deserialize<'de>`:
+               `&'a Path` implements `Deserialize<'de>`
+               `&'a [u8]` implements `Deserialize<'de>`
+               `&'a serde_bytes::bytearray::ByteArray<N>` implements `Deserialize<'de>`
+               `&'a serde_bytes::bytes::Bytes` implements `Deserialize<'de>`
+               `&'a str` implements `Deserialize<'de>`
+               `()` implements `Deserialize<'de>`
+               `(T,)` implements `Deserialize<'de>`
+               `(T0, T1)` implements `Deserialize<'de>`
+             and 535 others
+note: required by a bound in `next_element`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.228/src/de/mod.rs:1771:12
+     |
+1769 |     fn next_element<T>(&mut self) -> Result<Option<T>, Self::Error>
+     |        ------------ required by a bound in this associated function
+1770 |     where
+1771 |         T: Deserialize<'de>,
+     |            ^^^^^^^^^^^^^^^^ required by this bound in `SeqAccess::next_element`
+     = note: the full name for the type has been written to '/home/runner/work/Boot/Boot/target/debug/deps/Boot-eca0528c6bb821e4.long-type-4572454920734942468.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+
+error[E0277]: the trait bound `std::time::Instant: serde::Deserialize<'de>` is not satisfied
+    --> src/nonce manager/nonce_telemetry.rs:507:21
+     |
+ 507 |     pub start_time: Instant,
+     |                     ^^^^^^^ the trait `Deserialize<'_>` is not implemented for `std::time::Instant`
+     |
+     = note: for local types consider adding `#[derive(serde::Deserialize)]` to your `std::time::Instant` type
+     = note: for types from other crates check whether the crate offers a `serde` feature flag
+     = help: the following other types implement trait `Deserialize<'de>`:
+               `&'a Path` implements `Deserialize<'de>`
+               `&'a [u8]` implements `Deserialize<'de>`
+               `&'a serde_bytes::bytearray::ByteArray<N>` implements `Deserialize<'de>`
+               `&'a serde_bytes::bytes::Bytes` implements `Deserialize<'de>`
+               `&'a str` implements `Deserialize<'de>`
+               `()` implements `Deserialize<'de>`
+               `(T,)` implements `Deserialize<'de>`
+               `(T0, T1)` implements `Deserialize<'de>`
+             and 535 others
+note: required by a bound in `next_value`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.228/src/de/mod.rs:1916:12
+     |
+1914 |     fn next_value<V>(&mut self) -> Result<V, Self::Error>
+     |        ---------- required by a bound in this associated function
+1915 |     where
+1916 |         V: Deserialize<'de>,
+     |            ^^^^^^^^^^^^^^^^ required by this bound in `MapAccess::next_value`
+     = note: the full name for the type has been written to '/home/runner/work/Boot/Boot/target/debug/deps/Boot-eca0528c6bb821e4.long-type-4572454920734942468.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+
+error[E0277]: the trait bound `std::time::Instant: serde::Deserialize<'de>` is not satisfied
+   --> src/nonce manager/nonce_telemetry.rs:501:35
+    |
+501 | #[derive(Debug, Clone, Serialize, Deserialize)]
+    |                                   ^^^^^^^^^^^ the trait `Deserialize<'_>` is not implemented for `std::time::Instant`
+    |
+    = note: for local types consider adding `#[derive(serde::Deserialize)]` to your `std::time::Instant` type
+    = note: for types from other crates check whether the crate offers a `serde` feature flag
+    = help: the following other types implement trait `Deserialize<'de>`:
+              `&'a Path` implements `Deserialize<'de>`
+              `&'a [u8]` implements `Deserialize<'de>`
+              `&'a serde_bytes::bytearray::ByteArray<N>` implements `Deserialize<'de>`
+              `&'a serde_bytes::bytes::Bytes` implements `Deserialize<'de>`
+              `&'a str` implements `Deserialize<'de>`
+              `()` implements `Deserialize<'de>`
+              `(T,)` implements `Deserialize<'de>`
+              `(T0, T1)` implements `Deserialize<'de>`
+            and 535 others
+note: required by a bound in `config::_::_serde::__private228::de::missing_field`
+   --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:26:8
+    |
+ 24 | pub fn missing_field<'de, V, E>(field: &'static str) -> Result<V, E>
+    |        ------------- required by a bound in this function
+ 25 | where
+ 26 |     V: Deserialize<'de>,
+    |        ^^^^^^^^^^^^^^^^ required by this bound in `missing_field`
+    = note: the full name for the type has been written to '/home/runner/work/Boot/Boot/target/debug/deps/Boot-eca0528c6bb821e4.long-type-4572454920734942468.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+    = note: this error originates in the derive macro `Deserialize` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `solana_client::nonblocking::rpc_client::RpcClient` doesn't implement `std::fmt::Debug`
+  --> src/rpc manager/rpc_pool.rs:94:5
+   |
+91 | #[derive(Debug)]
+   |          ----- in this derive macro expansion
+...
+94 |     client: Arc<RpcClient>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^ the trait `std::fmt::Debug` is not implemented for `solana_client::nonblocking::rpc_client::RpcClient`
+   |
+help: the trait `std::fmt::Debug` is implemented for `Arc<T, A>`
+  --> /rustc/29a69716f2c0f19b5f9163bb4d8c50fb818cf326/library/alloc/src/sync.rs:3616:0
+
+error[E0277]: the trait bound `std::time::Instant: serde::Serialize` is not satisfied
+    --> src/sniffer/dataflow.rs:23:9
+     |
+  23 |         timestamp: Instant,
+     |         ^^^^^^^^^---------
+     |         |
+     |         the trait `Serialize` is not implemented for `std::time::Instant`
+     |         required by a bound introduced by this call
+     |
+     = note: for local types consider adding `#[derive(serde::Serialize)]` to your `std::time::Instant` type
+     = note: for types from other crates check whether the crate offers a `serde` feature flag
+     = help: the following other types implement trait `Serialize`:
+               &'a T
+               &'a mut T
+               ()
+               (T,)
+               (T0, T1)
+               (T0, T1, T2)
+               (T0, T1, T2, T3)
+               (T0, T1, T2, T3, T4)
+             and 533 others
+note: required by a bound in `config::_::_serde::ser::SerializeStructVariant::serialize_field`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.228/src/ser/mod.rs:1987:21
+     |
+1985 |     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
+     |        --------------- required by a bound in this associated function
+1986 |     where
+1987 |         T: ?Sized + Serialize;
+     |                     ^^^^^^^^^ required by this bound in `SerializeStructVariant::serialize_field`
+
+error[E0277]: the trait bound `std::time::Instant: serde::Serialize` is not satisfied
+    --> src/sniffer/dataflow.rs:29:9
+     |
+  29 |         timestamp: Instant,
+     |         ^^^^^^^^^---------
+     |         |
+     |         the trait `Serialize` is not implemented for `std::time::Instant`
+     |         required by a bound introduced by this call
+     |
+     = note: for local types consider adding `#[derive(serde::Serialize)]` to your `std::time::Instant` type
+     = note: for types from other crates check whether the crate offers a `serde` feature flag
+     = help: the following other types implement trait `Serialize`:
+               &'a T
+               &'a mut T
+               ()
+               (T,)
+               (T0, T1)
+               (T0, T1, T2)
+               (T0, T1, T2, T3)
+               (T0, T1, T2, T3, T4)
+             and 533 others
+note: required by a bound in `config::_::_serde::ser::SerializeStructVariant::serialize_field`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.228/src/ser/mod.rs:1987:21
+     |
+1985 |     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
+     |        --------------- required by a bound in this associated function
+1986 |     where
+1987 |         T: ?Sized + Serialize;
+     |                     ^^^^^^^^^ required by this bound in `SerializeStructVariant::serialize_field`
+
+error[E0277]: the trait bound `std::time::Instant: serde::Serialize` is not satisfied
+    --> src/sniffer/dataflow.rs:35:9
+     |
+  35 |         timestamp: Instant,
+     |         ^^^^^^^^^---------
+     |         |
+     |         the trait `Serialize` is not implemented for `std::time::Instant`
+     |         required by a bound introduced by this call
+     |
+     = note: for local types consider adding `#[derive(serde::Serialize)]` to your `std::time::Instant` type
+     = note: for types from other crates check whether the crate offers a `serde` feature flag
+     = help: the following other types implement trait `Serialize`:
+               &'a T
+               &'a mut T
+               ()
+               (T,)
+               (T0, T1)
+               (T0, T1, T2)
+               (T0, T1, T2, T3)
+               (T0, T1, T2, T3, T4)
+             and 533 others
+note: required by a bound in `config::_::_serde::ser::SerializeStructVariant::serialize_field`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.228/src/ser/mod.rs:1987:21
+     |
+1985 |     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
+     |        --------------- required by a bound in this associated function
+1986 |     where
+1987 |         T: ?Sized + Serialize;
+     |                     ^^^^^^^^^ required by this bound in `SerializeStructVariant::serialize_field`
+
+error[E0277]: the trait bound `std::time::Instant: serde::Serialize` is not satisfied
+    --> src/sniffer/dataflow.rs:41:9
+     |
+  41 |         timestamp: Instant,
+     |         ^^^^^^^^^---------
+     |         |
+     |         the trait `Serialize` is not implemented for `std::time::Instant`
+     |         required by a bound introduced by this call
+     |
+     = note: for local types consider adding `#[derive(serde::Serialize)]` to your `std::time::Instant` type
+     = note: for types from other crates check whether the crate offers a `serde` feature flag
+     = help: the following other types implement trait `Serialize`:
+               &'a T
+               &'a mut T
+               ()
+               (T,)
+               (T0, T1)
+               (T0, T1, T2)
+               (T0, T1, T2, T3)
+               (T0, T1, T2, T3, T4)
+             and 533 others
+note: required by a bound in `config::_::_serde::ser::SerializeStructVariant::serialize_field`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.228/src/ser/mod.rs:1987:21
+     |
+1985 |     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
+     |        --------------- required by a bound in this associated function
+1986 |     where
+1987 |         T: ?Sized + Serialize;
+     |                     ^^^^^^^^^ required by this bound in `SerializeStructVariant::serialize_field`
+
+error[E0277]: the trait bound `extractor::PriorityLevel: serde::Serialize` is not satisfied
+    --> src/sniffer/dataflow.rs:43:9
+     |
+  43 |         priority: super::extractor::PriorityLevel,
+     |         ^^^^^^^^---------------------------------
+     |         |
+     |         unsatisfied trait bound
+     |         required by a bound introduced by this call
+     |
+help: the trait `Serialize` is not implemented for `extractor::PriorityLevel`
+    --> src/sniffer/extractor.rs:10:1
+     |
+  10 | pub enum PriorityLevel {
+     | ^^^^^^^^^^^^^^^^^^^^^^
+     = note: for local types consider adding `#[derive(serde::Serialize)]` to your `extractor::PriorityLevel` type
+     = note: for types from other crates check whether the crate offers a `serde` feature flag
+     = help: the following other types implement trait `Serialize`:
+               &'a T
+               &'a mut T
+               ()
+               (T,)
+               (T0, T1)
+               (T0, T1, T2)
+               (T0, T1, T2, T3)
+               (T0, T1, T2, T3, T4)
+             and 533 others
+note: required by a bound in `config::_::_serde::ser::SerializeStructVariant::serialize_field`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.228/src/ser/mod.rs:1987:21
+     |
+1985 |     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
+     |        --------------- required by a bound in this associated function
+1986 |     where
+1987 |         T: ?Sized + Serialize;
+     |                     ^^^^^^^^^ required by this bound in `SerializeStructVariant::serialize_field`
+
+error[E0277]: the trait bound `std::time::Instant: serde::Serialize` is not satisfied
+    --> src/sniffer/dataflow.rs:48:9
+     |
+  48 |         timestamp: Instant,
+     |         ^^^^^^^^^---------
+     |         |
+     |         the trait `Serialize` is not implemented for `std::time::Instant`
+     |         required by a bound introduced by this call
+     |
+     = note: for local types consider adding `#[derive(serde::Serialize)]` to your `std::time::Instant` type
+     = note: for types from other crates check whether the crate offers a `serde` feature flag
+     = help: the following other types implement trait `Serialize`:
+               &'a T
+               &'a mut T
+               ()
+               (T,)
+               (T0, T1)
+               (T0, T1, T2)
+               (T0, T1, T2, T3)
+               (T0, T1, T2, T3, T4)
+             and 533 others
+note: required by a bound in `config::_::_serde::ser::SerializeStructVariant::serialize_field`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.228/src/ser/mod.rs:1987:21
+     |
+1985 |     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
+     |        --------------- required by a bound in this associated function
+1986 |     where
+1987 |         T: ?Sized + Serialize;
+     |                     ^^^^^^^^^ required by this bound in `SerializeStructVariant::serialize_field`
+
+error[E0277]: the trait bound `std::time::Instant: serde::Serialize` is not satisfied
+    --> src/sniffer/dataflow.rs:54:9
+     |
+  54 |         timestamp: Instant,
+     |         ^^^^^^^^^---------
+     |         |
+     |         the trait `Serialize` is not implemented for `std::time::Instant`
+     |         required by a bound introduced by this call
+     |
+     = note: for local types consider adding `#[derive(serde::Serialize)]` to your `std::time::Instant` type
+     = note: for types from other crates check whether the crate offers a `serde` feature flag
+     = help: the following other types implement trait `Serialize`:
+               &'a T
+               &'a mut T
+               ()
+               (T,)
+               (T0, T1)
+               (T0, T1, T2)
+               (T0, T1, T2, T3)
+               (T0, T1, T2, T3, T4)
+             and 533 others
+note: required by a bound in `config::_::_serde::ser::SerializeStructVariant::serialize_field`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.228/src/ser/mod.rs:1987:21
+     |
+1985 |     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
+     |        --------------- required by a bound in this associated function
+1986 |     where
+1987 |         T: ?Sized + Serialize;
+     |                     ^^^^^^^^^ required by this bound in `SerializeStructVariant::serialize_field`
+
+error[E0277]: the trait bound `std::time::Instant: serde::Serialize` is not satisfied
+    --> src/sniffer/dataflow.rs:60:9
+     |
+  60 |         timestamp: Instant,
+     |         ^^^^^^^^^---------
+     |         |
+     |         the trait `Serialize` is not implemented for `std::time::Instant`
+     |         required by a bound introduced by this call
+     |
+     = note: for local types consider adding `#[derive(serde::Serialize)]` to your `std::time::Instant` type
+     = note: for types from other crates check whether the crate offers a `serde` feature flag
+     = help: the following other types implement trait `Serialize`:
+               &'a T
+               &'a mut T
+               ()
+               (T,)
+               (T0, T1)
+               (T0, T1, T2)
+               (T0, T1, T2, T3)
+               (T0, T1, T2, T3, T4)
+             and 533 others
+note: required by a bound in `config::_::_serde::ser::SerializeStructVariant::serialize_field`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.228/src/ser/mod.rs:1987:21
+     |
+1985 |     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
+     |        --------------- required by a bound in this associated function
+1986 |     where
+1987 |         T: ?Sized + Serialize;
+     |                     ^^^^^^^^^ required by this bound in `SerializeStructVariant::serialize_field`
+
+error[E0277]: the trait bound `std::time::Instant: serde::Serialize` is not satisfied
+    --> src/sniffer/dataflow.rs:66:9
+     |
