@@ -1,0 +1,95 @@
+# Sniffer Configuration - TASK 1.2
+# This file defines all runtime parameters for the Sniffer module
+
+[network]
+# gRPC endpoint for Geyser stream subscription
+# SECURITY NOTE: Use HTTPS/TLS in production for encrypted transport
+grpc_endpoint = "https://127.0.0.1:10000"  # TLS recommended
+
+# Maximum retry attempts for stream connection (TASK 1.5)
+max_retry_attempts = 5
+
+# Initial backoff duration for retries (milliseconds)
+initial_backoff_ms = 100
+
+# Maximum backoff duration for retries (milliseconds)
+max_backoff_ms = 5000
+
+[performance]
+# Channel capacity for handoff to buy_engine (TASK 2.4)
+# Recommended: 1024-2048 for normal load, 4096 for high throughput
+channel_capacity = 1024
+
+# Stream buffer size for gRPC (TASK 2.1)
+# Must be power of 2. Higher = better burst handling, more memory
+stream_buffer_size = 4096
+
+# Batch size for candidate processing (TASK 4.4)
+# Smaller = lower latency, Larger = better throughput
+batch_size = 10
+
+# Batch timeout in milliseconds (TASK 4.4)
+# Force batch send after this duration even if not full
+batch_timeout_ms = 10
+
+[retry]
+# Maximum retries for HIGH priority candidates (TASK 1.1)
+# 0 = no retries, 1-3 recommended
+high_priority_max_retries = 2
+
+[heuristics]
+# EMA alpha for short window (TASK 2.5)
+# Range: 0.0-1.0, Higher = more reactive to changes
+# Recommended: 0.1-0.3
+ema_alpha_short = 0.2
+
+# EMA alpha for long window (TASK 2.5)
+# Range: 0.0-1.0, Lower = more stable baseline
+# Recommended: 0.01-0.05
+ema_alpha_long = 0.05
+
+# Initial threshold for HIGH priority classification (TASK 2.5)
+# Acceleration ratio must exceed this to be HIGH priority
+# Recommended: 1.2-2.0
+initial_threshold = 1.5
+
+[telemetry]
+# Telemetry export interval in seconds (TASK 3.1)
+# How often to export metrics snapshot
+# Recommended: 5-10s for Prometheus, 30-60s for logs
+telemetry_interval_secs = 5
+
+[logging]
+# Log level: debug, info, warn, error
+log_level = "info"
+
+# Enable DEBUG logging (TASK 3.5)
+# WARNING: High performance impact, use only for troubleshooting
+debug_enabled = false
+
+[profiles]
+# Predefined configuration profiles
+
+[profiles.low_latency]
+# Profile: Optimized for <5ms P99 latency
+channel_capacity = 512
+stream_buffer_size = 1024
+batch_size = 5
+batch_timeout_ms = 2
+high_priority_max_retries = 1
+
+[profiles.high_throughput]
+# Profile: Optimized for >10k tx/s throughput
+channel_capacity = 2048
+stream_buffer_size = 8192
+batch_size = 20
+batch_timeout_ms = 5
+high_priority_max_retries = 3
+
+[profiles.resource_constrained]
+# Profile: Minimal memory footprint
+channel_capacity = 256
+stream_buffer_size = 512
+batch_size = 10
+batch_timeout_ms = 20
+telemetry_interval_secs = 10
