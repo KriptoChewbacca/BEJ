@@ -206,7 +206,7 @@ impl Supervisor {
                 break;
             }
 
-            let mut workers = self.workers.lock();
+            let mut workers = self.workers.lock().await;
             let mut failed_workers = Vec::new();
 
             // Check for finished workers

@@ -9,7 +9,6 @@
 use super::nonce_errors::{NonceError, NonceResult};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
-    commitment_config::{CommitmentConfig, CommitmentLevel},
     pubkey::Pubkey,
     signature::Signature,
 };
