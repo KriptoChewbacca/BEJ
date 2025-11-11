@@ -13,11 +13,10 @@
 ///! - Integration point: account fetch methods should verify ZK proofs from nonce manager
 
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_client::rpc_response::RpcVersionInfo;
 use solana_sdk::{account::Account, pubkey::Pubkey, commitment_config::CommitmentConfig};
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use tokio::sync::{RwLock, broadcast};
 use tracing::{debug, error, info, warn, instrument};

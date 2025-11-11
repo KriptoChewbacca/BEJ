@@ -1,7 +1,6 @@
 //! Endpoint server for exposing metrics and health checks
 
 use anyhow::Result;
-use std::sync::Arc;
 use tokio::net::TcpListener;
 
 /// Start the endpoint server

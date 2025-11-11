@@ -4,7 +4,6 @@
 //! environment variables, and provides structured configuration types.
 
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
 
 /// Main application configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

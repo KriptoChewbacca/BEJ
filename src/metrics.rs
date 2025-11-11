@@ -1,7 +1,6 @@
 //! Metrics collection and export module
 
-use prometheus::{Counter, Histogram, HistogramOpts, IntCounter, IntGauge, Opts, Registry};
-use std::sync::Arc;
+use prometheus::{Histogram, HistogramOpts, IntCounter, IntGauge, Opts, Registry};
 use std::time::Instant;
 
 /// Global metrics registry

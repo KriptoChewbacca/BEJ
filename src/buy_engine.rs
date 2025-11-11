@@ -87,7 +87,7 @@ use solana_sdk::{
     transaction::VersionedTransaction,
     hash::Hash,
 };
-use tokio::sync::{Mutex, RwLock, Semaphore};
+use tokio::sync::{Mutex, RwLock};
 use tokio::time::{sleep, timeout};
 use tracing::{debug, error, info, warn, instrument, Span};
 use bytes::BytesMut;

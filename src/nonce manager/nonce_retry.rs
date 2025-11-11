@@ -3,7 +3,7 @@ use rand::Rng;
 use std::future::Future;
 use std::time::{Duration, Instant};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::time::sleep;
 use tokio::sync::RwLock;
 use tracing::{debug, warn};
