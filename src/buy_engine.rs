@@ -1459,10 +1459,7 @@ impl BuyEngine {
                 continue;
             }
 
-            let sniffing = {
-                let st = self.app_state.lock().await;
-                st.is_sniffing()
-            };
+            let sniffing = self.app_state.is_sniffing().await;
 
             if sniffing {
                 // Check predictive surge before backoff
@@ -1677,7 +1674,7 @@ impl BuyEngine {
         }
 
         // Acquire nonces and build transactions
-        let mut acquired_indices: Vec<usize> = Vec::new();
+        let mut acquired_leases = Vec::new();
         let mut txs: Vec<VersionedTransaction> = Vec::new();
         let recent_blockhash = self.get_recent_blockhash().await;
 
@@ -1686,9 +1683,10 @@ impl BuyEngine {
 
         for _ in 0..self.config.nonce_count {
             match self.nonce_manager.acquire_nonce().await {
-                Ok((_nonce_pubkey, idx)) => {
-                    ctx.logger.log_nonce_operation("acquire", Some(idx), true);
-                    acquired_indices.push(idx);
+                Ok(lease) => {
+                    let _nonce_pubkey = lease.nonce_pubkey().clone();
+                    ctx.logger.log_nonce_operation("acquire", None, true);
+                    acquired_leases.push(lease);
 
                     let tx = self.create_buy_transaction_universe(&candidate, recent_blockhash, dynamic_tip).await?;
                     
@@ -1696,9 +1694,9 @@ impl BuyEngine {
                     let sim_result = self.simulate_transaction(&tx).await;
                     if !self.should_proceed_after_simulation(&sim_result).await {
                         warn!("Transaction simulation failed policy check, aborting");
-                        for idx in acquired_indices.drain(..) {
-                            ctx.logger.log_nonce_operation("release", Some(idx), true);
-                            self.nonce_manager.release_nonce(idx);
+                        for lease in acquired_leases.drain(..) {
+                            ctx.logger.log_nonce_operation("release", None, true);
+                            let _ = lease.release().await; // Release the nonce lease
                         }
                         return Err(anyhow!("Simulation policy blocked transaction"));
                     }
@@ -1714,9 +1712,9 @@ impl BuyEngine {
         }
 
         if txs.is_empty() {
-            for idx in acquired_indices.drain(..) {
-                ctx.logger.log_nonce_operation("release", Some(idx), true);
-                self.nonce_manager.release_nonce(idx);
+            for lease in acquired_leases.drain(..) {
+                ctx.logger.log_nonce_operation("release", None, true);
+                let _ = lease.release().await;
             }
             return Err(anyhow!("no transactions prepared (no nonces acquired)"));
         }
@@ -1735,9 +1733,9 @@ impl BuyEngine {
         self.universe_metrics.record_latency("build_to_land", trace_ctx.elapsed_micros() as u64).await;
 
         // Release nonces
-        for idx in acquired_indices {
-            ctx.logger.log_nonce_operation("release", Some(idx), true);
-            self.nonce_manager.release_nonce(idx);
+        for lease in acquired_leases {
+            ctx.logger.log_nonce_operation("release", None, true);
+            let _ = lease.release().await;
         }
 
         res.context("broadcast BUY failed")
@@ -1935,7 +1933,7 @@ impl BuyEngine {
     }
 
     async fn try_buy(&self, candidate: PremintCandidate, ctx: PipelineContext) -> Result<Signature> {
-        let mut acquired_indices: Vec<usize> = Vec::new();
+        let mut acquired_leases = Vec::new();
 
         let mut txs: Vec<VersionedTransaction> = Vec::new();
 
@@ -1949,9 +1947,10 @@ impl BuyEngine {
         for _ in 0..self.config.nonce_count {
             match self.nonce_manager.acquire_nonce().await {
 
-                Ok((_nonce_pubkey, idx)) => {
-                    ctx.logger.log_nonce_operation("acquire", Some(idx), true);
-                    acquired_indices.push(idx);
+                Ok(lease) => {
+                    let _nonce_pubkey = lease.nonce_pubkey().clone();
+                    ctx.logger.log_nonce_operation("acquire", None, true);
+                    acquired_leases.push(lease);
 
                     let tx = self.create_buy_transaction(&candidate, recent_blockhash).await?;
                     txs.push(tx);
@@ -1969,10 +1968,10 @@ impl BuyEngine {
         if txs.is_empty() {
 
 
-            for idx in acquired_indices.drain(..) {
+            for lease in acquired_leases.drain(..) {
 
-                ctx.logger.log_nonce_operation("release", Some(idx), true);
-                self.nonce_manager.release_nonce(idx);
+                ctx.logger.log_nonce_operation("release", None, true);
+                let _ = lease.release().await;
 
             }
 
@@ -1989,9 +1988,9 @@ impl BuyEngine {
             .await
             .context("broadcast BUY failed");
 
-        for idx in acquired_indices {
-            ctx.logger.log_nonce_operation("release", Some(idx), true);
-            self.nonce_manager.release_nonce(idx);
+        for lease in acquired_leases {
+            ctx.logger.log_nonce_operation("release", None, true);
+            let _ = lease.release().await;
         }
 
         res
