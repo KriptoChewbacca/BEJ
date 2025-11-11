@@ -503,8 +503,18 @@ impl ImprovedNonceAccount {
         // Calculate volume (lamports change / 1e9 for SOL)
         let volume_sol = account.lamports as f64 / 1e9;
         
-        let blockhash = nonce_state.blockhash();
-        let last_valid = nonce_state.last_valid_slot();
+        // Extract data from State enum (State::Initialized contains Data)
+        let nonce_data = match nonce_state {
+            State::Initialized(data) => data,
+            State::Uninitialized => {
+                return Err(NonceError::InvalidNonceAccount("Nonce account is uninitialized".to_string()));
+            }
+        };
+        
+        let blockhash = nonce_data.blockhash();
+        // Note: The current slot info is obtained from RPC client, not stored in nonce account
+        // For now, use current_slot parameter or derive from blockhash age
+        let last_valid = current_slot.unwrap_or(0);
         
         // Atomically update first (non-blocking)
         *self.last_blockhash.write().await = blockhash;
@@ -879,7 +889,7 @@ impl UniverseNonceManager {
             },
         ).await?;
         
-        let mut tx = Transaction::new_with_payer(&[create_ix], Some(payer));
+        let mut tx = Transaction::new_with_payer(&create_ix, Some(payer));
         tx.message.recent_blockhash = blockhash;
         
         // Sign with local nonce keypair (this is an exception - nonce account creation)
@@ -916,7 +926,15 @@ impl UniverseNonceManager {
         let nonce_state: State = bincode::deserialize(&account.data)
             .map_err(|e| NonceError::InvalidNonceAccount(e.to_string()))?;
         
-        Ok((nonce_state.blockhash(), nonce_state.last_valid_slot()))
+        let nonce_data = match nonce_state {
+            State::Initialized(data) => data,
+            State::Uninitialized => {
+                return Err(NonceError::InvalidNonceAccount("Nonce account is uninitialized".to_string()));
+            }
+        };
+        
+        // Return blockhash and a placeholder for slot (0 means not available from nonce account)
+        Ok((nonce_data.blockhash(), 0))
     }
     
     /// Acquire a nonce with lease model (Step 3)
