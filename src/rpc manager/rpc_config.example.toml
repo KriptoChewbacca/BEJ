@@ -1,0 +1,64 @@
+# RPC Manager Configuration Example
+# This file demonstrates the configuration options for the RPC Manager
+
+# Health check interval in seconds
+health_check_interval_secs = 1
+
+# Circuit breaker failure threshold (number of consecutive failures before opening)
+circuit_breaker_failure_threshold = 5
+
+# Circuit breaker timeout in seconds (how long to wait before attempting recovery)
+circuit_breaker_timeout_secs = 60
+
+# Enable predictive failure detection using ML models
+enable_predictive_failure = true
+
+# Predictive failure probability threshold (0.0 - 1.0)
+predictive_failure_threshold = 0.75
+
+# Enable telemetry and metrics export
+enable_telemetry = true
+
+# Optional: Telemetry export endpoint
+# telemetry_endpoint = "http://localhost:4317"
+
+# RPC Endpoints Configuration
+[[endpoints]]
+url = "https://api.mainnet-beta.solana.com"
+weight = 1.0
+max_concurrency = 100
+timeout_ms = 5000
+rate_limit_rps = 100
+# credentials = "your-api-key-here"  # Optional
+
+[[endpoints]]
+url = "https://solana-api.projectserum.com"
+weight = 1.5
+max_concurrency = 150
+timeout_ms = 3000
+rate_limit_rps = 200
+
+[[endpoints]]
+url = "https://api.devnet.solana.com"
+weight = 0.5
+max_concurrency = 50
+timeout_ms = 10000
+rate_limit_rps = 50
+
+# Example with credentials
+# [[endpoints]]
+# url = "https://rpc.helius.xyz"
+# weight = 2.0
+# max_concurrency = 200
+# timeout_ms = 2000
+# rate_limit_rps = 300
+# credentials = "your-helius-api-key"
+
+# Example with preferred nonce account
+# [[endpoints]]
+# url = "https://your-private-rpc.com"
+# weight = 3.0
+# max_concurrency = 500
+# timeout_ms = 1000
+# rate_limit_rps = 1000
+# preferred_nonce_account = "YourNonceAccount11111111111111111111111111"
