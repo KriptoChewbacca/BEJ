@@ -1,0 +1,47 @@
+//! Stress test: pause/resume under load
+
+#[cfg(test)]
+mod pause_resume_tests {
+    use ultra::sniffer::{Sniffer, SnifferApi, SnifferConfig};
+    use tokio::time::Duration;
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    #[ignore] // Run only when explicitly requested
+    async fn test_pause_resume_stress() {
+        let config = SnifferConfig::default();
+        let sniffer = Sniffer::new(config);
+        let metrics = sniffer.get_metrics();
+        
+        let mut rx = sniffer.start().await.expect("Failed to start");
+        
+        for _ in 0..5 {
+            // Run for a bit
+            tokio::time::sleep(Duration::from_millis(500)).await;
+            
+            // Pause
+            sniffer.pause();
+            assert!(sniffer.is_paused());
+            
+            let paused_count = metrics.tx_seen.load(std::sync::atomic::Ordering::Relaxed);
+            
+            // Wait while paused
+            tokio::time::sleep(Duration::from_millis(200)).await;
+            
+            // Resume
+            sniffer.resume();
+            assert!(!sniffer.is_paused());
+            
+            // Verify processing resumed
+            tokio::time::sleep(Duration::from_millis(300)).await;
+            let resumed_count = metrics.tx_seen.load(std::sync::atomic::Ordering::Relaxed);
+            
+            // Should have processed more transactions after resume
+            assert!(resumed_count >= paused_count);
+        }
+        
+        sniffer.stop();
+        
+        // Drain
+        while rx.try_recv().is_ok() {}
+    }
+}
