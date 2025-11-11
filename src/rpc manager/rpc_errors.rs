@@ -1,4 +1,3 @@
-use std::fmt;
 use solana_client::client_error::ClientError;
 use thiserror::Error;
 

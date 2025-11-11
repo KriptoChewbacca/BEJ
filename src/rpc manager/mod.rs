@@ -15,8 +15,7 @@ pub mod rpc_metrics;
 pub mod rpc_atomics;
 
 // Re-exports for convenience
-pub use rpc_pool::{EndpointConfig, EndpointType, HealthStatus, RpcPool};
-pub use rpc_errors::RpcManagerError;
+pub use rpc_pool::{EndpointConfig, EndpointType};
 
 /// Trait for RPC broadcasting functionality
 pub trait RpcBroadcaster: Send + Sync + std::fmt::Debug {

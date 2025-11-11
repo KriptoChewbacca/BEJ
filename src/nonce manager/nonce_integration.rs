@@ -7,11 +7,10 @@
 ///! - Transaction building flow with nonce leases
 
 use solana_sdk::{
-    hash::Hash,
     instruction::Instruction,
     pubkey::Pubkey,
-    signature::{Keypair, Signature},
-    transaction::{Transaction, VersionedTransaction},
+    signature::Signature,
+    transaction::Transaction,
 };
 use solana_client::nonblocking::rpc_client::RpcClient;
 use std::sync::Arc;

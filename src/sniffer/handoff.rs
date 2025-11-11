@@ -6,7 +6,6 @@ use tracing::{debug, warn};
 use super::extractor::PremintCandidate;
 use super::telemetry::{SnifferMetrics, HandoffDiagnostics};
 use super::config::DropPolicy;
-use super::dataflow::SnifferEvent;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 

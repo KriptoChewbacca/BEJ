@@ -244,7 +244,7 @@ impl RLAgent {
         let mut q_table = self.q_table.write().await;
         
         // Find max Q-value for next state
-        let mut max_next_q = 0.0;
+        let mut max_next_q: f64 = 0.0;
         for idx in 0..self.actions.len() {
             let next_q = q_table.get(&(next_state, idx)).copied().unwrap_or(0.0);
             max_next_q = max_next_q.max(next_q);

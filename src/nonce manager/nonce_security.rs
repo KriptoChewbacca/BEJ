@@ -139,18 +139,18 @@ impl RbacManager {
         
         self.assignments.write().await.push(assignment);
         
-        self.log_security_event(SecurityEventType::RoleAssigned {
-            target: pubkey,
-            role,
-            assigned_by,
-        }).await;
-        
         info!(
             pubkey = %pubkey,
             role = ?role,
             assigned_by = %assigned_by,
             "Role assigned"
         );
+        
+        self.log_security_event(SecurityEventType::RoleAssigned {
+            target: pubkey,
+            role,
+            assigned_by,
+        }).await;
         
         Ok(())
     }
@@ -713,7 +713,8 @@ async fn sequential_verify_zk(
     proofs: Vec<&ZkProofData>,
     current_slot: u64,
 ) -> NonceResult<Vec<f64>> {
-    let mut confidence_scores = Vec::with_capacity(proofs.len());
+    let batch_size = proofs.len();
+    let mut confidence_scores = Vec::with_capacity(batch_size);
     
     for proof_data in proofs {
         // Verify each proof individually
@@ -740,7 +741,7 @@ async fn sequential_verify_zk(
     }
     
     debug!(
-        batch_size = proofs.len(),
+        batch_size = batch_size,
         "Sequential verification completed"
     );
     

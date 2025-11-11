@@ -9,7 +9,6 @@
 use super::nonce_errors::{NonceError, NonceResult};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
-    commitment_config::{CommitmentConfig, CommitmentLevel},
     pubkey::Pubkey,
     signature::Signature,
 };
@@ -145,7 +144,7 @@ impl SignatureMonitor {
             // Check signature status
             match self.rpc_client.get_signature_status(&signature).await {
                 Ok(Some(status)) => {
-                    if let Some(err) = status.err {
+                    if let Some(err) = status.err() {
                         error!(
                             signature = %signature,
                             error = ?err,
@@ -173,40 +172,36 @@ impl SignatureMonitor {
                         return;
                     }
                     
-                    // Check if confirmed
-                    if status.satisfies_commitment(CommitmentConfig {
-                        commitment: CommitmentLevel::Confirmed,
-                    }) {
-                        debug!(
-                            signature = %signature,
-                            attempts = attempts,
-                            latency_ms = started_at.elapsed().as_millis(),
-                            "Transaction confirmed"
-                        );
-                        
-                        // Try to get the updated slot info
-                        let last_valid_slot = self.get_nonce_last_valid_slot(nonce_account).await;
-                        
-                        let telemetry = RefreshTelemetry {
-                            nonce_account,
-                            signature,
-                            started_at,
-                            confirmed_at: Some(Instant::now()),
-                            attempts,
-                            endpoint: self.endpoint.clone(),
-                            success: true,
-                            error: None,
-                        };
-                        
-                        let _ = self.results_tx.send(MonitorResult {
-                            signature,
-                            status: RefreshStatus::Confirmed,
-                            last_valid_slot,
-                            telemetry,
-                        });
-                        
-                        return;
-                    }
+                    // If status is Ok(()), transaction is confirmed
+                    debug!(
+                        signature = %signature,
+                        attempts = attempts,
+                        latency_ms = started_at.elapsed().as_millis(),
+                        "Transaction confirmed"
+                    );
+                    
+                    // Try to get the updated slot info
+                    let last_valid_slot = self.get_nonce_last_valid_slot(nonce_account).await;
+                    
+                    let telemetry = RefreshTelemetry {
+                        nonce_account,
+                        signature,
+                        started_at,
+                        confirmed_at: Some(Instant::now()),
+                        attempts,
+                        endpoint: self.endpoint.clone(),
+                        success: true,
+                        error: None,
+                    };
+                    
+                    let _ = self.results_tx.send(MonitorResult {
+                        signature,
+                        status: RefreshStatus::Confirmed,
+                        last_valid_slot,
+                        telemetry,
+                    });
+                    
+                    return;
                 }
                 Ok(None) => {
                     // Signature not found yet, keep waiting
@@ -231,9 +226,22 @@ impl SignatureMonitor {
     async fn get_nonce_last_valid_slot(&self, nonce_account: Pubkey) -> Option<u64> {
         match self.rpc_client.get_account(&nonce_account).await {
             Ok(account) => {
-                match solana_sdk::nonce::State::from_account(&account) {
+                match bincode::deserialize::<solana_sdk::nonce::State>(&account.data) {
                     Ok(state) => {
-                        Some(state.last_valid_slot())
+                        match state {
+                            solana_sdk::nonce::State::Initialized(_data) => {
+                                // Note: last_valid_slot is not directly available in State
+                                // Return 0 as placeholder - slot info would come from RPC context
+                                Some(0)
+                            }
+                            solana_sdk::nonce::State::Uninitialized => {
+                                warn!(
+                                    nonce_account = %nonce_account,
+                                    "Nonce account is uninitialized"
+                                );
+                                None
+                            }
+                        }
                     }
                     Err(err) => {
                         warn!(

@@ -1,7 +1,6 @@
 //! Structured logging and pipeline context
 
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use uuid::Uuid;
 
 /// Pipeline execution context for distributed tracing

@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::time::{Duration, Instant};
 
 /// Health check response for HTTP endpoint
 #[derive(Debug, Clone, Serialize, Deserialize)]

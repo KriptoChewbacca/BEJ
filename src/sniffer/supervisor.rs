@@ -7,7 +7,7 @@
 //! - Unified state tracking (Running, Paused, Stopped, Error)
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::time::Duration;
 use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
@@ -206,7 +206,7 @@ impl Supervisor {
                 break;
             }
 
-            let mut workers = self.workers.lock();
+            let mut workers = self.workers.lock().await;
             let mut failed_workers = Vec::new();
 
             // Check for finished workers

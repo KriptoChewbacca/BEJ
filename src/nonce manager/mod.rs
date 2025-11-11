@@ -24,6 +24,5 @@ pub use nonce_manager_integrated::UniverseNonceManager as NonceManager;
 #[cfg(feature = "zk_enabled")]
 pub use nonce_manager_integrated::ZkProofData;
 
-pub use nonce_errors::{NonceError, NonceResult, UniverseErrorType, ErrorClassification};
-pub use nonce_retry::{CircuitBreaker, CircuitState, GlobalCircuitBreaker, ErrorClassifier};
+pub use nonce_errors::NonceError;
 pub use nonce_lease::NonceLease;

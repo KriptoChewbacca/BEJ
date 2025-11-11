@@ -8,7 +8,7 @@
 ///! 
 ///! Task 1 Enhancement: Proper lease semantics with nonce_pubkey and advance instruction support
 
-use super::nonce_errors::{NonceError, NonceResult};
+use super::nonce_errors::NonceResult;
 use super::nonce_manager_integrated::ZkProofData;
 use solana_sdk::{
     hash::Hash,

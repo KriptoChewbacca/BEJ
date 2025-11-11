@@ -1,7 +1,6 @@
 //! Observability module for correlation and tracing
 
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use uuid::Uuid;
 
 /// Correlation ID for tracking requests across components

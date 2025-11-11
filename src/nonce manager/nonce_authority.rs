@@ -8,7 +8,7 @@
 
 use solana_sdk::{
     pubkey::Pubkey,
-    signature::{Keypair, Signature},
+    signature::{Keypair, Signature, Signer},
     system_instruction,
     transaction::Transaction,
 };
@@ -16,7 +16,7 @@ use solana_client::nonblocking::rpc_client::RpcClient;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn, instrument};
+use tracing::{info, warn, instrument};
 use serde::{Deserialize, Serialize};
 
 use super::nonce_errors::{NonceError, NonceResult};
@@ -408,7 +408,7 @@ impl AuthorityRotationManager {
         
         match status {
             Some(result) => {
-                if let Some(err) = result.err {
+                if let Some(err) = result.err() {
                     // Transaction failed
                     let now = SystemTime::now();
                     proposal.state = RotationState::Failed {

@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
 
 /// Configuration for an individual RPC endpoint
 #[derive(Debug, Clone, Serialize, Deserialize)]
