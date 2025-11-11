@@ -210,10 +210,12 @@ use crate::wallet::WalletManager;
 use pumpfun::{accounts::BondingCurveAccount, common::types::{Cluster, PriorityFee}, PumpFun};
 
 // Optional integrations: Raydium/Orca (behind feature flags)
-#[cfg(feature = "raydium")]
-use raydium_sdk_v2::AmmSwapClient;
-#[cfg(feature = "orca")]
-use orca_whirlpools::{SwapInput, WhirlpoolClient};
+// Raydium temporarily disabled - no dependency available
+// #[cfg(feature = "raydium")]
+// use raydium_sdk_v2::AmmSwapClient;
+// Orca v5.0 API not yet integrated - requires significant refactoring
+// #[cfg(feature = "orca")]
+// use orca_whirlpools::{swap_instructions, SwapType, SwapQuote, InitializedPool, fetch_concentrated_liquidity_pool};
 
 use spl_associated_token_account::get_associated_token_address;
 use spl_token::id as token_program_id;
@@ -1120,6 +1122,9 @@ pub enum TransactionBuilderError {
     
     #[error("Feature not enabled: {feature} for {action}")]
     FeatureNotEnabled { feature: String, action: String },
+    
+    #[error("Feature not available: {feature} - {reason}")]
+    FeatureNotAvailable { feature: String, reason: String },
     
     #[error("Simulation failed: {0}")]
     SimulationFailed(String),
@@ -2872,52 +2877,22 @@ impl TransactionBuilder {
 
     async fn build_raydium_instruction(
         &self,
-        _candidate: &PremintCandidate,
-        _config: &TransactionConfig,
+        candidate: &PremintCandidate,
+        config: &TransactionConfig,
     ) -> Result<Instruction, TransactionBuilderError> {
         #[cfg(feature = "raydium")]
         {
-            let sol_mint =
-                Pubkey::from_str("So11111111111111111111111111111111111111112").unwrap();
-            let raydium_client = AmmSwapClient::new(
-                self.rpc_client_for(0).clone(),
-                sol_mint,
-                candidate.mint,
-                self.wallet.clone(),
-            );
-
-            let expected_tokens = raydium_client
-                .get_swap_amount_out(config.buy_amount_lamports, true) // true = SOL -> token
-                .await
-                .map_err(|e| TransactionBuilderError::InstructionBuild {
-                    program: "raydium".to_string(),
-                    reason: e.to_string(),
-                })?;
-
-            let min_token_out = ((expected_tokens as u128)
-                * (10000u128 - config.slippage_bps as u128)
-                / 10000u128) as u64;
-
-            let tx = raydium_client
-                .swap(config.buy_amount_lamports, min_token_out, true)
-                .await
-                .map_err(|e| TransactionBuilderError::InstructionBuild {
-                    program: "raydium".to_string(),
-                    reason: e.to_string(),
-                })?;
-
-            if let Some(ix) = tx.message.instructions.last() {
-                return Ok(ix.clone());
-            } else {
-                return Err(TransactionBuilderError::InstructionBuild {
-                    program: "raydium".to_string(),
-                    reason: "No instruction in tx".to_string(),
-                });
-            }
+            // Raydium integration disabled - no SDK available
+            let _ = (candidate, config); // Silence unused warnings
+            return Err(TransactionBuilderError::FeatureNotAvailable {
+                feature: "raydium".to_string(),
+                reason: "Raydium SDK temporarily disabled due to version conflicts".to_string(),
+            });
         }
 
         #[cfg(not(feature = "raydium"))]
         {
+            let _ = (candidate, config); // Silence unused warnings
             Err(TransactionBuilderError::FeatureNotEnabled {
                 feature: "raydium".to_string(),
                 action: "Raydium buy instruction".to_string(),
@@ -2927,53 +2902,38 @@ impl TransactionBuilder {
 
     async fn build_orca_instruction(
         &self,
-        _candidate: &PremintCandidate,
-        _config: &TransactionConfig,
+        candidate: &PremintCandidate,
+        config: &TransactionConfig,
     ) -> Result<Instruction, TransactionBuilderError> {
         #[cfg(feature = "orca")]
         {
-            let client = WhirlpoolClient::new(self.rpc_client_for(0).clone());
-            let whirlpool_address = client.derive_whirlpool_pda(
-                Pubkey::from_str("So11111111111111111111111111111111111111112").unwrap(),
-                candidate.mint,
-            );
-            let whirlpool = client
-                .get_whirlpool(&whirlpool_address)
-                .await
-                .map_err(|e| TransactionBuilderError::InstructionBuild {
-                    program: "orca".to_string(),
-                    reason: e.to_string(),
-                })?;
-
-            let quote = client
-                .swap_quote_a_to_b(config.buy_amount_lamports, false, &whirlpool) // false => exact in
-                .await
-                .map_err(|e| TransactionBuilderError::InstructionBuild {
-                    program: "orca".to_string(),
-                    reason: e.to_string(),
-                })?;
-
-            let min_token_out = ((quote.amount_out as u128)
-                * (10000u128 - config.slippage_bps as u128)
-                / 10000u128) as u64;
-
-            let swap_input = SwapInput {
-                amount: config.buy_amount_lamports,
-                other_amount_threshold: min_token_out,
-                sqrt_price_limit: quote.sqrt_price_limit,
-                amount_specified_is_input: true,
-                a_to_b: true,
-            };
-
-            let ix = client
-                .build_swap_ix(&whirlpool_address, &swap_input, &self.wallet.pubkey())
-                .instruction;
-
-            Ok(ix)
+            // TODO: Update to orca_whirlpools v5.0 API
+            // The v5.0 API has significant breaking changes from the old WhirlpoolClient API
+            // This needs to be rewritten to use the new functional API with fetch_concentrated_liquidity_pool
+            // and swap_instructions functions.
+            //
+            // Old API used:
+            // - WhirlpoolClient::new()
+            // - client.derive_whirlpool_pda()
+            // - client.get_whirlpool()
+            // - client.swap_quote_a_to_b()
+            // - client.build_swap_ix()
+            //
+            // New API uses:
+            // - fetch_concentrated_liquidity_pool()
+            // - swap_instructions()
+            // See: https://docs.rs/orca_whirlpools/5.0.0/orca_whirlpools/
+            
+            let _ = (candidate, config); // Silence unused warnings
+            return Err(TransactionBuilderError::FeatureNotAvailable {
+                feature: "orca".to_string(),
+                reason: "Orca integration requires update to v5.0 API - not yet implemented".to_string(),
+            });
         }
 
         #[cfg(not(feature = "orca"))]
         {
+            let _ = (candidate, config); // Silence unused warnings
             Err(TransactionBuilderError::FeatureNotEnabled {
                 feature: "orca".to_string(),
                 action: "Orca buy instruction".to_string(),

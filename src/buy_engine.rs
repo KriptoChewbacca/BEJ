@@ -1535,7 +1535,7 @@ impl BuyEngine {
                         info!(mint=%candidate.mint, program=%candidate.program, correlation_id=ctx.correlation_id, trace_id=%trace_ctx.trace_id, "Attempting BUY for candidate");
                         metrics().increment_counter("buy_attempts_total");
 
-                        let buy_timer = Timer::new("buy_latency_seconds");
+                        let buy_timer = Timer::with_name("buy_latency_seconds");
                         match self.try_buy_universe(candidate.clone(), ctx.clone(), trace_ctx.clone()).await {
                             Ok(sig) => {
                                 buy_timer.finish();

@@ -12,6 +12,10 @@ pub enum Mode {
     Simulation,
     /// Production mode (real transactions)
     Production,
+    /// Sniffing mode (only monitor, no trading)
+    Sniffing,
+    /// Passive token mode (hold and monitor)
+    PassiveToken,
 }
 
 /// Premint candidate from sniffer
@@ -19,6 +23,9 @@ pub enum Mode {
 pub struct PremintCandidate {
     /// Mint address
     pub mint: Pubkey,
+    
+    /// Program ID that created this token (e.g., "pumpfun", "raydium", "orca")
+    pub program: String,
     
     /// Associated accounts
     pub accounts: Vec<Pubkey>,
@@ -62,6 +69,15 @@ pub struct AppState {
     
     /// Statistics
     pub stats: Arc<RwLock<Stats>>,
+    
+    /// Currently active token (if any)
+    pub active_token: Option<PremintCandidate>,
+    
+    /// Last buy price (if any)
+    pub last_buy_price: Option<f64>,
+    
+    /// Current holdings percentage (0.0 - 1.0)
+    pub holdings_percent: f64,
 }
 
 /// Application statistics
@@ -90,6 +106,9 @@ impl AppState {
             mode: Arc::new(RwLock::new(mode)),
             is_paused: Arc::new(RwLock::new(false)),
             stats: Arc::new(RwLock::new(Stats::default())),
+            active_token: None,
+            last_buy_price: None,
+            holdings_percent: 0.0,
         }
     }
     
@@ -101,6 +120,11 @@ impl AppState {
     /// Get current mode
     pub async fn get_mode(&self) -> Mode {
         *self.mode.read().await
+    }
+    
+    /// Check if in sniffing mode
+    pub async fn is_sniffing(&self) -> bool {
+        matches!(*self.mode.read().await, Mode::Sniffing)
     }
     
     /// Update statistics

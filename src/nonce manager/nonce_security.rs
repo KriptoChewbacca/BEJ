@@ -637,8 +637,9 @@ impl Default for AuthorityRotationManager {
 // Import ZkProofData from nonce_manager_integrated
 use super::nonce_manager_integrated::ZkProofData;
 
-#[cfg(feature = "zk_enabled")]
-use solana_zk_sdk as zk_sdk;
+// ZK SDK imported but not currently used - only referenced in comments
+// #[cfg(feature = "zk_enabled")]
+// use solana_zk_sdk as zk_sdk;
 
 /// Batch verify ZK proofs for multiple nonces
 /// 
