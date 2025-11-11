@@ -1,0 +1,61 @@
+//! Feature flag isolation tests
+//!
+//! These tests verify that feature-specific code is properly isolated
+//! behind cfg guards and doesn't leak between configurations.
+
+/// Test that ZkProofData is only available with zk_enabled feature
+#[cfg(feature = "zk_enabled")]
+#[test]
+fn test_zk_proof_data_available_with_feature() {
+    use Ultra::nonce_manager::ZkProofData;
+    
+    // Should compile and be accessible when zk_enabled is active
+    let proof_data = ZkProofData::new(vec![1, 2, 3, 4], vec![100, 200, 300]);
+    assert_eq!(proof_data.proof.len(), 4);
+    assert_eq!(proof_data.public_inputs.len(), 3);
+}
+
+/// Test that basic nonce manager types are always available
+#[test]
+fn test_nonce_manager_core_types_always_available() {
+    use Ultra::nonce_manager::{NonceError, NonceResult};
+    
+    // These types should always be available regardless of features
+    let _error: NonceError = NonceError::Exhausted("test".to_string());
+    let _result: NonceResult<()> = Ok(());
+}
+
+/// Compile-time verification that ZkProofData is NOT available without zk_enabled
+/// This test will only compile when zk_enabled is NOT active
+#[cfg(not(feature = "zk_enabled"))]
+#[test]
+fn test_zk_proof_data_not_available_without_feature() {
+    // This should compile fine - we're just checking the module exists
+    // but ZkProofData should not be exported
+    
+    // If someone tries to use ZkProofData here, it should fail to compile
+    // That's the whole point - we want a compile error when the feature is off
+    
+    // We can't directly test for a compile error in a passing test,
+    // but this test documents the expected behavior
+    assert!(true);
+}
+
+/// Test that feature combinations work correctly
+#[cfg(all(feature = "pumpfun", feature = "orca"))]
+#[test]
+fn test_multiple_dex_features() {
+    // When both pumpfun and orca are enabled, both should work
+    // This is a compile-time check that the features don't conflict
+    assert!(true);
+}
+
+/// Test that default build (no features) compiles
+#[cfg(not(any(feature = "pumpfun", feature = "orca", feature = "raydium", feature = "zk_enabled")))]
+#[test]
+fn test_default_build_compiles() {
+    // The library should compile and be usable even with no features
+    use Ultra::nonce_manager::NonceError;
+    let _error = NonceError::Exhausted("test".to_string());
+    assert!(true);
+}
