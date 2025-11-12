@@ -2758,10 +2758,10 @@ impl TransactionBuilder {
     ) -> Result<Instruction, TransactionBuilderError> {
         #[cfg(feature = "pumpfun")]
         {
-            // Pobierz bonding curve do obliczeń slippage
+            // Get bonding curve for slippage calculations
             let bonding_curve = self
                 .pumpfun_client
-                .get_bonding_curve(candidate.mint)
+                .get_bonding_curve_account(&candidate.mint)
                 .await
                 .map_err(|e| TransactionBuilderError::InstructionBuild {
                     program: "pumpfun".to_string(),
@@ -2774,7 +2774,7 @@ impl TransactionBuilder {
                 * (10000u128 - config.slippage_bps as u128)
                 / 10000u128) as u64;
 
-            // Buduj tx i wyciągnij instrukcję buy (ostatnia w tx)
+            // Build tx and extract buy instruction (last in tx)
             let priority_fee = PriorityFee {
                 unit_limit: Some(config.compute_unit_limit as u64),
                 unit_price: Some(config.priority_fee_lamports),
@@ -3099,20 +3099,23 @@ impl TransactionBuilder {
         #[cfg(feature = "pumpfun")]
         {
             let ata = get_associated_token_address(&self.wallet.pubkey(), mint);
-            let token_balance = self
-                .pumpfun_client
-                .get_token_balance(ata)
+            
+            // Get token balance directly from RPC
+            let token_account = self
+                .rpc_client_for(0)
+                .get_token_account_balance(&ata)
                 .await
                 .map_err(|e| TransactionBuilderError::InstructionBuild {
                     program: "pumpfun".to_string(),
-                    reason: e.to_string(),
-                })?
-                .unwrap_or(0);
+                    reason: format!("Failed to get token balance: {}", e),
+                })?;
+            
+            let token_balance = token_account.ui_amount.unwrap_or(0.0) as u64;
             let sell_amount = ((token_balance as f64) * sell_percent) as u64;
 
             let bonding_curve = self
                 .pumpfun_client
-                .get_bonding_curve(*mint)
+                .get_bonding_curve_account(mint)
                 .await
                 .map_err(|e| TransactionBuilderError::InstructionBuild {
                     program: "pumpfun".to_string(),
@@ -3157,6 +3160,44 @@ impl TransactionBuilder {
         sell_percent: f64,
         config: &TransactionConfig,
     ) -> Result<Instruction, TransactionBuilderError> {
+        if let Some(url) = &config.letsbonk_api_url {
+            let payload = serde_json::json!({
+                "action": "sell",
+                "mint": mint.to_string(),
+                "sell_percent": sell_percent,
+                "slippage": config.slippage_bps as f64 / 100.0,
+                "payer": self.wallet.pubkey().to_string(),
+            });
+
+            // Apply HTTP rate limiting
+            if let Some(limiter) = &self.http_rate_limiter {
+                limiter.consume(1.0).await;
+            }
+
+            let mut req = self.http.post(url).json(&payload);
+            if let Some(k) = &config.letsbonk_api_key {
+                req = req.header("X-API-KEY", k);
+            }
+
+            match req.send().await {
+                Ok(resp) if resp.status().is_success() => {
+                    let j: serde_json::Value = resp.json().await.map_err(|e| {
+                        TransactionBuilderError::InstructionBuild {
+                            program: "letsbonk".to_string(),
+                            reason: format!("JSON parse error: {}", e),
+                        }
+                    })?;
+                    return self.parse_external_api_response(&j, "letsbonk", config);
+                }
+                Ok(resp) => {
+                    warn!("LetsBonk API error on sell: {}", resp.status());
+                }
+                Err(e) => {
+                    warn!("LetsBonk sell request error: {}", e);
+                }
+            }
+        }
+
         self.build_placeholder_sell_instruction(mint, sell_percent, config)
             .await
     }
