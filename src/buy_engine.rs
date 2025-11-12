@@ -2612,10 +2612,9 @@ mod tests {
             Duration::from_secs(3600), // High TTL for testing
         ).await;
 
-        // Create test config with nonce_count = 0 to skip nonce acquisition in test
-        // This allows the test to use the fallback placeholder transaction creation
+        // Create test config
         let config = Config {
-            nonce_count: 0,  // Skip nonce acquisition - use placeholder transactions
+            nonce_count: 1,
             ..Config::default()
         };
 
