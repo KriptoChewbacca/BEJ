@@ -1513,7 +1513,7 @@ impl TransactionBuilder {
         } else {
             // Time-based cache only
             let cache = self.blockhash_cache.read().await;
-            let now = Instant::now();
+            let _now = Instant::now();
             if let Some((hash, _)) = cache.iter()
                 .filter(|(_, (instant, _))| instant.elapsed() < self.blockhash_cache_ttl)
                 .max_by_key(|(_, (instant, _))| *instant)
@@ -1727,7 +1727,7 @@ impl TransactionBuilder {
                     zk_proof,
                 })
             }
-            Err(e) => {
+            Err(_e) => {
                 // Record exhaustion event
                 self.nonce_exhausted_count.fetch_add(1, Ordering::Relaxed);
                 
@@ -2076,7 +2076,7 @@ impl TransactionBuilder {
         // Universe Class: ML-based slippage optimization
         // Note: We use the original config but the instruction builders will use 
         // config.slippage_bps which should be set at transaction building time
-        let optimized_slippage = if config.enable_ml_slippage {
+        let _optimized_slippage = if config.enable_ml_slippage {
             let predictor = self.slippage_predictor.read().await;
             predictor.predict_optimal_slippage(config.slippage_bps)
         } else {
@@ -2084,7 +2084,7 @@ impl TransactionBuilder {
         };
         
         // Pre-allocate instruction vector for hot-path performance
-        let mut instructions: Vec<Instruction> = Vec::with_capacity(4);
+        let mut _instructions: Vec<Instruction> = Vec::with_capacity(4);
 
         // Universe Class: Dynamic compute unit limit (will be set after simulation)
         let mut dynamic_cu_limit = config.compute_unit_limit;
@@ -2156,7 +2156,7 @@ impl TransactionBuilder {
                 // Check simulation cache first
                 let cached_result = if cache_enabled {
                     self.simulation_cache.get(&message_hash).and_then(|entry| {
-                        let current_slot = entry.slot; // Will be validated below
+                        let _current_slot = entry.slot; // Will be validated below
                         let elapsed = entry.cached_at.elapsed().as_secs();
                         
                         // Task 1: Blockhash used only for freshness validation, not as primary key
@@ -2383,7 +2383,7 @@ impl TransactionBuilder {
         let recent_blockhash = exec_ctx.blockhash;
 
         // Pre-allocate instruction vector for hot-path performance
-        let mut instructions: Vec<Instruction> = Vec::with_capacity(4);
+        let mut _instructions: Vec<Instruction> = Vec::with_capacity(4);
 
         // Task 2: Dynamic compute unit limit (will be set after simulation)
         let mut dynamic_cu_limit = config.compute_unit_limit;

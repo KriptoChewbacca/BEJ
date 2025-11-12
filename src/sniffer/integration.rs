@@ -430,7 +430,7 @@ impl Sniffer {
     async fn config_reload_loop(
         config_path: String,
         analytics: Arc<PredictiveAnalytics>,
-        handoff_diagnostics: Arc<HandoffDiagnostics>,
+        _handoff_diagnostics: Arc<HandoffDiagnostics>,
         running: Arc<AtomicBool>,
     ) {
         use tokio::time::interval;
@@ -499,7 +499,7 @@ impl SnifferApi for Sniffer {
         let health_ok = Arc::clone(&self.health_ok);
         let event_collector = Arc::clone(&self.event_collector);
         let handoff_diagnostics = Arc::clone(&self.handoff_diagnostics);
-        let supervisor = Arc::clone(&self.supervisor);
+        let _supervisor = Arc::clone(&self.supervisor);
 
         // Spawn main processing loop and register with supervisor
         let process_handle = tokio::spawn(async move {

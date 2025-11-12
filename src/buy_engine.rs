@@ -2115,7 +2115,7 @@ impl BuyEngine {
         
         // FIX #4: Implement retry with exponential backoff and endpoint rotation
         let mut attempt = 0;
-        let max_attempts = self.exponential_backoff.max_retries;
+        let _max_attempts = self.exponential_backoff.max_retries;
         
         loop {
             // Try to acquire token bucket permit
@@ -2185,7 +2185,7 @@ impl BuyEngine {
     /// FIX #6: Transaction simulation with policy-based handling
     async fn simulate_transaction(
         &self,
-        tx: &VersionedTransaction,
+        _tx: &VersionedTransaction,
     ) -> SimulationResult {
         // In production, this would call RPC simulate_transaction
         // For now, placeholder implementation
