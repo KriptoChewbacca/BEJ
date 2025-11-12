@@ -106,7 +106,7 @@ mod raii_comprehensive_tests {
         
         // Create lease with release callback
         let released_flag = Arc::new(RwLock::new(false));
-        let released_flag_clone = released_flag.clone();
+        let _released_flag_clone = released_flag.clone();
         
         {
             let _lease = NonceLease::new(
@@ -257,12 +257,22 @@ mod raii_comprehensive_tests {
     // Helper function to create a test nonce manager
     async fn create_test_nonce_manager(pool_size: usize) -> Arc<UniverseNonceManager> {
         use crate::nonce_manager::UniverseNonceManager;
-        use crate::rpc_manager::rpc_pool::RpcPool;
+        use crate::rpc_manager::rpc_pool::{RpcPool, EndpointConfig, EndpointType};
         
         // Create test RPC pool
-        let rpc_pool = Arc::new(RpcPool::new(vec![
-            "https://api.mainnet-beta.solana.com".to_string()
-        ], 5));
+        let endpoint_config = EndpointConfig {
+            url: "https://api.mainnet-beta.solana.com".to_string(),
+            endpoint_type: EndpointType::Standard,
+            weight: 1.0,
+            max_requests_per_second: 100,
+        };
+        
+        let rpc_pool = Arc::new(RpcPool::new(
+            vec![endpoint_config],
+            Duration::from_secs(60),
+            5,
+            Duration::from_secs(300),
+        ));
         
         // Create nonce authority keypair
         let authority = Arc::new(Keypair::new());
@@ -345,11 +355,21 @@ mod zk_integration_tests {
     // Helper to create nonce manager for ZK tests
     async fn create_test_nonce_manager_with_zk(pool_size: usize) -> Arc<UniverseNonceManager> {
         use crate::nonce_manager::UniverseNonceManager;
-        use crate::rpc_manager::rpc_pool::RpcPool;
+        use crate::rpc_manager::rpc_pool::{RpcPool, EndpointConfig, EndpointType};
         
-        let rpc_pool = Arc::new(RpcPool::new(vec![
-            "https://api.mainnet-beta.solana.com".to_string()
-        ], 5));
+        let endpoint_config = EndpointConfig {
+            url: "https://api.mainnet-beta.solana.com".to_string(),
+            endpoint_type: EndpointType::Standard,
+            weight: 1.0,
+            max_requests_per_second: 100,
+        };
+        
+        let rpc_pool = Arc::new(RpcPool::new(
+            vec![endpoint_config],
+            Duration::from_secs(60),
+            5,
+            Duration::from_secs(300),
+        ));
         
         let authority = Arc::new(Keypair::new());
         let mut nonce_accounts = vec![];

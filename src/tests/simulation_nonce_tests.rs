@@ -8,7 +8,7 @@
 #[cfg(test)]
 mod simulation_nonce_tests {
     use crate::nonce_manager::UniverseNonceManager;
-    use crate::rpc_manager::rpc_pool::RpcPool;
+    use crate::rpc_manager::rpc_pool::{RpcPool, EndpointConfig, EndpointType};
     use solana_sdk::{
         hash::Hash,
         pubkey::Pubkey,
@@ -17,16 +17,25 @@ mod simulation_nonce_tests {
         system_instruction,
         message::{v0::Message as MessageV0, VersionedMessage},
         transaction::VersionedTransaction,
-        signer::Signer,
     };
     use std::sync::Arc;
     use std::time::Duration;
 
     /// Helper: Create test nonce manager
     async fn create_test_nonce_manager(pool_size: usize) -> Arc<UniverseNonceManager> {
-        let rpc_pool = Arc::new(RpcPool::new(vec![
-            "https://api.mainnet-beta.solana.com".to_string()
-        ], 5));
+        let endpoint_config = EndpointConfig {
+            url: "https://api.mainnet-beta.solana.com".to_string(),
+            endpoint_type: EndpointType::Standard,
+            weight: 1.0,
+            max_requests_per_second: 100,
+        };
+        
+        let rpc_pool = Arc::new(RpcPool::new(
+            vec![endpoint_config],
+            Duration::from_secs(60),
+            5,
+            Duration::from_secs(300),
+        ));
         
         let authority = Arc::new(Keypair::new());
         let mut nonce_accounts = vec![];

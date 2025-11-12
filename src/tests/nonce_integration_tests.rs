@@ -9,7 +9,7 @@
 #[cfg(test)]
 mod nonce_integration_tests {
     use crate::nonce_manager::UniverseNonceManager;
-    use crate::rpc_manager::rpc_pool::RpcPool;
+    use crate::rpc_manager::rpc_pool::{RpcPool, EndpointConfig, EndpointType};
     use solana_sdk::{
         hash::Hash,
         pubkey::Pubkey,
@@ -25,9 +25,19 @@ mod nonce_integration_tests {
 
     /// Helper: Create test nonce manager
     async fn create_test_nonce_manager(pool_size: usize) -> Arc<UniverseNonceManager> {
-        let rpc_pool = Arc::new(RpcPool::new(vec![
-            "https://api.mainnet-beta.solana.com".to_string()
-        ], 5));
+        let endpoint_config = EndpointConfig {
+            url: "https://api.mainnet-beta.solana.com".to_string(),
+            endpoint_type: EndpointType::Standard,
+            weight: 1.0,
+            max_requests_per_second: 100,
+        };
+        
+        let rpc_pool = Arc::new(RpcPool::new(
+            vec![endpoint_config],
+            Duration::from_secs(60),
+            5,
+            Duration::from_secs(300),
+        ));
         
         let authority = Arc::new(Keypair::new());
         let mut nonce_accounts = vec![];
@@ -302,9 +312,19 @@ mod nonce_integration_tests {
     #[tokio::test]
     async fn test_lease_expiry_during_transaction() {
         // Create manager with short lease timeout
-        let rpc_pool = Arc::new(RpcPool::new(vec![
-            "https://api.mainnet-beta.solana.com".to_string()
-        ], 5));
+        let endpoint_config = EndpointConfig {
+            url: "https://api.mainnet-beta.solana.com".to_string(),
+            endpoint_type: EndpointType::Standard,
+            weight: 1.0,
+            max_requests_per_second: 100,
+        };
+        
+        let rpc_pool = Arc::new(RpcPool::new(
+            vec![endpoint_config],
+            Duration::from_secs(60),
+            5,
+            Duration::from_secs(300),
+        ));
         
         let authority = Arc::new(Keypair::new());
         let nonce_accounts = vec![Pubkey::new_unique()];

@@ -295,7 +295,7 @@ mod tests {
         assert!(invalid_config.validate().is_err());
         
         // Duplicate URLs
-        let mut dup_config = RpcManagerConfig::from_urls(&vec![
+        let dup_config = RpcManagerConfig::from_urls(&vec![
             "https://api.mainnet-beta.solana.com".to_string(),
             "https://api.mainnet-beta.solana.com".to_string(),
         ]);

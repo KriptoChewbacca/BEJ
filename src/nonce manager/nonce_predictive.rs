@@ -1089,8 +1089,8 @@ mod tests {
         
         // Test different congestion states
         let (attempts_low, jitter_low) = model.get_optimal_action(500, 0);
-        let (attempts_med, jitter_med) = model.get_optimal_action(2000, 0);
-        let (attempts_high, jitter_high) = model.get_optimal_action(3500, 0);
+        let (_attempts_med, _jitter_med) = model.get_optimal_action(2000, 0);
+        let (attempts_high, _jitter_high) = model.get_optimal_action(3500, 0);
         
         // Low TPS should have more attempts
         assert!(attempts_low >= attempts_high);

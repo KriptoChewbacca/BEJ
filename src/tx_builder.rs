@@ -3734,7 +3734,7 @@ mod tests {
         let tx = create_test_transaction(1);
         
         {
-            let output = TxBuildOutput::new(tx, Some(lease));
+            let _output = TxBuildOutput::new(tx, Some(lease));
             // Verify lease not released yet
             assert!(!released.load(AtomicOrdering::SeqCst));
             // output goes out of scope here and Drop is called

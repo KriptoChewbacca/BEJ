@@ -13,11 +13,12 @@ pub mod test_helpers {
         pubkey::Pubkey,
         signature::Keypair,
         signer::Signer,
-        instruction::{Instruction, AccountMeta},
+        instruction::{Instruction, AccountMeta, CompiledInstruction},
         system_instruction,
         message::{v0::Message as MessageV0, VersionedMessage},
         transaction::VersionedTransaction,
     };
+    use crate::compat::get_static_account_keys;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
     use std::time::{Duration, Instant};
@@ -326,20 +327,21 @@ pub mod test_helpers {
 
     /// Helper: Assert nonce transaction is valid
     pub fn assert_valid_nonce_transaction(tx: &VersionedTransaction) {
-        // Extract instructions from message
-        let instructions = match &tx.message {
-            VersionedMessage::V0(msg) => {
-                msg.instructions.iter().map(|ix| {
-                    let program_id = msg.static_account_keys()[ix.program_id_index as usize];
-                    Instruction {
-                        program_id,
-                        accounts: vec![], // Simplified for testing
-                        data: ix.data.clone(),
-                    }
-                }).collect::<Vec<_>>()
-            }
-            VersionedMessage::Legacy(msg) => msg.instructions.clone(),
+        // Extract instructions from message - both Legacy and V0 have CompiledInstruction
+        let (compiled_instructions, account_keys) = match &tx.message {
+            VersionedMessage::V0(msg) => (&msg.instructions, get_static_account_keys(&tx.message)),
+            VersionedMessage::Legacy(msg) => (&msg.instructions, get_static_account_keys(&tx.message)),
         };
+        
+        // Convert compiled instructions to regular instructions for verification
+        let instructions: Vec<Instruction> = compiled_instructions.iter().map(|ix| {
+            let program_id = account_keys[ix.program_id_index as usize];
+            Instruction {
+                program_id,
+                accounts: vec![], // Simplified for testing
+                data: ix.data.clone(),
+            }
+        }).collect();
 
         // Verify ordering
         verify_nonce_transaction_ordering(&instructions)
