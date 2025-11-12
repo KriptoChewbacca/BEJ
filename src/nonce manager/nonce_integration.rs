@@ -1,11 +1,10 @@
-///! BuyEngine integration for nonce management
-///! 
-///! This module implements Step 7 requirements:
-///! - Finalized API contract for acquire_nonce/release with Drop semantics
-///! - Integration points documentation
-///! - SignerService injection
-///! - Transaction building flow with nonce leases
-
+//! BuyEngine integration for nonce management
+//! 
+//! This module implements Step 7 requirements:
+//! - Finalized API contract for acquire_nonce/release with Drop semantics
+//! - Integration points documentation
+//! - SignerService injection
+//! - Transaction building flow with nonce leases
 use solana_sdk::{
     instruction::Instruction,
     pubkey::Pubkey,

@@ -265,10 +265,9 @@ impl AlertManager {
                 
                 self.active_alerts.insert(config.name.clone(), alert.clone());
                 return Some(alert);
-            } else {
-                // Clear alert if condition no longer met
-                self.active_alerts.remove(metric_name);
             }
+            // Clear alert if condition no longer met
+            self.active_alerts.remove(metric_name);
         }
         
         None

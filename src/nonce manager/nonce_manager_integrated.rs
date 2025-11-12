@@ -1,13 +1,12 @@
-///! Integrated Nonce Manager demonstrating all Universe Class improvements
-///!
-///! This module demonstrates proper integration of:
-///! - Safe error handling with retry logic 
-///! - Signer abstraction 
-///! - Lease model with watchdog 
-///! - Non-blocking refresh 
-///! - Atomic slot validation 
-///! - Hardened predictive model
-
+//! Integrated Nonce Manager demonstrating all Universe Class improvements
+//!
+//! This module demonstrates proper integration of:
+//! - Safe error handling with retry logic 
+//! - Signer abstraction 
+//! - Lease model with watchdog 
+//! - Non-blocking refresh 
+//! - Atomic slot validation 
+//! - Hardened predictive model
 use super::nonce_errors::{NonceError, NonceResult};
 use super::nonce_retry::{retry_with_backoff, RetryConfig};
 use super::nonce_signer::SignerService;

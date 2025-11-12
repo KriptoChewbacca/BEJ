@@ -1,11 +1,10 @@
-///! Comprehensive telemetry and metrics for nonce management
-///! 
-///! This module implements Step 3 requirements:
-///! - Prometheus-compatible metrics (counters, histograms, gauges)
-///! - Instrumentation with unique request_id and nonce_id
-///! - Alerting rules and thresholds
-///! - SLA metrics tracking
-
+//! Comprehensive telemetry and metrics for nonce management
+//! 
+//! This module implements Step 3 requirements:
+//! - Prometheus-compatible metrics (counters, histograms, gauges)
+//! - Instrumentation with unique request_id and nonce_id
+//! - Alerting rules and thresholds
+//! - SLA metrics tracking
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};

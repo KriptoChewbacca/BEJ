@@ -1,12 +1,11 @@
-///! Security hardening for nonce management
-///! 
-///! This module implements Step 5 requirements:
-///! - Zeroize for keypair memory protection
-///! - File permission checks (POSIX)
-///! - Remote signer/HSM adapters
-///! - Audit logging for key operations
-///! - Separation of roles (nonce authority ≠ payer)
-
+//! Security hardening for nonce management
+//! 
+//! This module implements Step 5 requirements:
+//! - Zeroize for keypair memory protection
+//! - File permission checks (POSIX)
+//! - Remote signer/HSM adapters
+//! - Audit logging for key operations
+//! - Separation of roles (nonce authority ≠ payer)
 use solana_sdk::{
     pubkey::Pubkey,
     signature::{Keypair, Signer},

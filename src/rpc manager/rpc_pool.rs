@@ -1,17 +1,16 @@
-///! Enhanced RPC pooling with health checks, batching, and intelligent rotation
-///! 
-///! This module implements Step 1 requirements:
-///! - Configurable RPC/TPU endpoint list with priorities and health state
-///! - Periodic health checking (get_version / get_slot)
-///! - Intelligent rotation (round-robin + priority for TPU)
-///! - Batching for multi-account queries (get_multiple_accounts)
-///! - Short-term caching with TTL
-///!
-///! ## Security Enhancements (Integrated with Nonce Manager)
-///! - ZK proof verification for account responses (prevents RPC spoofing)
-///! - Taint marking for unverified endpoint data
-///! - Integration point: account fetch methods should verify ZK proofs from nonce manager
-
+//! Enhanced RPC pooling with health checks, batching, and intelligent rotation
+//! 
+//! This module implements Step 1 requirements:
+//! - Configurable RPC/TPU endpoint list with priorities and health state
+//! - Periodic health checking (get_version / get_slot)
+//! - Intelligent rotation (round-robin + priority for TPU)
+//! - Batching for multi-account queries (get_multiple_accounts)
+//! - Short-term caching with TTL
+//!
+//! ## Security Enhancements (Integrated with Nonce Manager)
+//! - ZK proof verification for account responses (prevents RPC spoofing)
+//! - Taint marking for unverified endpoint data
+//! - Integration point: account fetch methods should verify ZK proofs from nonce manager
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{account::Account, pubkey::Pubkey, commitment_config::CommitmentConfig};
 use std::collections::HashMap;

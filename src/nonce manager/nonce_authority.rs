@@ -1,11 +1,10 @@
-///! Authority rotation and multisig management for nonce accounts
-///! 
-///! This module implements Step 2 requirements:
-///! - Authority rotation process (proposal → execute → commit → finalize)
-///! - Audit logging for each step
-///! - Multisig/timelock support for critical operations
-///! - Explicit rollback path for failed rotations
-
+//! Authority rotation and multisig management for nonce accounts
+//! 
+//! This module implements Step 2 requirements:
+//! - Authority rotation process (proposal → execute → commit → finalize)
+//! - Audit logging for each step
+//! - Multisig/timelock support for critical operations
+//! - Explicit rollback path for failed rotations
 use solana_sdk::{
     pubkey::Pubkey,
     signature::{Keypair, Signature, Signer},
@@ -432,32 +431,31 @@ impl AuthorityRotationManager {
                         proposal.nonce_account,
                         err.to_string(),
                     ));
-                } else {
-                    // Transaction succeeded
-                    let now = SystemTime::now();
-                    proposal.state = RotationState::Committed {
-                        proposal_id: proposal_id.to_string(),
-                        confirmed_at: now,
-                        signature,
-                    };
-                    
-                    self.log_event(RotationAuditLog {
-                        proposal_id: proposal_id.to_string(),
-                        event_type: RotationEventType::Confirmed,
-                        timestamp: now,
-                        actor: proposal.current_authority,
-                        details: "Transaction confirmed on-chain".to_string(),
-                        signature_history: vec![signature],
-                        endpoints_used: vec![],
-                        duration_ms: None,
-                    }).await;
-                    
-                    info!(
-                        proposal_id = %proposal_id,
-                        signature = %signature,
-                        "Authority rotation confirmed"
-                    );
                 }
+                // Transaction succeeded
+                let now = SystemTime::now();
+                proposal.state = RotationState::Committed {
+                    proposal_id: proposal_id.to_string(),
+                    confirmed_at: now,
+                    signature,
+                };
+                
+                self.log_event(RotationAuditLog {
+                    proposal_id: proposal_id.to_string(),
+                    event_type: RotationEventType::Confirmed,
+                    timestamp: now,
+                    actor: proposal.current_authority,
+                    details: "Transaction confirmed on-chain".to_string(),
+                    signature_history: vec![signature],
+                    endpoints_used: vec![],
+                    duration_ms: None,
+                }).await;
+                
+                info!(
+                    proposal_id = %proposal_id,
+                    signature = %signature,
+                    "Authority rotation confirmed"
+                );
             }
             None => {
                 return Err(NonceError::ConfirmationFailed(

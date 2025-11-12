@@ -1,11 +1,10 @@
-///! Signer abstraction for nonce operations
-///! 
-///! This module provides an async signer interface that supports:
-///! - Local keypair signing
-///! - Hardware wallet signing (HSM, Ledger)
-///! - Remote signer support
-///! - Mock signer for testing
-
+//! Signer abstraction for nonce operations
+//! 
+//! This module provides an async signer interface that supports:
+//! - Local keypair signing
+//! - Hardware wallet signing (HSM, Ledger)
+//! - Remote signer support
+//! - Mock signer for testing
 use async_trait::async_trait;
 use solana_sdk::{
     pubkey::Pubkey,

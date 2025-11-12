@@ -1,11 +1,10 @@
-///! Comprehensive test suite for nonce manager
-///! 
-///! This module implements Step 4 requirements:
-///! - Unit tests for concurrency and lease semantics
-///! - Integration tests (placeholder for solana-test-validator)
-///! - Stress tests for concurrent acquire/refresh
-///! - Chaos tests for failure injection
-
+//! Comprehensive test suite for nonce manager
+//! 
+//! This module implements Step 4 requirements:
+//! - Unit tests for concurrency and lease semantics
+//! - Integration tests (placeholder for solana-test-validator)
+//! - Stress tests for concurrent acquire/refresh
+//! - Chaos tests for failure injection
 #[cfg(test)]
 mod nonce_manager_tests {
     use super::*;

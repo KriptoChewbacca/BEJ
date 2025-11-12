@@ -1,12 +1,11 @@
-///! Hardened predictive model using EMA-based heuristics
-///!
-///! This module replaces fragile linear regression with stable, production-ready
-///! exponential moving average (EMA) based predictions with proper:
-///! - Minimum sample size requirements
-///! - Outlier clipping
-///! - Bounded output (0.0 to 1.0)
-///! - Conservative fallback behavior
-
+//! Hardened predictive model using EMA-based heuristics
+//!
+//! This module replaces fragile linear regression with stable, production-ready
+//! exponential moving average (EMA) based predictions with proper:
+//! - Minimum sample size requirements
+//! - Outlier clipping
+//! - Bounded output (0.0 to 1.0)
+//! - Conservative fallback behavior
 use std::collections::{VecDeque, HashMap};
 use tracing::{debug, warn};
 
