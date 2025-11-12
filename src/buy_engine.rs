@@ -1458,7 +1458,10 @@ impl BuyEngine {
                 continue;
             }
 
-            let sniffing = self.app_state.is_sniffing().await;
+            let sniffing = {
+                let state = self.app_state.lock().await;
+                matches!(*state.mode.read().await, Mode::Sniffing)
+            };
 
             if sniffing {
                 // Check predictive surge before backoff
@@ -1545,8 +1548,8 @@ impl BuyEngine {
                                 metrics().increment_counter("buy_success_total");
                                 ctx.logger.log_buy_success(&candidate.mint.to_string(), &sig.to_string(), latency_ms);
                                 
-                                // Update scoreboard
-                                endpoint_server().update_scoreboard(&candidate.mint.to_string(), &candidate.program, true, latency_ms).await;
+                                // TODO: Update scoreboard
+                                // endpoint_server().update_scoreboard(&candidate.mint.to_string(), &candidate.program, true, latency_ms).await;
                                 
                                 info!(mint=%candidate.mint, sig=%sig, correlation_id=ctx.correlation_id, latency_us=%latency_micros, "BUY success, entering PassiveToken mode");
 
@@ -1572,25 +1575,25 @@ impl BuyEngine {
 
                                 info!(mint=%candidate.mint, price=%exec_price, "Recorded buy price and entered PassiveToken");
                                 
-                                // SCALABILITY: Check for surge and trigger nonce pool expansion
-                                if let Some(surge_confidence) = self.predictive_analytics.detect_surge().await {
-                                    if surge_confidence > 0.6 {
-                                        info!(
-                                            surge_confidence = surge_confidence,
-                                            "High-volume surge detected, expanding nonce pool"
-                                        );
-                                        
-                                        // Trigger pool expansion (add 2 nonces on surge)
-                                        let nonce_mgr = self.nonce_manager.clone();
-                                        tokio::spawn(async move {
-                                            for _ in 0..2 {
-                                                if let Err(e) = nonce_mgr.add_nonce_async().await {
-                                                    error!(error = %e, "Failed to expand nonce pool on surge");
-                                                }
-                                            }
-                                        });
-                                    }
-                                }
+                                // TODO: SCALABILITY: Check for surge and trigger nonce pool expansion
+                                // if let Some(surge_confidence) = self.predictive_analytics.detect_surge().await {
+                                //     if surge_confidence > 0.6 {
+                                //         info!(
+                                //             surge_confidence = surge_confidence,
+                                //             "High-volume surge detected, expanding nonce pool"
+                                //         );
+                                //         
+                                //         // Trigger pool expansion (add 2 nonces on surge)
+                                //         let nonce_mgr = self.nonce_manager.clone();
+                                //         tokio::spawn(async move {
+                                //             for _ in 0..2 {
+                                //                 if let Err(e) = nonce_mgr.add_nonce_async().await {
+                                //                     error!(error = %e, "Failed to expand nonce pool on surge");
+                                //                 }
+                                //             }
+                                //         });
+                                //     }
+                                // }
                             }
                             Err(e) => {
                                 buy_timer.finish();
@@ -1604,8 +1607,8 @@ impl BuyEngine {
                                 metrics().increment_counter("buy_failure_total");
                                 ctx.logger.log_buy_failure(&candidate.mint.to_string(), &e.to_string(), latency_ms);
                                 
-                                // Update scoreboard with failure
-                                endpoint_server().update_scoreboard(&candidate.mint.to_string(), &candidate.program, false, latency_ms).await;
+                                // TODO: Update scoreboard with failure
+                                // endpoint_server().update_scoreboard(&candidate.mint.to_string(), &candidate.program, false, latency_ms).await;
                                 
                                 // Record failure in circuit breaker
                                 self.circuit_breaker.record_failure();
@@ -1824,7 +1827,7 @@ impl BuyEngine {
         let pct = match validator::validate_holdings_percent(percent.clamp(0.0, 1.0)) {
             Ok(validated_pct) => validated_pct,
             Err(e) => {
-                ctx.logger.error("Invalid sell percentage", serde_json::json!({"error": e, "percent": percent}));
+                ctx.logger.error("Invalid sell percentage", serde_json::json!({"error": e.to_string(), "percent": percent}));
                 return Err(anyhow!("Invalid sell percentage: {}", e));
             }
         };
@@ -1861,7 +1864,7 @@ impl BuyEngine {
         let new_holdings = match validator::validate_holdings_percent((current_pct * (1.0 - pct)).max(0.0)) {
             Ok(validated_holdings) => validated_holdings,
             Err(e) => {
-                ctx.logger.error("Holdings calculation overflow", serde_json::json!({"error": e, "current": current_pct, "sell": pct}));
+                ctx.logger.error("Holdings calculation overflow", serde_json::json!({"error": e.to_string(), "current": current_pct, "sell": pct}));
                 return Err(anyhow!("Holdings calculation error: {}", e));
             }
         };
