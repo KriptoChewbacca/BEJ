@@ -49,7 +49,25 @@ These are unrelated to our main test but prevent the binary from compiling.
 
 ## How to Complete
 
-### Step 1: Fix Unused Imports
+### Known Issue: Test Currently Fails
+
+The test compiles and runs but currently fails at the assertion checking for PassiveToken mode transition. The engine stays in Sniffing mode instead of transitioning to PassiveToken after receiving a buy candidate.
+
+**Potential fixes:**
+1. The engine.run() loop may need adjustments to work with paused time
+2. More time advancement may be needed between sending candidate and checking state
+3. The mock transaction builder may need to trigger callbacks differently
+4. Consider using real time instead of paused time for this test
+
+**To debug:**
+```bash
+# Run with backtrace
+RUST_BACKTRACE=1 cargo +nightly test --bin bot buy_enters_passive -- --nocapture
+
+# Check engine logic in src/buy_engine.rs around line 1449 (run method)
+```
+
+### Step 1: Fix Unused Imports (✅ COMPLETE)
 
 Add `#[allow(unused_imports)]` or remove unused imports in the affected test files:
 

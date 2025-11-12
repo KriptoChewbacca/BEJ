@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! Tests for Tasks 2-6: Simulation cache, quorum, and operation priority
 //!
 //! Validates:

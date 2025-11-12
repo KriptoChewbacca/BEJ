@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! Tests for Task 1: NonceLease semantics and RAII
 //!
 //! Validates:
