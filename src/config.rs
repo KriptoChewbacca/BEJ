@@ -182,6 +182,7 @@ impl Config {
                 metrics_port: default_metrics_port(),
                 enable_tracing: default_true(),
             },
+            nonce_count: default_nonce_count(),
         }
     }
 }

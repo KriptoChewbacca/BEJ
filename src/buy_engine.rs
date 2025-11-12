@@ -1558,7 +1558,7 @@ impl BuyEngine {
 
                                 {
                                     let mut st = self.app_state.lock().await;
-                                    st.mode = Mode::PassiveToken(candidate.mint);
+                                    *st.mode.write().await = Mode::PassiveToken(candidate.mint);
                                     st.active_token = Some(candidate.clone());
                                     st.last_buy_price = Some(exec_price);
                                     st.holdings_percent = 1.0;
@@ -1840,8 +1840,8 @@ impl BuyEngine {
             (st.mode.clone(), st.active_token.clone(), st.holdings_percent)
         };
 
-        let mint = match mode {
-            Mode::PassiveToken(m) => m,
+        let mint = match &*mode.read().await {
+            Mode::PassiveToken(m) => *m,
             Mode::Sniffing | Mode::QuantumManual | Mode::Simulation | Mode::Production => {
                 ctx.logger.warn("Sell requested in non-PassiveToken mode; ignoring");
                 warn!(correlation_id=ctx.correlation_id, "Sell requested in non-PassiveToken mode; ignoring");
@@ -1887,7 +1887,7 @@ impl BuyEngine {
                 st.holdings_percent = new_holdings;
                 if st.holdings_percent <= f64::EPSILON {
                     info!(mint=%mint, correlation_id=ctx.correlation_id, "Sold 100%; returning to Sniffing mode");
-                    st.mode = Mode::Sniffing;
+                    *st.mode.write().await = Mode::Sniffing;
                     st.active_token = None;
                     st.last_buy_price = None;
                     
@@ -2067,12 +2067,9 @@ impl BuyEngine {
 
         // UNIVERSE: SIMD-optimized discriminator matching (placeholder)
         // In production, this would use actual SIMD instructions for pattern matching
-        if let Some(ref summary) = candidate.instruction_summary {
-            // Use BytesMut for zero-copy processing
-            let _summary_bytes = BytesMut::from(summary.as_bytes());
-            // TODO: Implement SIMD pattern matching on discriminators
-            debug!("Processing instruction summary with zero-copy");
-        }
+        // Note: instruction_summary field was removed from PremintCandidate
+        // TODO: Re-implement if instruction summary analysis is needed
+        debug!("Candidate validation passed");
 
         true
     }

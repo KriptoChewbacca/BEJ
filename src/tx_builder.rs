@@ -2767,50 +2767,10 @@ impl TransactionBuilder {
     ) -> Result<Instruction, TransactionBuilderError> {
         #[cfg(feature = "pumpfun")]
         {
-            // Get bonding curve for slippage calculations
-            let bonding_curve = self
-                .pumpfun_client
-                .get_bonding_curve_account(&candidate.mint)
-                .await
-                .map_err(|e| TransactionBuilderError::InstructionBuild {
-                    program: "pumpfun".to_string(),
-                    reason: e.to_string(),
-                })?;
-
-            let expected_tokens =
-                calculate_expected_tokens(&bonding_curve, config.buy_amount_lamports);
-            let min_token_out = ((expected_tokens as u128)
-                * (10000u128 - config.slippage_bps as u128)
-                / 10000u128) as u64;
-
-            // Build tx and extract buy instruction (last in tx)
-            let priority_fee = PriorityFee {
-                unit_limit: Some(config.compute_unit_limit as u64),
-                unit_price: Some(config.priority_fee_lamports),
-                ..Default::default()
-            };
-            let tx = self
-                .pumpfun_client
-                .buy(
-                    candidate.mint,
-                    config.buy_amount_lamports,
-                    Some(min_token_out),
-                    Some(priority_fee),
-                )
-                .await
-                .map_err(|e| TransactionBuilderError::InstructionBuild {
-                    program: "pumpfun".to_string(),
-                    reason: e.to_string(),
-                })?;
-
-            if let Some(ix) = tx.message.instructions.last() {
-                return Ok(ix.clone());
-            } else {
-                return Err(TransactionBuilderError::InstructionBuild {
-                    program: "pumpfun".to_string(),
-                    reason: "No instruction in tx".to_string(),
-                });
-            }
+            // Note: PumpFun SDK v4.6.0 doesn't expose buy_ix/sell_ix methods
+            // The buy() and sell() methods send transactions directly
+            // Fallback to HTTP API for instruction building
+            debug!("PumpFun SDK doesn't support instruction-only building, using fallback");
         }
 
         // Fallback do HTTP PumpPortal, gdy feature pumpfun wyłączony
@@ -3107,56 +3067,10 @@ impl TransactionBuilder {
     ) -> Result<Instruction, TransactionBuilderError> {
         #[cfg(feature = "pumpfun")]
         {
-            let ata = get_associated_token_address(&self.wallet.pubkey(), mint);
-            
-            // Get token balance directly from RPC
-            let token_account = self
-                .rpc_client_for(0)
-                .get_token_account_balance(&ata)
-                .await
-                .map_err(|e| TransactionBuilderError::InstructionBuild {
-                    program: "pumpfun".to_string(),
-                    reason: format!("Failed to get token balance: {}", e),
-                })?;
-            
-            let token_balance = token_account.ui_amount.unwrap_or(0.0) as u64;
-            let sell_amount = ((token_balance as f64) * sell_percent) as u64;
-
-            let bonding_curve = self
-                .pumpfun_client
-                .get_bonding_curve_account(mint)
-                .await
-                .map_err(|e| TransactionBuilderError::InstructionBuild {
-                    program: "pumpfun".to_string(),
-                    reason: e.to_string(),
-                })?;
-            let expected_sol = calculate_expected_sol(&bonding_curve, sell_amount);
-            let min_sol_out = ((expected_sol as u128)
-                * (10000u128 - config.slippage_bps as u128)
-                / 10000u128) as u64;
-
-            let priority_fee = PriorityFee {
-                unit_limit: Some(config.compute_unit_limit as u64),
-                unit_price: Some(config.priority_fee_lamports),
-                ..Default::default()
-            };
-            let tx = self
-                .pumpfun_client
-                .sell(*mint, Some(sell_amount), Some(min_sol_out), Some(priority_fee))
-                .await
-                .map_err(|e| TransactionBuilderError::InstructionBuild {
-                    program: "pumpfun".to_string(),
-                    reason: e.to_string(),
-                })?;
-
-            if let Some(ix) = tx.message.instructions.last() {
-                return Ok(ix.clone());
-            } else {
-                return Err(TransactionBuilderError::InstructionBuild {
-                    program: "pumpfun".to_string(),
-                    reason: "No instruction in tx".to_string(),
-                });
-            }
+            // Note: PumpFun SDK v4.6.0 doesn't expose sell_ix method
+            // The sell() method sends transactions directly
+            // Fallback to placeholder for sell instruction building
+            debug!("PumpFun SDK doesn't support sell instruction-only building, using fallback");
         }
 
         self.build_placeholder_sell_instruction(mint, sell_percent, config)
