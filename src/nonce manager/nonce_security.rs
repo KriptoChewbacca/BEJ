@@ -19,7 +19,6 @@ use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn, instrument};
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
-use rand::rngs::OsRng;
 
 use super::nonce_errors::{NonceError, NonceResult};
 

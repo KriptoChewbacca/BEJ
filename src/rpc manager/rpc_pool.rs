@@ -855,7 +855,7 @@ impl RpcPool {
             stats.endpoint_stats.push(EndpointStats {
                 url: endpoint.config.url.clone(),
                 endpoint_type: endpoint.config.endpoint_type,
-                health: health,
+                health,
                 success_rate: endpoint.success_rate(),
                 total_requests: endpoint.total_requests.load(Ordering::Relaxed),
                 dynamic_score: score,

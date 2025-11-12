@@ -207,7 +207,7 @@ use crate::wallet::WalletManager;
 
 // Optional integration: `pumpfun` crate
 #[cfg(feature = "pumpfun")]
-use pumpfun::{accounts::BondingCurveAccount, common::types::{Cluster, PriorityFee}, PumpFun};
+use pumpfun::{accounts::BondingCurveAccount, common::types::Cluster, PumpFun};
 
 use spl_associated_token_account::get_associated_token_address;
 use spl_token::id as token_program_id;
@@ -1470,13 +1470,12 @@ impl TransactionBuilder {
                                 "Blockhash quorum reached with slot validation"
                             );
                             return Ok(*hash);
-                        } else {
-                            warn!(
-                                slot_diff = slot_diff,
-                                max_allowed = config.quorum_config.max_slot_diff,
-                                "Quorum reached but slot diff too large, rejecting"
-                            );
                         }
+                        warn!(
+                            slot_diff = slot_diff,
+                            max_allowed = config.quorum_config.max_slot_diff,
+                            "Quorum reached but slot diff too large, rejecting"
+                        );
                     }
                 }
                 
@@ -2284,13 +2283,12 @@ impl TransactionBuilder {
                                         "Fatal simulation error detected, aborting transaction"
                                     );
                                     return Err(TransactionBuilderError::SimulationFailed(error_str));
-                                } else {
-                                    // Advisory warning - log but proceed with caution
-                                    warn!(
-                                        error = ?err,
-                                        "Simulation returned advisory error, proceeding with caution"
-                                    );
                                 }
+                                // Advisory warning - log but proceed with caution
+                                warn!(
+                                    error = ?err,
+                                    "Simulation returned advisory error, proceeding with caution"
+                                );
                             }
                         }
                         Ok(Err(e)) => {
@@ -2589,13 +2587,12 @@ impl TransactionBuilder {
                                         "Fatal sell simulation error detected, aborting transaction"
                                     );
                                     return Err(TransactionBuilderError::SimulationFailed(error_str));
-                                } else {
-                                    // Advisory warning - log but proceed with caution
-                                    warn!(
-                                        error = ?err,
-                                        "Sell simulation returned advisory error, proceeding with caution"
-                                    );
                                 }
+                                // Advisory warning - log but proceed with caution
+                                warn!(
+                                    error = ?err,
+                                    "Sell simulation returned advisory error, proceeding with caution"
+                                );
                             }
                         }
                         Ok(Err(e)) => {

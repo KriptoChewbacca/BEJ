@@ -90,11 +90,9 @@ use solana_sdk::{
 use tokio::sync::{Mutex, RwLock};
 use tokio::time::{sleep, timeout};
 use tracing::{debug, error, info, warn, instrument, Span};
-use bytes::BytesMut;
 use dashmap::DashMap;
 use crate::config::Config;
 
-use crate::endpoints::endpoint_server;
 use crate::metrics::{metrics, Timer};
 use crate::nonce_manager::NonceManager;
 
@@ -2079,7 +2077,7 @@ impl BuyEngine {
     }
 
     async fn get_execution_price_mock(&self, _candidate: &PremintCandidate) -> f64 {
-        0.000001 // Mock price for testing
+        0.000_001 // Mock price for testing
     }
 
     /// FIX #1: Async blockhash fetching with freshness validation

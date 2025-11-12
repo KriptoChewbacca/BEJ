@@ -522,7 +522,7 @@ impl ImprovedNonceAccount {
         
         // Generate ZK proof asynchronously in background (non-blocking)
         // This prevents blocking the RPC update path
-        let latency_us = (latency_ms * 1000.0) as u64;
+        let latency_microseconds = (latency_ms * 1000.0) as u64;
         let tps = 1500; // TODO: Get from RpcManager metrics
         let volume_lamports = account.lamports;
         
@@ -555,7 +555,7 @@ impl ImprovedNonceAccount {
             let zk_proof = account_temp.generate_zk_proof(
                 &blockhash,
                 last_valid,
-                latency_us,
+                latency_microseconds,
                 tps,
                 volume_lamports,
             ).await;
