@@ -1,6 +1,6 @@
 //! Compatibility layer for Solana SDK types
 //!
-//! This module provides a unified interface for working with VersionedMessage
+//! This module provides a unified interface for working with `VersionedMessage`
 //! and ensures consistent access to message headers and account keys regardless
 //! of the message version (Legacy or V0).
 //!
@@ -46,17 +46,17 @@ use solana_sdk::{
     pubkey::Pubkey,
 };
 
-/// Get the message header from a VersionedMessage.
+/// Get the message header from a `VersionedMessage`.
 ///
 /// This works uniformly for both Legacy and V0 message formats.
 ///
 /// # Arguments
 ///
-/// * `message` - A reference to a VersionedMessage (Legacy or V0)
+/// * `message` - A reference to a `VersionedMessage` (Legacy or V0)
 ///
 /// # Returns
 ///
-/// A reference to the MessageHeader containing:
+/// A reference to the `MessageHeader` containing:
 /// - `num_required_signatures`: Number of signatures required
 /// - `num_readonly_signed_accounts`: Number of readonly accounts that require signatures
 /// - `num_readonly_unsigned_accounts`: Number of readonly accounts that don't require signatures
@@ -73,6 +73,7 @@ use solana_sdk::{
 /// }
 /// ```
 #[inline]
+#[must_use]
 pub fn get_message_header(message: &VersionedMessage) -> &MessageHeader {
     match message {
         VersionedMessage::Legacy(legacy_msg) => &legacy_msg.header,
@@ -80,18 +81,18 @@ pub fn get_message_header(message: &VersionedMessage) -> &MessageHeader {
     }
 }
 
-/// Get the static account keys from a VersionedMessage.
+/// Get the static account keys from a `VersionedMessage`.
 ///
 /// Static account keys are the account keys that are directly embedded in the message,
 /// as opposed to addresses loaded from lookup tables (V0 only).
 ///
 /// # Arguments
 ///
-/// * `message` - A reference to a VersionedMessage (Legacy or V0)
+/// * `message` - A reference to a `VersionedMessage` (Legacy or V0)
 ///
 /// # Returns
 ///
-/// A slice of Pubkeys representing the static account keys in the message.
+/// A slice of `Pubkey`s representing the static account keys in the message.
 ///
 /// # Notes
 ///
@@ -110,6 +111,7 @@ pub fn get_message_header(message: &VersionedMessage) -> &MessageHeader {
 /// }
 /// ```
 #[inline]
+#[must_use]
 pub fn get_static_account_keys(message: &VersionedMessage) -> &[Pubkey] {
     match message {
         VersionedMessage::Legacy(legacy_msg) => &legacy_msg.account_keys,
@@ -117,7 +119,7 @@ pub fn get_static_account_keys(message: &VersionedMessage) -> &[Pubkey] {
     }
 }
 
-/// Get the required signers from a VersionedMessage.
+/// Get the required signers from a `VersionedMessage`.
 ///
 /// Required signers are the account keys that must sign the transaction.
 /// They are always the first N accounts in the static account keys list,
@@ -125,11 +127,11 @@ pub fn get_static_account_keys(message: &VersionedMessage) -> &[Pubkey] {
 ///
 /// # Arguments
 ///
-/// * `message` - A reference to a VersionedMessage (Legacy or V0)
+/// * `message` - A reference to a `VersionedMessage` (Legacy or V0)
 ///
 /// # Returns
 ///
-/// A slice of Pubkeys representing the accounts that must sign this transaction.
+/// A slice of `Pubkey`s representing the accounts that must sign this transaction.
 /// The slice is guaranteed to have exactly `header.num_required_signatures` elements.
 ///
 /// # Example
@@ -144,6 +146,7 @@ pub fn get_static_account_keys(message: &VersionedMessage) -> &[Pubkey] {
 /// }
 /// ```
 #[inline]
+#[must_use]
 pub fn get_required_signers(message: &VersionedMessage) -> &[Pubkey] {
     let header = get_message_header(message);
     let account_keys = get_static_account_keys(message);
@@ -153,14 +156,14 @@ pub fn get_required_signers(message: &VersionedMessage) -> &[Pubkey] {
     &account_keys[..num_signers.min(account_keys.len())]
 }
 
-/// Get the number of required signatures from a VersionedMessage.
+/// Get the number of required signatures from a `VersionedMessage`.
 ///
-/// This is a convenience function that extracts the num_required_signatures
+/// This is a convenience function that extracts the `num_required_signatures`
 /// field from the message header.
 ///
 /// # Arguments
 ///
-/// * `message` - A reference to a VersionedMessage (Legacy or V0)
+/// * `message` - A reference to a `VersionedMessage` (Legacy or V0)
 ///
 /// # Returns
 ///
@@ -177,34 +180,37 @@ pub fn get_required_signers(message: &VersionedMessage) -> &[Pubkey] {
 /// }
 /// ```
 #[inline]
+#[must_use]
 pub fn get_num_required_signatures(message: &VersionedMessage) -> u8 {
     get_message_header(message).num_required_signatures
 }
 
-/// Get the number of readonly signed accounts from a VersionedMessage.
+/// Get the number of readonly signed accounts from a `VersionedMessage`.
 ///
 /// # Arguments
 ///
-/// * `message` - A reference to a VersionedMessage (Legacy or V0)
+/// * `message` - A reference to a `VersionedMessage` (Legacy or V0)
 ///
 /// # Returns
 ///
 /// The number of readonly accounts that require signatures as a `u8`.
 #[inline]
+#[must_use]
 pub fn get_num_readonly_signed_accounts(message: &VersionedMessage) -> u8 {
     get_message_header(message).num_readonly_signed_accounts
 }
 
-/// Get the number of readonly unsigned accounts from a VersionedMessage.
+/// Get the number of readonly unsigned accounts from a `VersionedMessage`.
 ///
 /// # Arguments
 ///
-/// * `message` - A reference to a VersionedMessage (Legacy or V0)
+/// * `message` - A reference to a `VersionedMessage` (Legacy or V0)
 ///
 /// # Returns
 ///
 /// The number of readonly accounts that don't require signatures as a `u8`.
 #[inline]
+#[must_use]
 pub fn get_num_readonly_unsigned_accounts(message: &VersionedMessage) -> u8 {
     get_message_header(message).num_readonly_unsigned_accounts
 }
@@ -218,8 +224,10 @@ mod tests {
         pubkey::Pubkey,
         signature::Keypair,
         signer::Signer,
-        system_instruction,
     };
+    // TODO(migrate-system-instruction): temporary allow, full migration post-profit
+    #[allow(deprecated)]
+    use solana_sdk::system_instruction;
 
     #[test]
     fn test_legacy_message_header() {

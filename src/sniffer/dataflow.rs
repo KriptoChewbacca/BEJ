@@ -9,7 +9,6 @@
 //! [buy_engine.rs]
 
 use std::time::Instant;
-use serde::{Deserialize, Serialize};
 
 /// Unique identifier for tracing candidates through the pipeline
 pub type CandidateId = u64;

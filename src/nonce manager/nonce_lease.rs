@@ -1,13 +1,12 @@
-///! Nonce lease model with automatic release and watchdog
-///! 
-///! This module implements a lease-based system for nonce account management:
-///! - Atomic acquire/release operations
-///! - Automatic release on Drop
-///! - TTL-based expiry with watchdog task
-///! - Thread-safe concurrent access
-///! 
-///! Task 1 Enhancement: Proper lease semantics with nonce_pubkey and advance instruction support
-
+//! Nonce lease model with automatic release and watchdog
+//! 
+//! This module implements a lease-based system for nonce account management:
+//! - Atomic acquire/release operations
+//! - Automatic release on Drop
+//! - TTL-based expiry with watchdog task
+//! - Thread-safe concurrent access
+//! 
+//! Task 1 Enhancement: Proper lease semantics with nonce_pubkey and advance instruction support
 use super::nonce_errors::NonceResult;
 use super::nonce_manager_integrated::ZkProofData;
 use solana_sdk::{

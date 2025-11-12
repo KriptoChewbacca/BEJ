@@ -1,6 +1,5 @@
 //! Structured logging and pipeline context
 
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// Structured logger for pipeline events

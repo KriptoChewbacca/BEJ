@@ -1,13 +1,12 @@
-///! Integrated Nonce Manager demonstrating all Universe Class improvements
-///!
-///! This module demonstrates proper integration of:
-///! - Safe error handling with retry logic 
-///! - Signer abstraction 
-///! - Lease model with watchdog 
-///! - Non-blocking refresh 
-///! - Atomic slot validation 
-///! - Hardened predictive model
-
+//! Integrated Nonce Manager demonstrating all Universe Class improvements
+//!
+//! This module demonstrates proper integration of:
+//! - Safe error handling with retry logic 
+//! - Signer abstraction 
+//! - Lease model with watchdog 
+//! - Non-blocking refresh 
+//! - Atomic slot validation 
+//! - Hardened predictive model
 use super::nonce_errors::{NonceError, NonceResult};
 use super::nonce_retry::{retry_with_backoff, RetryConfig};
 use super::nonce_signer::SignerService;
@@ -23,9 +22,11 @@ use solana_sdk::{
     nonce::State,
     pubkey::Pubkey,
     signature::{Keypair, Signature, Signer},
-    system_instruction,
     transaction::Transaction,
 };
+// TODO(migrate-system-instruction): temporary allow, full migration post-profit
+#[allow(deprecated)]
+use solana_sdk::system_instruction;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
@@ -305,9 +306,9 @@ impl ImprovedNonceAccount {
     /// Generate Groth16 zk-SNARK proof (feature-gated)
     #[cfg(feature = "zk_enabled")]
     async fn generate_groth16_proof(
-        pubkey: &Pubkey,
-        blockhash: &Hash,
-        public_inputs: &[u64],
+        _pubkey: &Pubkey,
+        _blockhash: &Hash,
+        _public_inputs: &[u64],
     ) -> NonceResult<Vec<u8>> {
         // Note: solana-zk-sdk may not have full circom/groth16 support
         // This is a placeholder for the actual implementation
@@ -397,7 +398,7 @@ impl ImprovedNonceAccount {
         
         // Fallback: SHA256 verification
         let blockhash = *self.last_blockhash.read().await;
-        let last_valid = self.last_valid_slot.load(Ordering::SeqCst);
+        let _last_valid = self.last_valid_slot.load(Ordering::SeqCst);
         
         // Extract public inputs
         let proof_slot = proof_data.public_inputs[0];
@@ -452,8 +453,8 @@ impl ImprovedNonceAccount {
     /// Verify Groth16 zk-SNARK proof (feature-gated)
     #[cfg(feature = "zk_enabled")]
     async fn verify_groth16_proof(
-        proof: &Bytes,
-        public_inputs: &[u64],
+        _proof: &Bytes,
+        _public_inputs: &[u64],
     ) -> NonceResult<bool> {
         // Note: solana-zk-sdk may not have full verification support
         // This is a placeholder for actual implementation
@@ -523,7 +524,7 @@ impl ImprovedNonceAccount {
         
         // Generate ZK proof asynchronously in background (non-blocking)
         // This prevents blocking the RPC update path
-        let latency_us = (latency_ms * 1000.0) as u64;
+        let latency_microseconds = (latency_ms * 1000.0) as u64;
         let tps = 1500; // TODO: Get from RpcManager metrics
         let volume_lamports = account.lamports;
         
@@ -556,7 +557,7 @@ impl ImprovedNonceAccount {
             let zk_proof = account_temp.generate_zk_proof(
                 &blockhash,
                 last_valid,
-                latency_us,
+                latency_microseconds,
                 tps,
                 volume_lamports,
             ).await;
@@ -1062,7 +1063,7 @@ impl UniverseNonceManager {
         nonce_pubkey: Pubkey,
     ) -> NonceResult<Signature> {
         self.total_refreshes.fetch_add(1, Ordering::Relaxed);
-        let start = Instant::now();
+        let _start = Instant::now();
         
         // Build advance instruction
         let authority_pubkey = self.signer.pubkey().await;
@@ -1251,6 +1252,8 @@ impl UniverseNonceManager {
         batch_size: usize,
     ) -> NonceResult<Vec<Signature>> {
         use solana_sdk::transaction::Transaction;
+        // TODO(migrate-system-instruction): temporary allow, full migration post-profit
+        #[allow(deprecated)]
         use solana_sdk::system_instruction;
         
         if nonce_pubkeys.is_empty() {
@@ -1345,7 +1348,7 @@ impl UniverseNonceManager {
             let fallback_rpc = self.rpc_client.clone();
             let endpoint = self.rpc_endpoint.clone();
             let model = self.predictive_model.clone();
-            let rt_handle = self.rt_handle.clone();
+            let _rt_handle = self.rt_handle.clone();
             
             // Spawn task for this chunk
             let task = tokio::spawn(async move {
@@ -1544,7 +1547,7 @@ impl UniverseNonceManager {
         // - Network lag from recent RPC latencies
         
         // For now, use defaults and model predictions
-        let model = self.predictive_model.lock().await;
+        let _model = self.predictive_model.lock().await;
         let tps = 1500; // TODO: Get from RPC performance samples
         let lag_ms = 3.0; // TODO: Get from RPC latency tracking
         

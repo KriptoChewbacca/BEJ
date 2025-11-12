@@ -1,11 +1,10 @@
-///! Signer abstraction for nonce operations
-///! 
-///! This module provides an async signer interface that supports:
-///! - Local keypair signing
-///! - Hardware wallet signing (HSM, Ledger)
-///! - Remote signer support
-///! - Mock signer for testing
-
+//! Signer abstraction for nonce operations
+//! 
+//! This module provides an async signer interface that supports:
+//! - Local keypair signing
+//! - Hardware wallet signing (HSM, Ledger)
+//! - Remote signer support
+//! - Mock signer for testing
 use async_trait::async_trait;
 use solana_sdk::{
     pubkey::Pubkey,
@@ -33,7 +32,7 @@ pub trait SignerService: Send + Sync {
     
     /// Sign a nonce advance operation (Security Enhancement 3)
     /// Used for authority rotation and HSM/Ledger integration
-    async fn sign_advance(&self, nonce_account: &Pubkey, transaction: &mut Transaction) -> NonceResult<()> {
+    async fn sign_advance(&self, _nonce_account: &Pubkey, transaction: &mut Transaction) -> NonceResult<()> {
         // Default implementation delegates to sign_transaction
         self.sign_transaction(transaction).await
     }
@@ -66,7 +65,18 @@ impl LocalSigner {
     }
     
     pub fn from_bytes(bytes: &[u8]) -> NonceResult<Self> {
-        Keypair::from_bytes(bytes)
+        // Validate length
+        if bytes.len() != 64 {
+            return Err(NonceError::Signing(format!(
+                "Invalid keypair length: expected 64 bytes, got {}",
+                bytes.len()
+            )));
+        }
+        // Reject all-zero keys
+        if bytes.iter().all(|&b| b == 0) {
+            return Err(NonceError::Signing("Invalid keypair: all-zero key rejected".to_string()));
+        }
+        Keypair::try_from(bytes)
             .map(|kp| Self { keypair: kp })
             .map_err(|e| NonceError::Signing(format!("Invalid keypair bytes: {}", e)))
     }
@@ -192,7 +202,7 @@ impl SignerService for HardwareWalletSigner {
         ))
     }
     
-    async fn sign_advance(&self, nonce_account: &Pubkey, transaction: &mut Transaction) -> NonceResult<()> {
+    async fn sign_advance(&self, nonce_account: &Pubkey, _transaction: &mut Transaction) -> NonceResult<()> {
         // Placeholder: Special handling for Ledger nonce advance operations
         // Would use rust-ledger library for device communication
         Err(NonceError::Signing(
@@ -265,10 +275,10 @@ impl Default for BatchSignatureVerifier {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use solana_sdk::{
-        hash::Hash,
-        system_instruction,
-    };
+    use solana_sdk::hash::Hash;
+    // TODO(migrate-system-instruction): temporary allow, full migration post-profit
+    #[allow(deprecated)]
+    use solana_sdk::system_instruction;
     
     #[tokio::test]
     async fn test_local_signer() {

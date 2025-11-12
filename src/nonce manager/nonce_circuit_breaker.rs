@@ -1,12 +1,11 @@
-///! Universe-specific Circuit Breaker Extensions
-///!
-///! This module provides Universe-specific circuit breaker implementations
-///! that extend the base circuit breaker functionality from nonce_retry.rs
-///! with additional features:
-///! - UniverseCircuitBreaker: Per-RPC circuit breaker with atomic operations
-///! - GlobalCircuitBreaker: System-wide health monitoring
-///! - RLAgent: Reinforcement learning for adaptive retry strategies
-
+//! Universe-specific Circuit Breaker Extensions
+//!
+//! This module provides Universe-specific circuit breaker implementations
+//! that extend the base circuit breaker functionality from nonce_retry.rs
+//! with additional features:
+//! - UniverseCircuitBreaker: Per-RPC circuit breaker with atomic operations
+//! - GlobalCircuitBreaker: System-wide health monitoring
+//! - RLAgent: Reinforcement learning for adaptive retry strategies
 use std::{
     collections::HashMap,
     sync::{

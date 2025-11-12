@@ -90,11 +90,9 @@ use solana_sdk::{
 use tokio::sync::{Mutex, RwLock};
 use tokio::time::{sleep, timeout};
 use tracing::{debug, error, info, warn, instrument, Span};
-use bytes::BytesMut;
 use dashmap::DashMap;
 use crate::config::Config;
 
-use crate::endpoints::endpoint_server;
 use crate::metrics::{metrics, Timer};
 use crate::nonce_manager::NonceManager;
 
@@ -2047,7 +2045,10 @@ impl BuyEngine {
 
     #[cfg(any(test, feature = "mock-mode"))]
     fn create_placeholder_tx(_token_mint: &Pubkey, _action: &str) -> VersionedTransaction {
-        use solana_sdk::{message::Message, system_instruction, transaction::Transaction};
+        use solana_sdk::{message::Message, transaction::Transaction};
+        // TODO(migrate-system-instruction): temporary allow, full migration post-profit
+        #[allow(deprecated)]
+        use solana_sdk::system_instruction;
         
         let from = Pubkey::new_unique();
         let to = Pubkey::new_unique();
@@ -2079,7 +2080,7 @@ impl BuyEngine {
     }
 
     async fn get_execution_price_mock(&self, _candidate: &PremintCandidate) -> f64 {
-        0.000001 // Mock price for testing
+        0.000_001 // Mock price for testing
     }
 
     /// FIX #1: Async blockhash fetching with freshness validation
@@ -2117,7 +2118,7 @@ impl BuyEngine {
         
         // FIX #4: Implement retry with exponential backoff and endpoint rotation
         let mut attempt = 0;
-        let max_attempts = self.exponential_backoff.max_retries;
+        let _max_attempts = self.exponential_backoff.max_retries;
         
         loop {
             // Try to acquire token bucket permit
@@ -2187,7 +2188,7 @@ impl BuyEngine {
     /// FIX #6: Transaction simulation with policy-based handling
     async fn simulate_transaction(
         &self,
-        tx: &VersionedTransaction,
+        _tx: &VersionedTransaction,
     ) -> SimulationResult {
         // In production, this would call RPC simulate_transaction
         // For now, placeholder implementation

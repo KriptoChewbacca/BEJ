@@ -199,6 +199,7 @@ use std::{sync::Arc, time::{Duration, Instant}};
 use thiserror::Error;
 use tokio::sync::{RwLock, Semaphore};
 use tracing::{debug, info, warn};
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine};
 
 use crate::nonce_manager::{NonceManager, NonceError};
 use crate::rpc_manager::rpc_errors::RpcManagerError;
@@ -207,7 +208,7 @@ use crate::wallet::WalletManager;
 
 // Optional integration: `pumpfun` crate
 #[cfg(feature = "pumpfun")]
-use pumpfun::{accounts::BondingCurveAccount, common::types::{Cluster, PriorityFee}, PumpFun};
+use pumpfun::{accounts::BondingCurveAccount, common::types::Cluster, PumpFun};
 
 use spl_associated_token_account::get_associated_token_address;
 use spl_token::id as token_program_id;
@@ -1470,13 +1471,12 @@ impl TransactionBuilder {
                                 "Blockhash quorum reached with slot validation"
                             );
                             return Ok(*hash);
-                        } else {
-                            warn!(
-                                slot_diff = slot_diff,
-                                max_allowed = config.quorum_config.max_slot_diff,
-                                "Quorum reached but slot diff too large, rejecting"
-                            );
                         }
+                        warn!(
+                            slot_diff = slot_diff,
+                            max_allowed = config.quorum_config.max_slot_diff,
+                            "Quorum reached but slot diff too large, rejecting"
+                        );
                     }
                 }
                 
@@ -1514,7 +1514,7 @@ impl TransactionBuilder {
         } else {
             // Time-based cache only
             let cache = self.blockhash_cache.read().await;
-            let now = Instant::now();
+            let _now = Instant::now();
             if let Some((hash, _)) = cache.iter()
                 .filter(|(_, (instant, _))| instant.elapsed() < self.blockhash_cache_ttl)
                 .max_by_key(|(_, (instant, _))| *instant)
@@ -1728,7 +1728,7 @@ impl TransactionBuilder {
                     zk_proof,
                 })
             }
-            Err(e) => {
+            Err(_e) => {
                 // Record exhaustion event
                 self.nonce_exhausted_count.fetch_add(1, Ordering::Relaxed);
                 
@@ -2077,7 +2077,7 @@ impl TransactionBuilder {
         // Universe Class: ML-based slippage optimization
         // Note: We use the original config but the instruction builders will use 
         // config.slippage_bps which should be set at transaction building time
-        let optimized_slippage = if config.enable_ml_slippage {
+        let _optimized_slippage = if config.enable_ml_slippage {
             let predictor = self.slippage_predictor.read().await;
             predictor.predict_optimal_slippage(config.slippage_bps)
         } else {
@@ -2085,7 +2085,7 @@ impl TransactionBuilder {
         };
         
         // Pre-allocate instruction vector for hot-path performance
-        let mut instructions: Vec<Instruction> = Vec::with_capacity(4);
+        let mut _instructions: Vec<Instruction> = Vec::with_capacity(4);
 
         // Universe Class: Dynamic compute unit limit (will be set after simulation)
         let mut dynamic_cu_limit = config.compute_unit_limit;
@@ -2157,7 +2157,7 @@ impl TransactionBuilder {
                 // Check simulation cache first
                 let cached_result = if cache_enabled {
                     self.simulation_cache.get(&message_hash).and_then(|entry| {
-                        let current_slot = entry.slot; // Will be validated below
+                        let _current_slot = entry.slot; // Will be validated below
                         let elapsed = entry.cached_at.elapsed().as_secs();
                         
                         // Task 1: Blockhash used only for freshness validation, not as primary key
@@ -2284,13 +2284,12 @@ impl TransactionBuilder {
                                         "Fatal simulation error detected, aborting transaction"
                                     );
                                     return Err(TransactionBuilderError::SimulationFailed(error_str));
-                                } else {
-                                    // Advisory warning - log but proceed with caution
-                                    warn!(
-                                        error = ?err,
-                                        "Simulation returned advisory error, proceeding with caution"
-                                    );
                                 }
+                                // Advisory warning - log but proceed with caution
+                                warn!(
+                                    error = ?err,
+                                    "Simulation returned advisory error, proceeding with caution"
+                                );
                             }
                         }
                         Ok(Err(e)) => {
@@ -2385,7 +2384,7 @@ impl TransactionBuilder {
         let recent_blockhash = exec_ctx.blockhash;
 
         // Pre-allocate instruction vector for hot-path performance
-        let mut instructions: Vec<Instruction> = Vec::with_capacity(4);
+        let mut _instructions: Vec<Instruction> = Vec::with_capacity(4);
 
         // Task 2: Dynamic compute unit limit (will be set after simulation)
         let mut dynamic_cu_limit = config.compute_unit_limit;
@@ -2589,13 +2588,12 @@ impl TransactionBuilder {
                                         "Fatal sell simulation error detected, aborting transaction"
                                     );
                                     return Err(TransactionBuilderError::SimulationFailed(error_str));
-                                } else {
-                                    // Advisory warning - log but proceed with caution
-                                    warn!(
-                                        error = ?err,
-                                        "Sell simulation returned advisory error, proceeding with caution"
-                                    );
                                 }
+                                // Advisory warning - log but proceed with caution
+                                warn!(
+                                    error = ?err,
+                                    "Sell simulation returned advisory error, proceeding with caution"
+                                );
                             }
                         }
                         Ok(Err(e)) => {
@@ -2932,7 +2930,7 @@ impl TransactionBuilder {
                     }
                 })?;
 
-                let data = base64::decode(data_b64).map_err(|e| {
+                let data = BASE64_STANDARD.decode(data_b64).map_err(|e| {
                     TransactionBuilderError::InstructionBuild {
                         program: api_name.to_string(),
                         reason: format!("base64 decode error: {}", e),
@@ -2963,7 +2961,7 @@ impl TransactionBuilder {
                     "{} returned legacy instruction_b64 format - consider updating API",
                     api_name
                 );
-                let data = base64::decode(b64).map_err(|e| {
+                let data = BASE64_STANDARD.decode(b64).map_err(|e| {
                     TransactionBuilderError::InstructionBuild {
                         program: api_name.to_string(),
                         reason: format!("base64 decode error: {}", e),

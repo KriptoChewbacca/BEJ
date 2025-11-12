@@ -1,12 +1,11 @@
-///! Hardened predictive model using EMA-based heuristics
-///!
-///! This module replaces fragile linear regression with stable, production-ready
-///! exponential moving average (EMA) based predictions with proper:
-///! - Minimum sample size requirements
-///! - Outlier clipping
-///! - Bounded output (0.0 to 1.0)
-///! - Conservative fallback behavior
-
+//! Hardened predictive model using EMA-based heuristics
+//!
+//! This module replaces fragile linear regression with stable, production-ready
+//! exponential moving average (EMA) based predictions with proper:
+//! - Minimum sample size requirements
+//! - Outlier clipping
+//! - Bounded output (0.0 to 1.0)
+//! - Conservative fallback behavior
 use std::collections::{VecDeque, HashMap};
 use tracing::{debug, warn};
 
@@ -487,7 +486,7 @@ impl UniversePredictiveModel {
         jitter_used: f64,
     ) {
         // Extract prediction values we need before borrowing self mutably again
-        let (predicted_prob, needs_update) = if let Some(last_prediction) = self.predictions.back_mut() {
+        let (predicted_prob, _needs_update) = if let Some(last_prediction) = self.predictions.back_mut() {
             last_prediction.actual_latency_ms = Some(actual_latency_ms);
             last_prediction.actual_success = Some(actual_success);
             last_prediction.actual_tps = actual_tps;

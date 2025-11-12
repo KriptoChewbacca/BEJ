@@ -3,7 +3,6 @@
 use super::errors::{MintExtractError, AccountExtractError};
 use smallvec::SmallVec;
 use solana_sdk::pubkey::Pubkey;
-use tracing::debug;
 
 #[cfg(feature = "prod_parse")]
 use solana_sdk::transaction::VersionedTransaction;

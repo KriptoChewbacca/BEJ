@@ -123,7 +123,7 @@ async fn main() -> Result<()> {
     
     // Initialize RPC manager
     info!("🌐 Initializing RPC manager with {} endpoints", config.rpc.endpoints.len());
-    let rpc_endpoints: Vec<rpc_manager::EndpointConfig> = config.rpc.endpoints
+    let _rpc_endpoints: Vec<rpc_manager::EndpointConfig> = config.rpc.endpoints
         .iter()
         .map(|url| rpc_manager::EndpointConfig {
             url: url.clone(),
@@ -147,7 +147,7 @@ async fn main() -> Result<()> {
     info!("   Monitored programs: {}", config.sniffer.monitored_programs.len());
     
     // Create channel for candidates
-    let (candidate_tx, candidate_rx) = mpsc::unbounded_channel::<PremintCandidate>();
+    let (_candidate_tx, candidate_rx) = mpsc::unbounded_channel::<PremintCandidate>();
     
     // Note: Actual sniffer initialization would happen here
     // let sniffer_config = sniffer::SnifferConfig { ... };

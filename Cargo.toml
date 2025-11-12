@@ -1,5 +1,5 @@
 [package]
-name = "Bot"
+name = "bot"
 version = "0.1.0"
 edition = "2021"
 # rust-version = "1.83.0"  # Commented: transitive deps require edition2024 (nightly-only as of 1.83)
@@ -14,6 +14,10 @@ pumpfun = ["dep:pumpfun"]
 test_utils = []  # Feature flag for test utilities
 # ZK proof feature with full zk-SNARKs support
 zk_enabled = ["dep:solana-zk-sdk"]
+# Performance profiling feature
+perf = []
+# Production parsing optimizations
+prod_parse = []
 
 [dependencies]
 # Core async runtime and utilities

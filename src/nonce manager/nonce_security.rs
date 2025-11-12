@@ -1,18 +1,19 @@
-///! Security hardening for nonce management
-///! 
-///! This module implements Step 5 requirements:
-///! - Zeroize for keypair memory protection
-///! - File permission checks (POSIX)
-///! - Remote signer/HSM adapters
-///! - Audit logging for key operations
-///! - Separation of roles (nonce authority ≠ payer)
-
+//! Security hardening for nonce management
+//! 
+//! This module implements Step 5 requirements:
+//! - Zeroize for keypair memory protection
+//! - File permission checks (POSIX)
+//! - Remote signer/HSM adapters
+//! - Audit logging for key operations
+//! - Separation of roles (nonce authority ≠ payer)
 use solana_sdk::{
     pubkey::Pubkey,
     signature::{Keypair, Signer},
     transaction::Transaction,
-    system_instruction,
 };
+// TODO(migrate-system-instruction): temporary allow, full migration post-profit
+#[allow(deprecated)]
+use solana_sdk::system_instruction;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -20,7 +21,6 @@ use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn, instrument};
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
-use rand::rngs::OsRng;
 
 use super::nonce_errors::{NonceError, NonceResult};
 
@@ -38,7 +38,21 @@ impl SecureKeypair {
     
     /// Create from bytes (bytes will be zeroized)
     pub fn from_bytes(mut bytes: Vec<u8>) -> NonceResult<Self> {
-        let keypair = Keypair::from_bytes(&bytes)
+        // Validate length
+        if bytes.len() != 64 {
+            bytes.zeroize();
+            return Err(NonceError::Signing(format!(
+                "Invalid keypair length: expected 64 bytes, got {}",
+                bytes.len()
+            )));
+        }
+        // Reject all-zero keys
+        if bytes.iter().all(|&b| b == 0) {
+            bytes.zeroize();
+            return Err(NonceError::Signing("Invalid keypair: all-zero key rejected".to_string()));
+        }
+        
+        let keypair = Keypair::try_from(bytes.as_slice())
             .map_err(|e| NonceError::Signing(format!("Invalid keypair bytes: {}", e)))?;
         
         // Zeroize the input bytes
@@ -752,8 +766,8 @@ async fn sequential_verify_zk(
 /// Batch verify using Groth16 with GPU acceleration (feature-gated)
 #[cfg(feature = "zk_enabled")]
 async fn batch_verify_groth16(
-    proofs: Vec<&ZkProofData>,
-    current_slot: u64,
+    _proofs: Vec<&ZkProofData>,
+    _current_slot: u64,
 ) -> NonceResult<Vec<f64>> {
     // Note: solana-zk-sdk may not have batch verification support
     // This is a placeholder for actual implementation

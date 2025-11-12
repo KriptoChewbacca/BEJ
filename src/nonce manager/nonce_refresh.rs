@@ -1,11 +1,10 @@
-///! Non-blocking nonce refresh with background monitoring
-///!
-///! This module provides:
-///! - Non-blocking transaction sending
-///! - Background signature monitoring
-///! - Telemetry collection for refresh operations
-///! - Automatic slot updates on confirmation
-
+//! Non-blocking nonce refresh with background monitoring
+//!
+//! This module provides:
+//! - Non-blocking transaction sending
+//! - Background signature monitoring
+//! - Telemetry collection for refresh operations
+//! - Automatic slot updates on confirmation
 use super::nonce_errors::{NonceError, NonceResult};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{

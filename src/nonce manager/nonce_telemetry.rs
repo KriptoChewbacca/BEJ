@@ -1,11 +1,10 @@
-///! Comprehensive telemetry and metrics for nonce management
-///! 
-///! This module implements Step 3 requirements:
-///! - Prometheus-compatible metrics (counters, histograms, gauges)
-///! - Instrumentation with unique request_id and nonce_id
-///! - Alerting rules and thresholds
-///! - SLA metrics tracking
-
+//! Comprehensive telemetry and metrics for nonce management
+//! 
+//! This module implements Step 3 requirements:
+//! - Prometheus-compatible metrics (counters, histograms, gauges)
+//! - Instrumentation with unique request_id and nonce_id
+//! - Alerting rules and thresholds
+//! - SLA metrics tracking
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -445,7 +444,7 @@ impl AlertManager {
     
     /// Trigger a new alert
     pub fn trigger_alert(&self, alert: Alert) {
-        let alert_clone = alert.clone();
+        let _alert_clone = alert.clone();
         let active_alerts = self.active_alerts.clone();
         let alert_history = self.alert_history.clone();
         let max_history = self.max_history;

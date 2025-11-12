@@ -182,8 +182,8 @@ impl Sniffer {
             Arc::clone(&handoff_diagnostics),
         );
 
-        let last_batch_send = Instant::now();
-        let batch_timeout = Duration::from_millis(config.batch_timeout_ms);
+        let _last_batch_send = Instant::now();
+        let _batch_timeout = Duration::from_millis(config.batch_timeout_ms);
         
         // Create shutdown channel for deterministic shutdown
         let (shutdown_tx, mut shutdown_rx) = tokio::sync::mpsc::channel::<()>(1);
@@ -430,7 +430,7 @@ impl Sniffer {
     async fn config_reload_loop(
         config_path: String,
         analytics: Arc<PredictiveAnalytics>,
-        handoff_diagnostics: Arc<HandoffDiagnostics>,
+        _handoff_diagnostics: Arc<HandoffDiagnostics>,
         running: Arc<AtomicBool>,
     ) {
         use tokio::time::interval;
@@ -499,7 +499,7 @@ impl SnifferApi for Sniffer {
         let health_ok = Arc::clone(&self.health_ok);
         let event_collector = Arc::clone(&self.event_collector);
         let handoff_diagnostics = Arc::clone(&self.handoff_diagnostics);
-        let supervisor = Arc::clone(&self.supervisor);
+        let _supervisor = Arc::clone(&self.supervisor);
 
         // Spawn main processing loop and register with supervisor
         let process_handle = tokio::spawn(async move {

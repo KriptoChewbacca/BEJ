@@ -1,11 +1,10 @@
-///! BuyEngine integration for nonce management
-///! 
-///! This module implements Step 7 requirements:
-///! - Finalized API contract for acquire_nonce/release with Drop semantics
-///! - Integration points documentation
-///! - SignerService injection
-///! - Transaction building flow with nonce leases
-
+//! BuyEngine integration for nonce management
+//! 
+//! This module implements Step 7 requirements:
+//! - Finalized API contract for acquire_nonce/release with Drop semantics
+//! - Integration points documentation
+//! - SignerService injection
+//! - Transaction building flow with nonce leases
 use solana_sdk::{
     instruction::Instruction,
     pubkey::Pubkey,
@@ -210,7 +209,7 @@ impl IntegratedNonceManager {
 #[async_trait::async_trait]
 impl NonceManagerApi for IntegratedNonceManager {
     #[instrument(skip(self))]
-    async fn acquire_nonce(&self, timeout: Duration) -> NonceResult<NonceLease> {
+    async fn acquire_nonce(&self, _timeout: Duration) -> NonceResult<NonceLease> {
         let start = Instant::now();
         
         // For now, create a placeholder lease
@@ -276,6 +275,8 @@ impl NonceManagerApi for IntegratedNonceManager {
         let nonce_pubkey = lease.account_pubkey();
         
         // Build nonce advance instruction
+        // TODO(migrate-system-instruction): temporary allow, full migration post-profit
+        #[allow(deprecated)]
         let nonce_advance_ix = solana_sdk::system_instruction::advance_nonce_account(
             nonce_pubkey,
             &nonce_authority_pubkey,
@@ -378,7 +379,7 @@ impl BuyEngineNonceIntegration {
         info!(nonce = %lease.account_pubkey(), "Acquired nonce for buy transaction");
         
         // Step 2: Build transaction
-        let tx = self.nonce_manager.build_transaction_with_nonce(
+        let _tx = self.nonce_manager.build_transaction_with_nonce(
             &lease,
             instructions,
         ).await?;

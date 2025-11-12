@@ -13,7 +13,7 @@ pub async fn endpoint_server(port: u16) -> Result<()> {
     // Simple HTTP server for metrics
     loop {
         match listener.accept().await {
-            Ok((mut socket, addr)) => {
+            Ok((mut socket, _addr)) => {
                 tokio::spawn(async move {
                     use tokio::io::{AsyncReadExt, AsyncWriteExt};
                     
