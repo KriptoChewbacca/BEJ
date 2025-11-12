@@ -199,6 +199,7 @@ use std::{sync::Arc, time::{Duration, Instant}};
 use thiserror::Error;
 use tokio::sync::{RwLock, Semaphore};
 use tracing::{debug, info, warn};
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine};
 
 use crate::nonce_manager::{NonceManager, NonceError};
 use crate::rpc_manager::rpc_errors::RpcManagerError;
@@ -2929,7 +2930,7 @@ impl TransactionBuilder {
                     }
                 })?;
 
-                let data = base64::decode(data_b64).map_err(|e| {
+                let data = BASE64_STANDARD.decode(data_b64).map_err(|e| {
                     TransactionBuilderError::InstructionBuild {
                         program: api_name.to_string(),
                         reason: format!("base64 decode error: {}", e),
@@ -2960,7 +2961,7 @@ impl TransactionBuilder {
                     "{} returned legacy instruction_b64 format - consider updating API",
                     api_name
                 );
-                let data = base64::decode(b64).map_err(|e| {
+                let data = BASE64_STANDARD.decode(b64).map_err(|e| {
                     TransactionBuilderError::InstructionBuild {
                         program: api_name.to_string(),
                         reason: format!("base64 decode error: {}", e),

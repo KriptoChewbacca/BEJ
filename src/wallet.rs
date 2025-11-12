@@ -23,14 +23,23 @@ impl WalletManager {
             .with_context(|| format!("Failed to read keypair file: {}", path))?;
         
         let keypair = if keypair_bytes.len() == 64 {
-            // Raw bytes format
-            Keypair::from_bytes(&keypair_bytes)
+            // Raw bytes format - validate before conversion
+            if keypair_bytes.iter().all(|&b| b == 0) {
+                anyhow::bail!("Invalid keypair: all-zero key rejected");
+            }
+            Keypair::try_from(keypair_bytes.as_slice())
                 .context("Invalid keypair bytes")?
         } else {
             // JSON format
             let json: Vec<u8> = serde_json::from_slice(&keypair_bytes)
                 .context("Failed to parse keypair JSON")?;
-            Keypair::from_bytes(&json)
+            if json.len() != 64 {
+                anyhow::bail!("Invalid keypair length: expected 64 bytes, got {}", json.len());
+            }
+            if json.iter().all(|&b| b == 0) {
+                anyhow::bail!("Invalid keypair: all-zero key rejected");
+            }
+            Keypair::try_from(json.as_slice())
                 .context("Invalid keypair from JSON")?
         };
         
@@ -60,7 +69,7 @@ impl WalletManager {
     
     /// Clone the keypair (for signing operations)
     pub fn keypair_cloned(&self) -> Keypair {
-        Keypair::from_bytes(&self.keypair.to_bytes()).expect("Valid keypair")
+        Keypair::try_from(self.keypair.to_bytes().as_slice()).expect("Valid keypair")
     }
     
     /// Get an Arc reference to the keypair (for use with libraries expecting Arc<Keypair>)

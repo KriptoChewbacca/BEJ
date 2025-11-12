@@ -65,7 +65,18 @@ impl LocalSigner {
     }
     
     pub fn from_bytes(bytes: &[u8]) -> NonceResult<Self> {
-        Keypair::from_bytes(bytes)
+        // Validate length
+        if bytes.len() != 64 {
+            return Err(NonceError::Signing(format!(
+                "Invalid keypair length: expected 64 bytes, got {}",
+                bytes.len()
+            )));
+        }
+        // Reject all-zero keys
+        if bytes.iter().all(|&b| b == 0) {
+            return Err(NonceError::Signing("Invalid keypair: all-zero key rejected".to_string()));
+        }
+        Keypair::try_from(bytes)
             .map(|kp| Self { keypair: kp })
             .map_err(|e| NonceError::Signing(format!("Invalid keypair bytes: {}", e)))
     }

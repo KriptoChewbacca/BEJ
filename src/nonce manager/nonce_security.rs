@@ -36,7 +36,21 @@ impl SecureKeypair {
     
     /// Create from bytes (bytes will be zeroized)
     pub fn from_bytes(mut bytes: Vec<u8>) -> NonceResult<Self> {
-        let keypair = Keypair::from_bytes(&bytes)
+        // Validate length
+        if bytes.len() != 64 {
+            bytes.zeroize();
+            return Err(NonceError::Signing(format!(
+                "Invalid keypair length: expected 64 bytes, got {}",
+                bytes.len()
+            )));
+        }
+        // Reject all-zero keys
+        if bytes.iter().all(|&b| b == 0) {
+            bytes.zeroize();
+            return Err(NonceError::Signing("Invalid keypair: all-zero key rejected".to_string()));
+        }
+        
+        let keypair = Keypair::try_from(bytes.as_slice())
             .map_err(|e| NonceError::Signing(format!("Invalid keypair bytes: {}", e)))?;
         
         // Zeroize the input bytes
