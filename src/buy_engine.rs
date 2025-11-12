@@ -2548,6 +2548,8 @@ mod tests {
     use std::future::Future;
     use std::pin::Pin;
     use tokio::sync::mpsc;
+    use crate::nonce_manager::UniverseNonceManager;
+    use crate::types::PriorityLevel;
 
     #[derive(Debug)]
     struct AlwaysOkBroadcaster;
@@ -2559,6 +2561,31 @@ mod tests {
         ) -> Pin<Box<dyn Future<Output = Result<Signature>> + Send + 'a>> {
             Box::pin(async { Ok(Signature::from([7u8; 64])) })
         }
+    }
+
+    /// Helper function to create a test nonce manager
+    /// This avoids code duplication across tests
+    async fn create_test_nonce_manager() -> Arc<UniverseNonceManager> {
+        use crate::nonce_manager::LocalSigner;
+        use solana_sdk::signature::Keypair;
+        
+        // Create a test signer
+        let keypair = Keypair::new();
+        let signer = Arc::new(LocalSigner::new(keypair));
+        
+        // Create test nonce pubkeys
+        let nonce_pubkeys = vec![
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+        ];
+        
+        // Use new_for_testing which doesn't require RPC
+        // Use a very long lease timeout to avoid refresh attempts during tests
+        UniverseNonceManager::new_for_testing(
+            signer,
+            nonce_pubkeys,
+            Duration::from_secs(3600), // 1 hour to avoid refresh attempts
+        ).await
     }
 
     /// Test: Buy enters passive mode, then sell returns to sniffing
@@ -2592,25 +2619,8 @@ mod tests {
         // Initialize app state in Sniffing mode
         let app_state = Arc::new(Mutex::new(AppState::new(Mode::Sniffing)));
 
-        // Create a test nonce manager using the existing new_for_testing method
-        // We'll use LocalSigner and create mock nonce accounts
-        use crate::nonce_manager::LocalSigner;
-        use solana_sdk::signature::Keypair;
-        
-        let test_keypair = Keypair::new();
-        let signer = Arc::new(LocalSigner::new(test_keypair));
-        
-        // Create 2 mock nonce pubkeys
-        let nonce_pubkeys = vec![
-            Pubkey::new_unique(),
-            Pubkey::new_unique(),
-        ];
-        
-        let nonce_manager = NonceManager::new_for_testing(
-            signer.clone(),
-            nonce_pubkeys,
-            Duration::from_secs(3600), // High TTL for testing
-        ).await;
+        // Create test nonce manager using shared helper
+        let nonce_manager = create_test_nonce_manager().await;
 
         // Create test config
         let config = Config {
@@ -2724,39 +2734,188 @@ mod tests {
         assert_eq!(st.holdings_percent, 0.0, "Holdings should be 0% after 100% sell");
     }
 
-    // NOTE: This test is disabled as it uses the old NonceManager API
-    // TODO: Update to use new_for_testing() with proper signer
-    #[tokio::test]
-    #[ignore = "Test needs updating for new BuyEngine and NonceManager API - old mpsc::channel instead of unbounded"]
+    // Test backoff behavior with failing broadcaster
+    #[tokio::test(flavor = "current_thread")]
     async fn test_backoff_behavior() {
-        // This test would need to be updated similar to buy_enters_passive_and_sell_returns_to_sniffing
-        // For now, we keep it ignored as our main test demonstrates the same functionality
+        // Seed RNG for determinism
+        fastrand::seed(43);
+        
+        let (_tx, rx) = mpsc::unbounded_channel::<PremintCandidate>();
+
+        let app_state = Arc::new(Mutex::new(AppState::new(Mode::Sniffing)));
+
+        #[derive(Debug)]
+        struct FailingBroadcaster;
+        impl RpcBroadcaster for FailingBroadcaster {
+            fn send_on_many_rpc<'a>(
+                &'a self,
+                _txs: Vec<VersionedTransaction>,
+                _correlation_id: Option<CorrelationId>,
+            ) -> Pin<Box<dyn Future<Output = Result<Signature>> + Send + 'a>> {
+                Box::pin(async { Err(anyhow!("simulated failure")) })
+            }
+        }
+
+        let nonce_manager = create_test_nonce_manager().await;
+
+        let engine = BuyEngine::new(
+            Arc::new(FailingBroadcaster),
+            nonce_manager,
+            rx,
+            app_state.clone(),
+            Config {
+                nonce_count: 1,
+                ..Config::default()
+            },
+            None,
+        );
+
+        // Test backoff state
+        assert_eq!(engine.backoff_state.get_failure_count(), 0);
+        
+        engine.backoff_state.record_failure().await;
+        assert_eq!(engine.backoff_state.get_failure_count(), 1);
+        
+        let backoff_duration = engine.backoff_state.should_backoff().await;
+        assert!(backoff_duration.is_some());
+        assert!(backoff_duration.unwrap().as_millis() >= 100);
+        
+        engine.backoff_state.record_success().await;
+        assert_eq!(engine.backoff_state.get_failure_count(), 0);
+        
+        let no_backoff = engine.backoff_state.should_backoff().await;
+        assert!(no_backoff.is_none());
     }
 
-    // NOTE: This test is disabled as it uses the old NonceManager API  
-    // TODO: Update to use new_for_testing() with proper signer
-    #[tokio::test]
-    #[ignore = "Test needs updating for new BuyEngine and NonceManager API - old mpsc::channel instead of unbounded"]
+    // Test atomic buy protection - prevents concurrent buys
+    #[tokio::test(flavor = "current_thread")]
     async fn test_atomic_buy_protection() {
-        // This test would need to be updated similar to buy_enters_passive_and_sell_returns_to_sniffing
-        // For now, we keep it ignored
+        // Seed RNG for determinism
+        fastrand::seed(44);
+        
+        let (_tx, rx) = mpsc::unbounded_channel::<PremintCandidate>();
+
+        let app_state = Arc::new(Mutex::new(AppState::new(Mode::Sniffing)));
+        let nonce_manager = create_test_nonce_manager().await;
+
+        let engine = BuyEngine::new(
+            Arc::new(AlwaysOkBroadcaster),
+            nonce_manager,
+            rx,
+            app_state.clone(),
+            Config {
+                nonce_count: 1,
+                ..Config::default()
+            },
+            None, // No tx_builder, will use placeholder
+        );
+
+        // Test the guard mechanism directly
+        // First attempt should set the flag and succeed
+        assert!(!engine.pending_buy.load(Ordering::Relaxed));
+        
+        // Simulate a buy operation starting
+        let success = engine.pending_buy.compare_exchange(
+            false, true, Ordering::Relaxed, Ordering::Relaxed
+        ).is_ok();
+        assert!(success, "First pending_buy flag should be settable");
+        
+        // Second attempt should fail because flag is already set
+        let result2 = engine.pending_buy.compare_exchange(
+            false, true, Ordering::Relaxed, Ordering::Relaxed
+        );
+        assert!(result2.is_err(), "Second pending_buy flag should fail");
+        
+        // Clear the flag
+        engine.pending_buy.store(false, Ordering::Relaxed);
+        
+        // Now it should succeed again
+        let success3 = engine.pending_buy.compare_exchange(
+            false, true, Ordering::Relaxed, Ordering::Relaxed
+        ).is_ok();
+        assert!(success3, "After clearing, pending_buy flag should be settable again");
     }
 
-    // NOTE: This test is disabled as it uses the old NonceManager API
-    // TODO: Update to use new_for_testing() with proper signer
-    #[tokio::test]
-    #[ignore = "Test needs updating for new BuyEngine and NonceManager API - old mpsc::channel instead of unbounded"]
+    // Test sell/buy race protection
+    #[tokio::test(flavor = "current_thread")]
     async fn test_sell_buy_race_protection() {
-        // This test would need to be updated similar to buy_enters_passive_and_sell_returns_to_sniffing
-        // For now, we keep it ignored
+        // Seed RNG for determinism
+        fastrand::seed(45);
+        
+        let (_tx, rx) = mpsc::unbounded_channel::<PremintCandidate>();
+
+        let app_state = Arc::new(Mutex::new({
+            let mut state = AppState::new(Mode::PassiveToken(Pubkey::new_unique()));
+            state.active_token = Some(PremintCandidate {
+                mint: Pubkey::new_unique(),
+                program: "pump.fun".to_string(),
+                accounts: vec![],
+                priority: PriorityLevel::High,
+                timestamp: 0,
+                price_hint: None,
+                signature: None,
+            });
+            state.last_buy_price = Some(1.0);
+            state.holdings_percent = 1.0;
+            state
+        }));
+
+        let nonce_manager = create_test_nonce_manager().await;
+
+        let engine = BuyEngine::new(
+            Arc::new(AlwaysOkBroadcaster),
+            nonce_manager,
+            rx,
+            app_state.clone(),
+            Config::default(),
+            None,
+        );
+
+        // Simulate pending buy
+        engine.pending_buy.store(true, Ordering::Relaxed);
+
+        // Sell should fail due to pending buy
+        let result = engine.sell(0.5).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("buy operation in progress"));
     }
 
-    // NOTE: This test is disabled as it uses the old NonceManager API
-    // TODO: Update to use new_for_testing() with proper signer
-    #[tokio::test]
-    #[ignore = "Test needs updating for new BuyEngine and NonceManager API - old mpsc::channel instead of unbounded"]
+    // Test nonce lease RAII behavior
+    #[tokio::test(flavor = "current_thread")]
     async fn test_nonce_lease_raii_behavior() {
-        // This test would need to be updated similar to buy_enters_passive_and_sell_returns_to_sniffing
-        // For now, we keep it ignored
+        // Seed RNG for determinism
+        fastrand::seed(46);
+        
+        let (_tx, rx) = mpsc::unbounded_channel::<PremintCandidate>();
+
+        let app_state = Arc::new(Mutex::new(AppState::new(Mode::Sniffing)));
+
+        let nonce_manager = create_test_nonce_manager().await;
+
+        let _engine = BuyEngine::new(
+            Arc::new(AlwaysOkBroadcaster),
+            Arc::clone(&nonce_manager),
+            rx,
+            app_state.clone(),
+            Config {
+                nonce_count: 2,
+                ..Config::default()
+            },
+            None,
+        );
+
+        // All permits should be available initially
+        let initial_stats = nonce_manager.get_stats().await;
+        assert_eq!(initial_stats.available_permits, 2);
+        assert_eq!(initial_stats.permits_in_use, 0);
+        
+        // This test verifies that the RAII pattern is set up correctly
+        // The actual nonce acquisition would require a real RPC connection
+        // which we cannot mock easily without modifying the nonce manager
+        // The test validates the initial state and structure
+        
+        // Verify total accounts match our setup
+        assert_eq!(initial_stats.total_accounts, 2);
+        assert_eq!(initial_stats.tainted_count, 0);
     }
 }
