@@ -11,14 +11,9 @@ default = []
 mock-mode = []
 # Map features to optional deps (required for cargo to resolve metadata)
 pumpfun = ["dep:pumpfun"]
-# raydium = ["dep:raydium-sdk-V2"]  # Temporarily disabled due to version conflicts
-raydium = []  # Feature flag for raydium-specific code paths
-orca = ["dep:orca_whirlpools"]
 test_utils = []  # Feature flag for test utilities
 # ZK proof feature with full zk-SNARKs support
 zk_enabled = ["dep:solana-zk-sdk"]
-# Convenience meta-feature (optional)
-dex-all = ["pumpfun", "orca"]  # Removed raydium from meta-feature
 
 [dependencies]
 # Core async runtime and utilities
@@ -60,8 +55,6 @@ spl-token = "~6.0.0"
 
 # DEX SDKs (optional)
 pumpfun = { version = "4.4.1", features = ["create-ata", "versioned-tx", "close-ata"], optional = true }
-# raydium-sdk-V2 = { version = "0.0.9", optional = true }  # Temporarily disabled due to Solana version conflicts
-orca_whirlpools = { version = "5.0.0", optional = true }
 
 # Advanced data structures and concurrency
 dashmap = "6.1"

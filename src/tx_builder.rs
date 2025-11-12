@@ -209,14 +209,6 @@ use crate::wallet::WalletManager;
 #[cfg(feature = "pumpfun")]
 use pumpfun::{accounts::BondingCurveAccount, common::types::{Cluster, PriorityFee}, PumpFun};
 
-// Optional integrations: Raydium/Orca (behind feature flags)
-// Raydium temporarily disabled - no dependency available
-// #[cfg(feature = "raydium")]
-// use raydium_sdk_v2::AmmSwapClient;
-// Orca v5.0 API not yet integrated - requires significant refactoring
-// #[cfg(feature = "orca")]
-// use orca_whirlpools::{swap_instructions, SwapType, SwapQuote, InitializedPool, fetch_concentrated_liquidity_pool};
-
 use spl_associated_token_account::get_associated_token_address;
 use spl_token::id as token_program_id;
 use spl_token::instruction::close_account;
@@ -1149,24 +1141,20 @@ pub enum UniverseErrorType {
     AnomalyDetected { description: String, confidence: f64 },
 }
 
-// Supported DEX programs with priority ordering (Universe Class Enhanced)
+// Supported DEX programs with priority ordering
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum DexProgram {
     PumpFun,     // Priority 0 (highest)
-    Raydium,     // Priority 1
-    Orca,        // Priority 2
-    LetsBonk,    // Priority 3
-    Unknown(String), // Priority 4 (lowest)
+    LetsBonk,    // Priority 1
+    Unknown(String), // Priority 2 (lowest)
 }
 
 impl DexProgram {
-    /// Get priority score (lower is better) (Universe Class)
+    /// Get priority score (lower is better)
     pub fn priority(&self) -> u8 {
         match self {
             DexProgram::PumpFun => 0,
-            DexProgram::Raydium => 1,
-            DexProgram::Orca => 2,
-            DexProgram::LetsBonk => 3,
+            DexProgram::LetsBonk => 1,
             DexProgram::Unknown(_) => 255,
         }
     }
@@ -1177,8 +1165,6 @@ impl From<&str> for DexProgram {
         match s.to_lowercase().as_str() {
             "pump.fun" | "pumpfun" | "pumpportal" => DexProgram::PumpFun,
             "letsbonk.fun" | "letsbonk" | "bonk" => DexProgram::LetsBonk,
-            "raydium" => DexProgram::Raydium,
-            "orca" => DexProgram::Orca,
             _ => DexProgram::Unknown(s.to_string()),
         }
     }
@@ -2087,14 +2073,10 @@ impl TransactionBuilder {
         let adaptive_priority_fee = config.calculate_adaptive_priority_fee();
         
         // Build program-specific instruction first for simulation
-        // TODO: For true ML-based slippage, instruction builders should accept slippage parameter
-        // For now, they use config.slippage_bps directly
         let dex_program = DexProgram::from(candidate.program.as_str());
         let buy_instruction = match dex_program {
             DexProgram::PumpFun => self.build_pumpfun_instruction(candidate, config).await,
             DexProgram::LetsBonk => self.build_letsbonk_instruction(candidate, config).await,
-            DexProgram::Raydium => self.build_raydium_instruction(candidate, config).await,
-            DexProgram::Orca => self.build_orca_instruction(candidate, config).await,
             DexProgram::Unknown(_) => self.build_placeholder_buy_instruction(candidate, config).await,
         }?;
 
@@ -2393,10 +2375,6 @@ impl TransactionBuilder {
             DexProgram::LetsBonk => {
                 self.build_letsbonk_sell_instruction(mint, sell_percent, config).await
             }
-            DexProgram::Raydium => {
-                self.build_raydium_sell_instruction(mint, sell_percent, config).await
-            }
-            DexProgram::Orca => self.build_orca_sell_instruction(mint, sell_percent, config).await,
             DexProgram::Unknown(_) => {
                 self.build_placeholder_sell_instruction(mint, sell_percent, config).await
             }
@@ -2875,72 +2853,6 @@ impl TransactionBuilder {
         self.build_placeholder_buy_instruction(candidate, config).await
     }
 
-    async fn build_raydium_instruction(
-        &self,
-        candidate: &PremintCandidate,
-        config: &TransactionConfig,
-    ) -> Result<Instruction, TransactionBuilderError> {
-        #[cfg(feature = "raydium")]
-        {
-            // Raydium integration disabled - no SDK available
-            let _ = (candidate, config); // Silence unused warnings
-            return Err(TransactionBuilderError::FeatureNotAvailable {
-                feature: "raydium".to_string(),
-                reason: "Raydium SDK temporarily disabled due to version conflicts".to_string(),
-            });
-        }
-
-        #[cfg(not(feature = "raydium"))]
-        {
-            let _ = (candidate, config); // Silence unused warnings
-            Err(TransactionBuilderError::FeatureNotEnabled {
-                feature: "raydium".to_string(),
-                action: "Raydium buy instruction".to_string(),
-            })
-        }
-    }
-
-    async fn build_orca_instruction(
-        &self,
-        candidate: &PremintCandidate,
-        config: &TransactionConfig,
-    ) -> Result<Instruction, TransactionBuilderError> {
-        #[cfg(feature = "orca")]
-        {
-            // TODO: Update to orca_whirlpools v5.0 API
-            // The v5.0 API has significant breaking changes from the old WhirlpoolClient API
-            // This needs to be rewritten to use the new functional API with fetch_concentrated_liquidity_pool
-            // and swap_instructions functions.
-            //
-            // Old API used:
-            // - WhirlpoolClient::new()
-            // - client.derive_whirlpool_pda()
-            // - client.get_whirlpool()
-            // - client.swap_quote_a_to_b()
-            // - client.build_swap_ix()
-            //
-            // New API uses:
-            // - fetch_concentrated_liquidity_pool()
-            // - swap_instructions()
-            // See: https://docs.rs/orca_whirlpools/5.0.0/orca_whirlpools/
-            
-            let _ = (candidate, config); // Silence unused warnings
-            return Err(TransactionBuilderError::FeatureNotAvailable {
-                feature: "orca".to_string(),
-                reason: "Orca integration requires update to v5.0 API - not yet implemented".to_string(),
-            });
-        }
-
-        #[cfg(not(feature = "orca"))]
-        {
-            let _ = (candidate, config); // Silence unused warnings
-            Err(TransactionBuilderError::FeatureNotEnabled {
-                feature: "orca".to_string(),
-                action: "Orca buy instruction".to_string(),
-            })
-        }
-    }
-
     async fn build_pumpportal_or_memo(
         &self,
         candidate: &PremintCandidate,
@@ -3240,26 +3152,6 @@ impl TransactionBuilder {
     }
 
     async fn build_letsbonk_sell_instruction(
-        &self,
-        mint: &Pubkey,
-        sell_percent: f64,
-        config: &TransactionConfig,
-    ) -> Result<Instruction, TransactionBuilderError> {
-        self.build_placeholder_sell_instruction(mint, sell_percent, config)
-            .await
-    }
-
-    async fn build_raydium_sell_instruction(
-        &self,
-        mint: &Pubkey,
-        sell_percent: f64,
-        config: &TransactionConfig,
-    ) -> Result<Instruction, TransactionBuilderError> {
-        self.build_placeholder_sell_instruction(mint, sell_percent, config)
-            .await
-    }
-
-    async fn build_orca_sell_instruction(
         &self,
         mint: &Pubkey,
         sell_percent: f64,

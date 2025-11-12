@@ -1333,8 +1333,7 @@ impl BuyEngine {
             cross_chain_config: CrossChainConfig::default(),
             multi_program_sniffer: Arc::new(MultiProgramSniffer::new(vec![
                 "pump.fun".to_string(),
-                "raydium".to_string(),
-                "orca".to_string(),
+                "letsbonk.fun".to_string(),
             ])),
             
             portfolio: Arc::new(RwLock::new(HashMap::new())),
@@ -2057,7 +2056,7 @@ impl BuyEngine {
     /// UNIVERSE: Advanced candidate filtering with zero-copy processing
     fn is_candidate_interesting(&self, candidate: &PremintCandidate) -> bool {
         // Support multiple programs for multi-protocol sniping
-        const INTERESTING_PROGRAMS: &[&str] = &["pump.fun", "raydium", "orca"];
+        const INTERESTING_PROGRAMS: &[&str] = &["pump.fun", "pumpfun", "letsbonk.fun", "letsbonk"];
         
         // Zero-copy string matching
         let program_match = INTERESTING_PROGRAMS.iter().any(|&prog| candidate.program == prog);

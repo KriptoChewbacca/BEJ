@@ -26,7 +26,7 @@ pub struct PremintCandidate {
     /// Mint address
     pub mint: Pubkey,
     
-    /// Program ID that created this token (e.g., "pumpfun", "raydium", "orca")
+    /// Program ID that created this token (e.g., "pumpfun", "letsbonk")
     pub program: String,
     
     /// Associated accounts
