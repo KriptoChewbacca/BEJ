@@ -1,0 +1,43 @@
+ Downloading crates ...
+  Downloaded castaway v0.1.2
+  Downloaded curl v0.4.49
+  Downloaded curl-sys v0.4.84+curl-8.17.0
+  Downloaded fastrand v1.9.0
+  Downloaded futures-lite v1.13.0
+  Downloaded isahc v1.7.2
+  Downloaded libnghttp2-sys v0.1.11+1.64.0
+  Downloaded libz-sys v1.1.23
+  Downloaded polling v2.8.0
+  Downloaded pumpfun v4.6.0
+  Downloaded sluice v0.5.5
+  Downloaded tracing-futures v0.2.5
+  Downloaded waker-fn v1.2.0
+   Compiling libz-sys v1.1.23
+   Compiling libnghttp2-sys v0.1.11+1.64.0
+   Compiling curl-sys v0.4.84+curl-8.17.0
+   Compiling polling v2.8.0
+   Compiling curl v0.4.49
+   Compiling waker-fn v1.2.0
+   Compiling isahc v1.7.2
+   Compiling fastrand v1.9.0
+   Compiling futures-lite v1.13.0
+   Compiling tracing-futures v0.2.5
+   Compiling sluice v0.5.5
+   Compiling castaway v0.1.2
+   Compiling pumpfun v4.6.0
+   Compiling bot v0.1.0 (/home/runner/work/BEJ/BEJ)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.39s
+     Running unittests src/lib.rs (target/debug/deps/bot-62fdc551d61fa795)
+
+running 8 tests
+test compat::tests::test_legacy_message_header ... ok
+test compat::tests::test_legacy_required_signers ... ok
+test compat::tests::test_legacy_static_account_keys ... ok
+test compat::tests::test_multisig_message ... ok
+test compat::tests::test_v0_required_signers ... ok
+test compat::tests::test_num_required_signatures ... ok
+test compat::tests::test_v0_message_header ... ok
+test compat::tests::test_v0_static_account_keys ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

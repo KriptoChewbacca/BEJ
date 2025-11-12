@@ -1,0 +1,2833 @@
+   Compiling bot v0.1.0 (/home/runner/work/BEJ/BEJ)
+warning: use of deprecated module `solana_sdk::system_instruction`: Use `solana_system_interface` crate instead
+    --> src/tx_builder.rs:3615:9
+     |
+3615 |         system_instruction,
+     |         ^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated module `solana_sdk::system_instruction`: Use `solana_system_interface` crate instead
+  --> src/tests/tx_builder_output_tests.rs:17:9
+   |
+17 |         system_instruction,
+   |         ^^^^^^^^^^^^^^^^^^
+
+warning: use of deprecated module `solana_sdk::system_instruction`: Use `solana_system_interface` crate instead
+  --> src/tests/instruction_ordering_tests.rs:15:9
+   |
+15 |         system_instruction,
+   |         ^^^^^^^^^^^^^^^^^^
+
+warning: use of deprecated module `solana_sdk::system_program`: Use `solana_system_interface::program` instead
+  --> src/tests/instruction_ordering_tests.rs:16:9
+   |
+16 |         system_program,
+   |         ^^^^^^^^^^^^^^
+
+warning: use of deprecated module `solana_sdk::system_instruction`: Use `solana_system_interface` crate instead
+  --> src/tests/simulation_nonce_tests.rs:18:9
+   |
+18 |         system_instruction,
+   |         ^^^^^^^^^^^^^^^^^^
+
+warning: use of deprecated module `solana_sdk::system_instruction`: Use `solana_system_interface` crate instead
+  --> src/tests/nonce_integration_tests.rs:20:9
+   |
+20 |         system_instruction,
+   |         ^^^^^^^^^^^^^^^^^^
+
+warning: use of deprecated module `solana_sdk::system_instruction`: Use `solana_system_interface` crate instead
+  --> src/tests/test_helpers.rs:18:9
+   |
+18 |         system_instruction,
+   |         ^^^^^^^^^^^^^^^^^^
+
+warning: type `PredictionRecord` is more private than the item `nonce_predictive::UniversePredictiveModel::export_predictions`
+   --> src/nonce manager/nonce_predictive.rs:800:5
+    |
+800 |     pub fn export_predictions(&self) -> Vec<PredictionRecord> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `nonce_predictive::UniversePredictiveModel::export_predictions` is reachable at visibility `pub(crate)`
+    |
+note: but type `PredictionRecord` is only usable at visibility `pub(self)`
+   --> src/nonce manager/nonce_predictive.rs:113:1
+    |
+113 | struct PredictionRecord {
+    | ^^^^^^^^^^^^^^^^^^^^^^^
+    = note: `#[warn(private_interfaces)]` on by default
+
+warning: function `get_num_readonly_signed_accounts` is never used
+   --> src/compat.rs:199:8
+    |
+199 | pub fn get_num_readonly_signed_accounts(message: &VersionedMessage) -> u8 {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: the lint level is defined here
+   --> src/main.rs:20:9
+    |
+ 20 | #![warn(dead_code)]
+    |         ^^^^^^^^^
+
+warning: function `get_num_readonly_unsigned_accounts` is never used
+   --> src/compat.rs:214:8
+    |
+214 | pub fn get_num_readonly_unsigned_accounts(message: &VersionedMessage) -> u8 {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type alias `CandidateSender` is never used
+  --> src/types.rs:61:10
+   |
+61 | pub type CandidateSender = mpsc::UnboundedSender<PremintCandidate>;
+   |          ^^^^^^^^^^^^^^^
+
+warning: method `record_trade` is never used
+   --> src/types.rs:138:18
+    |
+104 | impl AppState {
+    | ------------- method in this implementation
+...
+138 |     pub async fn record_trade(&self, success: bool, volume_sol: f64) {
+    |                  ^^^^^^^^^^^^
+
+warning: fields `registry`, `active_trades`, `nonce_pool_size`, and `rpc_connections` are never read
+  --> src/metrics.rs:8:5
+   |
+ 7 | pub struct Metrics {
+   |            ------- fields in this struct
+ 8 |     registry: Registry,
+   |     ^^^^^^^^
+...
+24 |     pub active_trades: IntGauge,
+   |         ^^^^^^^^^^^^^
+25 |     pub nonce_pool_size: IntGauge,
+   |         ^^^^^^^^^^^^^^^
+26 |     pub rpc_connections: IntGauge,
+   |         ^^^^^^^^^^^^^^^
+
+warning: method `registry` is never used
+   --> src/metrics.rs:156:12
+    |
+ 36 | impl Metrics {
+    | ------------ method in this implementation
+...
+156 |     pub fn registry(&self) -> &Registry {
+    |            ^^^^^^^^
+
+warning: associated items `new`, `observe_duration`, and `elapsed_secs` are never used
+   --> src/metrics.rs:206:12
+    |
+205 | impl Timer {
+    | ---------- associated items in this implementation
+206 |     pub fn new() -> Self {
+    |            ^^^
+...
+221 |     pub fn observe_duration(&self, histogram: &Histogram) {
+    |            ^^^^^^^^^^^^^^^^
+...
+226 |     pub fn elapsed_secs(&self) -> f64 {
+    |            ^^^^^^^^^^^^
+
+warning: multiple associated items are never used
+   --> src/wallet.rs:53:12
+    |
+ 19 | impl WalletManager {
+    | ------------------ associated items in this implementation
+...
+ 53 |     pub fn from_keypair(keypair: Keypair) -> Self {
+    |            ^^^^^^^^^^^^
+...
+ 71 |     pub fn keypair_cloned(&self) -> Keypair {
+    |            ^^^^^^^^^^^^^^
+...
+ 76 |     pub fn keypair_arc(&self) -> Arc<Keypair> {
+    |            ^^^^^^^^^^^
+...
+ 82 |     pub async fn add_authority(&self, authority: Pubkey) {
+    |                  ^^^^^^^^^^^^^
+...
+ 90 |     pub async fn remove_authority(&self, authority: &Pubkey) {
+    |                  ^^^^^^^^^^^^^^^^
+...
+ 96 |     pub async fn get_authorities(&self) -> Vec<Pubkey> {
+    |                  ^^^^^^^^^^^^^^^
+...
+101 |     pub fn authority_pool_ref(&self) -> Arc<RwLock<Vec<Pubkey>>> {
+    |            ^^^^^^^^^^^^^^^^^^
+
+warning: struct `TaintTracker` is never constructed
+   --> src/security.rs:138:12
+    |
+138 | pub struct TaintTracker {
+    |            ^^^^^^^^^^^^
+
+warning: associated items `new` and `track` are never used
+   --> src/security.rs:143:12
+    |
+142 | impl TaintTracker {
+    | ----------------- associated items in this implementation
+143 |     pub fn new() -> Self {
+    |            ^^^
+...
+147 |     pub fn track(&self, _source: &str, _data: &[u8]) {
+    |            ^^^^^
+
+warning: field `program` is never read
+  --> src/security.rs:37:13
+   |
+35 |     pub struct Candidate {
+   |                --------- field in this struct
+36 |         pub mint: Pubkey,
+37 |         pub program: Pubkey,
+   |             ^^^^^^^
+
+warning: function `validate_transaction` is never used
+   --> src/security.rs:103:12
+    |
+103 |     pub fn validate_transaction(tx: &VersionedTransaction) -> anyhow::Result<()> {
+    |            ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_signature` is never used
+   --> src/security.rs:131:12
+    |
+131 |     pub fn validate_signature(sig: &str) -> anyhow::Result<Signature> {
+    |            ^^^^^^^^^^^^^^^^^^
+
+warning: fields `request_id`, `trace_id`, `span_id`, `parent_span_id`, `operation`, and `timestamp` are never read
+   --> src/structured_logging.rs:96:9
+    |
+ 94 | pub struct PipelineContext {
+    |            --------------- fields in this struct
+ 95 |     /// Unique request ID
+ 96 |     pub request_id: String,
+    |         ^^^^^^^^^^
+...
+ 99 |     pub trace_id: String,
+    |         ^^^^^^^^
+...
+102 |     pub span_id: String,
+    |         ^^^^^^^
+...
+105 |     pub parent_span_id: Option<String>,
+    |         ^^^^^^^^^^^^^^
+...
+108 |     pub operation: String,
+    |         ^^^^^^^^^
+...
+111 |     pub timestamp: u64,
+    |         ^^^^^^^^^
+    |
+    = note: `PipelineContext` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: method `child` is never used
+   --> src/structured_logging.rs:144:12
+    |
+120 | impl PipelineContext {
+    | -------------------- method in this implementation
+...
+144 |     pub fn child(&self, operation: &str) -> Self {
+    |            ^^^^^
+
+warning: associated items `from_string` and `as_str` are never used
+  --> src/observability.rs:17:12
+   |
+10 | impl CorrelationId {
+   | ------------------ associated items in this implementation
+...
+17 |     pub fn from_string(s: String) -> Self {
+   |            ^^^^^^^^^^^
+...
+22 |     pub fn as_str(&self) -> &str {
+   |            ^^^^^^
+
+warning: variants `CircuitBreakerOpen` and `PredictiveFailure` are never constructed
+  --> src/nonce manager/nonce_errors.rs:20:5
+   |
+ 8 | pub enum UniverseErrorType {
+   |          ----------------- variants in this enum
+...
+20 |     CircuitBreakerOpen,
+   |     ^^^^^^^^^^^^^^^^^^
+21 |     /// Predictive failure with probability
+22 |     PredictiveFailure { probability: f64 },
+   |     ^^^^^^^^^^^^^^^^^
+   |
+   = note: `UniverseErrorType` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: field `should_taint` is never read
+  --> src/nonce manager/nonce_errors.rs:57:9
+   |
+53 | pub struct ErrorClassification {
+   |            ------------------- field in this struct
+...
+57 |     pub should_taint: bool,
+   |         ^^^^^^^^^^^^
+   |
+   = note: `ErrorClassification` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: variants `NonceLocked`, `NonceTainted`, `LeaseExpired`, `AdvanceFailed`, and `ConfirmationFailed` are never constructed
+   --> src/nonce manager/nonce_errors.rs:88:5
+    |
+ 62 | pub enum NonceError {
+    |          ---------- variants in this enum
+...
+ 88 |     NonceLocked(Pubkey),
+    |     ^^^^^^^^^^^
+...
+ 92 |     NonceTainted(Pubkey),
+    |     ^^^^^^^^^^^^
+...
+108 |     LeaseExpired(Pubkey),
+    |     ^^^^^^^^^^^^
+...
+124 |     AdvanceFailed(Pubkey, String),
+    |     ^^^^^^^^^^^^^
+...
+128 |     ConfirmationFailed(String),
+    |     ^^^^^^^^^^^^^^^^^^
+    |
+    = note: `NonceError` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: associated functions `aggressive` and `conservative` are never used
+  --> src/nonce manager/nonce_retry.rs:37:12
+   |
+35 | impl RetryConfig {
+   | ---------------- associated functions in this implementation
+36 |     /// Create an aggressive retry config (more attempts, shorter delays)
+37 |     pub fn aggressive() -> Self {
+   |            ^^^^^^^^^^
+...
+47 |     pub fn conservative() -> Self {
+   |            ^^^^^^^^^^^^
+
+warning: fields `total_attempts` and `total_duration_ms` are never read
+  --> src/nonce manager/nonce_retry.rs:75:9
+   |
+74 | pub struct RetryMetrics {
+   |            ------------ fields in this struct
+75 |     pub total_attempts: u32,
+   |         ^^^^^^^^^^^^^^
+...
+78 |     pub total_duration_ms: u64,
+   |         ^^^^^^^^^^^^^^^^^
+   |
+   = note: `RetryMetrics` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: field `tainted_endpoints` is never read
+   --> src/nonce manager/nonce_retry.rs:315:5
+    |
+313 | pub struct GlobalCircuitBreaker {
+    |            -------------------- field in this struct
+314 |     endpoint_breakers: Arc<RwLock<std::collections::HashMap<String, Arc<CircuitBreaker>>>>,
+315 |     tainted_endpoints: Arc<RwLock<std::collections::HashSet<String>>>,
+    |     ^^^^^^^^^^^^^^^^^
+    |
+    = note: `GlobalCircuitBreaker` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: methods `mark_tainted` and `is_tainted` are never used
+   --> src/nonce manager/nonce_retry.rs:354:18
+    |
+318 | impl GlobalCircuitBreaker {
+    | ------------------------- methods in this implementation
+...
+354 |     pub async fn mark_tainted(&self, endpoint: &str) {
+    |                  ^^^^^^^^^^^^
+...
+360 |     pub async fn is_tainted(&self, endpoint: &str) -> bool {
+    |                  ^^^^^^^^^^
+
+warning: field `timestamp` is never read
+   --> src/nonce manager/nonce_retry.rs:373:5
+    |
+371 | struct ErrorHistoryEntry {
+    |        ----------------- field in this struct
+372 |     error_message: String,
+373 |     timestamp: Instant,
+    |     ^^^^^^^^^
+    |
+    = note: `ErrorHistoryEntry` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: method `can_execute` is never used
+  --> src/nonce manager/nonce_circuit_breaker.rs:66:12
+   |
+53 | impl UniverseCircuitBreaker {
+   | --------------------------- method in this implementation
+...
+66 |     pub fn can_execute(&self) -> bool {
+   |            ^^^^^^^^^^^
+
+warning: field `breaker` is never read
+   --> src/nonce manager/nonce_circuit_breaker.rs:131:9
+    |
+130 | pub struct GlobalCircuitBreaker {
+    |            -------------------- field in this struct
+131 |     pub breaker: UniverseCircuitBreaker,
+    |         ^^^^^^^
+    |
+    = note: `GlobalCircuitBreaker` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: variant `High` is never constructed
+   --> src/nonce manager/nonce_circuit_breaker.rs:171:5
+    |
+168 | pub enum CongestionLevel {
+    |          --------------- variant in this enum
+...
+171 |     High,
+    |     ^^^^
+    |
+    = note: `CongestionLevel` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: method `decay_epsilon` is never used
+   --> src/nonce manager/nonce_circuit_breaker.rs:258:12
+    |
+194 | impl RLAgent {
+    | ------------ method in this implementation
+...
+258 |     pub fn decay_epsilon(&self) {
+    |            ^^^^^^^^^^^^^
+
+warning: methods `execute_rotation`, `confirm_rotation`, `finalize_rotation`, `rollback_rotation`, and `get_all_audit_logs` are never used
+   --> src/nonce manager/nonce_authority.rs:291:18
+    |
+137 | impl AuthorityRotationManager {
+    | ----------------------------- methods in this implementation
+...
+291 |     pub async fn execute_rotation(
+    |                  ^^^^^^^^^^^^^^^^
+...
+381 |     pub async fn confirm_rotation(
+    |                  ^^^^^^^^^^^^^^^^
+...
+474 |     pub async fn finalize_rotation(&self, proposal_id: &str) -> NonceResult<()> {
+    |                  ^^^^^^^^^^^^^^^^^
+...
+520 |     pub async fn rollback_rotation(
+    |                  ^^^^^^^^^^^^^^^^^
+...
+588 |     pub async fn get_all_audit_logs(&self) -> Vec<RotationAuditLog> {
+    |                  ^^^^^^^^^^^^^^^^^^
+
+warning: methods `acquire_nonce`, `build_transaction_with_nonce`, `get_pool_stats`, and `refresh_all_nonces` are never used
+  --> src/nonce manager/nonce_integration.rs:54:14
+   |
+49 | pub trait NonceManagerApi: Send + Sync {
+   |           --------------- methods in this trait
+...
+54 |     async fn acquire_nonce(&self, timeout: Duration) -> NonceResult<NonceLease>;
+   |              ^^^^^^^^^^^^^
+...
+57 |     async fn build_transaction_with_nonce(
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+64 |     async fn get_pool_stats(&self) -> PoolStatistics;
+   |              ^^^^^^^^^^^^^^
+...
+67 |     async fn refresh_all_nonces(&self) -> NonceResult<usize>;
+   |              ^^^^^^^^^^^^^^^^^^
+
+warning: struct `IntegratedNonceManager` is never constructed
+  --> src/nonce manager/nonce_integration.rs:82:12
+   |
+82 | pub struct IntegratedNonceManager {
+   |            ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `ActiveLease` is never constructed
+   --> src/nonce manager/nonce_integration.rs:103:8
+    |
+103 | struct ActiveLease {
+    |        ^^^^^^^^^^^
+
+warning: struct `NonceManagerConfig` is never constructed
+   --> src/nonce manager/nonce_integration.rs:111:12
+    |
+111 | pub struct NonceManagerConfig {
+    |            ^^^^^^^^^^^^^^^^^^
+
+warning: associated items `new`, `start_background_tasks`, and `refresh_loop` are never used
+   --> src/nonce manager/nonce_integration.rs:149:18
+    |
+140 | impl IntegratedNonceManager {
+    | --------------------------- associated items in this implementation
+...
+149 |     pub async fn new(
+    |                  ^^^
+...
+183 |     pub async fn start_background_tasks(self: Arc<Self>) {
+    |                  ^^^^^^^^^^^^^^^^^^^^^^
+...
+191 |     async fn refresh_loop(&self) {
+    |              ^^^^^^^^^^^^
+
+warning: struct `BuyEngineNonceIntegration` is never constructed
+   --> src/nonce manager/nonce_integration.rs:359:12
+    |
+359 | pub struct BuyEngineNonceIntegration {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: associated items `new`, `execute_buy_with_nonce`, and `get_health_status` are never used
+   --> src/nonce manager/nonce_integration.rs:364:12
+    |
+363 | impl BuyEngineNonceIntegration {
+    | ------------------------------ associated items in this implementation
+364 |     pub fn new(nonce_manager: Arc<dyn NonceManagerApi>) -> Self {
+    |            ^^^
+...
+372 |     pub async fn execute_buy_with_nonce(
+    |                  ^^^^^^^^^^^^^^^^^^^^^^
+...
+402 |     pub async fn get_health_status(&self) -> HealthStatus {
+    |                  ^^^^^^^^^^^^^^^^^
+
+warning: enum `Health` is never used
+   --> src/nonce manager/nonce_integration.rs:423:10
+    |
+423 | pub enum Health {
+    |          ^^^^^^
+
+warning: struct `HealthStatus` is never constructed
+   --> src/nonce manager/nonce_integration.rs:430:12
+    |
+430 | pub struct HealthStatus {
+    |            ^^^^^^^^^^^^
+
+warning: fields `primary` and `canary` are never read
+   --> src/nonce manager/nonce_integration.rs:440:5
+    |
+438 | pub struct CanaryDeployment {
+    |            ---------------- fields in this struct
+439 |     /// Primary nonce manager (stable)
+440 |     primary: Arc<dyn NonceManagerApi>,
+    |     ^^^^^^^
+...
+443 |     canary: Arc<dyn NonceManagerApi>,
+    |     ^^^^^^
+
+warning: associated items `new` and `route_acquire` are never used
+   --> src/nonce manager/nonce_integration.rs:450:12
+    |
+449 | impl CanaryDeployment {
+    | --------------------- associated items in this implementation
+450 |     pub fn new(
+    |            ^^^
+...
+463 |     pub async fn route_acquire(&self, timeout: Duration) -> NonceResult<NonceLease> {
+    |                  ^^^^^^^^^^^^^
+
+warning: field `lease_timeout` is never read
+  --> src/nonce manager/nonce_lease.rs:68:5
+   |
+60 | pub struct NonceLease {
+   |            ---------- field in this struct
+...
+68 |     lease_timeout: Duration,
+   |     ^^^^^^^^^^^^^
+
+warning: methods `account_pubkey` and `lease_expiry` are never used
+   --> src/nonce manager/nonce_lease.rs:135:12
+    |
+ 82 | impl NonceLease {
+    | --------------- methods in this implementation
+...
+135 |     pub fn account_pubkey(&self) -> &Pubkey {
+    |            ^^^^^^^^^^^^^^
+...
+150 |     pub fn lease_expiry(&self) -> Instant {
+    |            ^^^^^^^^^^^^
+
+warning: fields `circuit_id`, `authority`, `rotation_counter`, and `batch_verify_buffer` are never read
+   --> src/nonce manager/nonce_manager_integrated.rs:148:5
+    |
+133 | struct ImprovedNonceAccount {
+    |        -------------------- fields in this struct
+...
+148 |     circuit_id: String,
+    |     ^^^^^^^^^^
+...
+151 |     authority: Arc<RwLock<Pubkey>>,
+    |     ^^^^^^^^^
+152 |     rotation_counter: AtomicU64,
+    |     ^^^^^^^^^^^^^^^^
+...
+155 |     batch_verify_buffer: Mutex<Vec<Signature>>,
+    |     ^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `ImprovedNonceAccount` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: methods `set_authority`, `get_authority`, `increment_rotation_counter`, `needs_rotation`, and `update_from_rpc` are never used
+   --> src/nonce manager/nonce_manager_integrated.rs:200:14
+    |
+158 | impl ImprovedNonceAccount {
+    | ------------------------- methods in this implementation
+...
+200 |     async fn set_authority(&self, new_authority: Pubkey) {
+    |              ^^^^^^^^^^^^^
+...
+205 |     async fn get_authority(&self) -> Pubkey {
+    |              ^^^^^^^^^^^^^
+...
+210 |     fn increment_rotation_counter(&self) -> u64 {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+215 |     fn needs_rotation(&self) -> bool {
+    |        ^^^^^^^^^^^^^^
+...
+475 |     async fn update_from_rpc(
+    |              ^^^^^^^^^^^^^^^
+
+warning: fields `signer`, `rpc_pool`, `rt_handle`, `refresh_manager`, and `circuit_config` are never read
+   --> src/nonce manager/nonce_manager_integrated.rs:685:5
+    |
+683 | pub struct UniverseNonceManager {
+    |            -------------------- fields in this struct
+684 |     accounts: Arc<RwLock<VecDeque<Arc<ImprovedNonceAccount>>>>,
+685 |     signer: Arc<dyn SignerService>,
+    |     ^^^^^^
+...
+690 |     rpc_pool: Option<Arc<RpcPool>>,
+    |     ^^^^^^^^
+...
+697 |     rt_handle: tokio::runtime::Handle,
+    |     ^^^^^^^^^
+...
+703 |     refresh_manager: Arc<NonBlockingRefresh>,
+    |     ^^^^^^^^^^^^^^^
+...
+712 |     circuit_config: Arc<RwLock<CircuitConfig>>,
+    |     ^^^^^^^^^^^^^^
+
+warning: multiple associated items are never used
+    --> src/nonce manager/nonce_manager_integrated.rs:722:18
+     |
+ 720 | impl UniverseNonceManager {
+     | ------------------------- associated items in this implementation
+ 721 |     /// Create a new manager with safe initialization (Step 1)
+ 722 |     pub async fn new(
+     |                  ^^^
+...
+ 835 |     async fn init_circuits() -> CircuitConfig {
+     |              ^^^^^^^^^^^^^
+...
+ 864 |     async fn create_nonce_account_with_retry(
+     |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1061 |     pub async fn refresh_nonce_async(
+     |                  ^^^^^^^^^^^^^^^^^^^
+...
+1110 |     pub async fn process_refresh_results(&self) {
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^
+...
+1209 |     pub async fn get_optimal_retry_params(&self, network_tps: u32, failure_count: u32) -> (u32, f64) {
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1242 |     pub fn set_rpc_pool(&mut self, rpc_pool: Arc<RpcPool>) {
+     |            ^^^^^^^^^^^^
+...
+1249 |     pub async fn batch_advance_nonces(
+     |                  ^^^^^^^^^^^^^^^^^^^^
+...
+1319 |     pub async fn refresh_nonces_parallel(&self, chunk_size: usize) -> NonceResult<usize> {
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^
+...
+1424 |     pub async fn add_nonce_async(&self) -> NonceResult<Pubkey> {
+     |                  ^^^^^^^^^^^^^^^
+...
+1472 |     pub async fn evict_tainted_and_unused(&self, unused_threshold_secs: u64) -> usize {
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1521 |     pub fn calculate_adaptive_interval(&self, network_tps: u32, network_lag_ms: f64) -> Duration {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1544 |     pub async fn get_network_state(&self) -> (u32, f64) {
+     |                  ^^^^^^^^^^^^^^^^^
+...
+1558 |     pub async fn refresh_loop(&self) {
+     |                  ^^^^^^^^^^^^
+
+warning: multiple fields are never read
+    --> src/nonce manager/nonce_manager_integrated.rs:1712:9
+     |
+1707 | pub struct ManagerStats {
+     |            ------------ fields in this struct
+...
+1712 |     pub total_acquires: u64,
+     |         ^^^^^^^^^^^^^^
+1713 |     pub total_releases: u64,
+     |         ^^^^^^^^^^^^^^
+1714 |     pub total_refreshes: u64,
+     |         ^^^^^^^^^^^^^^^
+1715 |     pub model_sample_count: usize,
+     |         ^^^^^^^^^^^^^^^^^^
+1716 |     pub model_has_sufficient_data: bool,
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^
+1717 |     pub ml_accuracy: f64,
+     |         ^^^^^^^^^^^
+1718 |     pub avg_prediction_error: f64,
+     |         ^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `ManagerStats` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: fields `cell`, `weights_ih`, `weights_hh`, and `bias` are never read
+  --> src/nonce manager/nonce_predictive.rs:36:5
+   |
+34 | pub struct LstmState {
+   |            --------- fields in this struct
+35 |     hidden: Vec<f64>,  // Hidden state (layer_size=16)
+36 |     cell: Vec<f64>,    // Cell state (layer_size=16)
+   |     ^^^^
+37 |     // Learnable weights
+38 |     weights_ih: Vec<f64>, // Input to hidden (4 inputs * 16 hidden * 4 gates)
+   |     ^^^^^^^^^^
+39 |     weights_hh: Vec<f64>, // Hidden to hidden (16 * 16 * 4 gates)
+   |     ^^^^^^^^^^
+40 |     bias: Vec<f64>,       // Bias (16 * 4 gates)
+   |     ^^^^
+   |
+   = note: `LstmState` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: field `timestamp` is never read
+   --> src/nonce manager/nonce_predictive.rs:114:5
+    |
+113 | struct PredictionRecord {
+    |        ---------------- field in this struct
+114 |     timestamp: std::time::Instant,
+    |     ^^^^^^^^^
+    |
+    = note: `PredictionRecord` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: method `clip_outlier` is never used
+   --> src/nonce manager/nonce_predictive.rs:321:8
+    |
+122 | impl UniversePredictiveModel {
+    | ---------------------------- method in this implementation
+...
+321 |     fn clip_outlier(&self, value: f64, history: &VecDeque<f64>) -> f64 {
+    |        ^^^^^^^^^^^^
+
+warning: field `prediction_count` is never read
+   --> src/nonce manager/nonce_predictive.rs:854:9
+    |
+849 | pub struct ModelStats {
+    |            ---------- field in this struct
+...
+854 |     pub prediction_count: usize,
+    |         ^^^^^^^^^^^^^^^^
+    |
+    = note: `ModelStats` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: fields `nonce_account`, `signature`, `attempts`, `endpoint`, `success`, and `error` are never read
+  --> src/nonce manager/nonce_refresh.rs:22:9
+   |
+21 | pub struct RefreshTelemetry {
+   |            ---------------- fields in this struct
+22 |     pub nonce_account: Pubkey,
+   |         ^^^^^^^^^^^^^
+23 |     pub signature: Signature,
+   |         ^^^^^^^^^
+...
+26 |     pub attempts: u32,
+   |         ^^^^^^^^
+27 |     pub endpoint: String,
+   |         ^^^^^^^^
+28 |     pub success: bool,
+   |         ^^^^^^^
+29 |     pub error: Option<String>,
+   |         ^^^^^
+   |
+   = note: `RefreshTelemetry` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: variant `Failed` is never constructed
+  --> src/nonce manager/nonce_refresh.rs:44:5
+   |
+41 | pub enum RefreshStatus {
+   |          ------------- variant in this enum
+...
+44 |     Failed(String),
+   |     ^^^^^^
+   |
+   = note: `RefreshStatus` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `signature`, `status`, `last_valid_slot`, and `telemetry` are never read
+  --> src/nonce manager/nonce_refresh.rs:50:9
+   |
+49 | pub struct MonitorResult {
+   |            ------------- fields in this struct
+50 |     pub signature: Signature,
+   |         ^^^^^^^^^
+51 |     pub status: RefreshStatus,
+   |         ^^^^^^
+52 |     pub last_valid_slot: Option<u64>,
+   |         ^^^^^^^^^^^^^^^
+53 |     pub telemetry: RefreshTelemetry,
+   |         ^^^^^^^^^
+
+warning: struct `SignatureMonitor` is never constructed
+  --> src/nonce manager/nonce_refresh.rs:57:12
+   |
+57 | pub struct SignatureMonitor {
+   |            ^^^^^^^^^^^^^^^^
+
+warning: associated items `new`, `monitor`, `monitor_internal`, and `get_nonce_last_valid_slot` are never used
+   --> src/nonce manager/nonce_refresh.rs:66:12
+    |
+ 65 | impl SignatureMonitor {
+    | --------------------- associated items in this implementation
+ 66 |     pub fn new(
+    |            ^^^
+...
+ 83 |     pub fn monitor(
+    |            ^^^^^^^
+...
+ 94 |     async fn monitor_internal(
+    |              ^^^^^^^^^^^^^^^^
+...
+225 |     async fn get_nonce_last_valid_slot(&self, nonce_account: Pubkey) -> Option<u64> {
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `results_tx` is never read
+   --> src/nonce manager/nonce_refresh.rs:270:5
+    |
+268 | pub struct NonBlockingRefresh {
+    |            ------------------ field in this struct
+269 |     results_rx: Arc<RwLock<mpsc::UnboundedReceiver<MonitorResult>>>,
+270 |     results_tx: mpsc::UnboundedSender<MonitorResult>,
+    |     ^^^^^^^^^^
+
+warning: methods `send_refresh_transaction` and `process_results` are never used
+   --> src/nonce manager/nonce_refresh.rs:283:18
+    |
+273 | impl NonBlockingRefresh {
+    | ----------------------- methods in this implementation
+...
+283 |     pub async fn send_refresh_transaction(
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+327 |     pub async fn process_results<F>(&self, mut handler: F)
+    |                  ^^^^^^^^^^^^^^^
+
+warning: method `keypair` is never used
+  --> src/nonce manager/nonce_security.rs:79:12
+   |
+33 | impl SecureKeypair {
+   | ------------------ method in this implementation
+...
+79 |     pub fn keypair(&self) -> &Keypair {
+   |            ^^^^^^^
+
+warning: fields `assigned_at` and `assigned_by` are never read
+   --> src/nonce manager/nonce_security.rs:120:9
+    |
+117 | pub struct RoleAssignment {
+    |            -------------- fields in this struct
+...
+120 |     pub assigned_at: SystemTime,
+    |         ^^^^^^^^^^^
+121 |     pub assigned_by: Pubkey,
+    |         ^^^^^^^^^^^
+    |
+    = note: `RoleAssignment` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: methods `get_roles` and `get_audit_log` are never used
+   --> src/nonce manager/nonce_security.rs:203:18
+    |
+131 | impl RbacManager {
+    | ---------------- methods in this implementation
+...
+203 |     pub async fn get_roles(&self, pubkey: &Pubkey) -> Vec<Role> {
+    |                  ^^^^^^^^^
+...
+223 |     pub async fn get_audit_log(&self) -> Vec<SecurityAuditLog> {
+    |                  ^^^^^^^^^^^^^
+
+warning: struct `FilePermissionChecker` is never constructed
+   --> src/nonce manager/nonce_security.rs:277:12
+    |
+277 | pub struct FilePermissionChecker;
+    |            ^^^^^^^^^^^^^^^^^^^^^
+
+warning: associated functions `check_secure_permissions` and `set_secure_permissions` are never used
+   --> src/nonce manager/nonce_security.rs:282:12
+    |
+279 | impl FilePermissionChecker {
+    | -------------------------- associated functions in this implementation
+...
+282 |     pub fn check_secure_permissions(path: &Path) -> NonceResult<()> {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+317 |     pub fn set_secure_permissions(path: &Path) -> NonceResult<()> {
+    |            ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `HsmSigner` is never constructed
+   --> src/nonce manager/nonce_security.rs:348:12
+    |
+348 | pub struct HsmSigner {
+    |            ^^^^^^^^^
+
+warning: associated items `new`, `pubkey`, and `sign_transaction` are never used
+   --> src/nonce manager/nonce_security.rs:355:12
+    |
+354 | impl HsmSigner {
+    | -------------- associated items in this implementation
+355 |     pub fn new(device_id: String, key_index: u32, pubkey: Pubkey) -> Self {
+    |            ^^^
+...
+363 |     pub fn pubkey(&self) -> Pubkey {
+    |            ^^^^^^
+...
+368 |     pub async fn sign_transaction(&self, _transaction: &mut Transaction) -> NonceResult<()> {
+    |                  ^^^^^^^^^^^^^^^^
+
+warning: struct `RemoteSignerAdapter` is never constructed
+   --> src/nonce manager/nonce_security.rs:390:12
+    |
+390 | pub struct RemoteSignerAdapter {
+    |            ^^^^^^^^^^^^^^^^^^^
+
+warning: associated items `new`, `pubkey`, and `sign_transaction` are never used
+   --> src/nonce manager/nonce_security.rs:397:12
+    |
+396 | impl RemoteSignerAdapter {
+    | ------------------------ associated items in this implementation
+397 |     pub fn new(endpoint: String, api_key: Option<String>, pubkey: Pubkey) -> Self {
+    |            ^^^
+...
+405 |     pub fn pubkey(&self) -> Pubkey {
+    |            ^^^^^^
+...
+410 |     pub async fn sign_transaction(&self, _transaction: &mut Transaction) -> NonceResult<()> {
+    |                  ^^^^^^^^^^^^^^^^
+
+warning: struct `LedgerSigner` is never constructed
+   --> src/nonce manager/nonce_security.rs:432:12
+    |
+432 | pub struct LedgerSigner {
+    |            ^^^^^^^^^^^^
+
+warning: associated items `new`, `pubkey`, and `sign_transaction` are never used
+   --> src/nonce manager/nonce_security.rs:438:12
+    |
+437 | impl LedgerSigner {
+    | ----------------- associated items in this implementation
+438 |     pub fn new(derivation_path: String, pubkey: Pubkey) -> Self {
+    |            ^^^
+...
+445 |     pub fn pubkey(&self) -> Pubkey {
+    |            ^^^^^^
+...
+450 |     pub async fn sign_transaction(&self, _transaction: &mut Transaction) -> NonceResult<()> {
+    |                  ^^^^^^^^^^^^^^^^
+
+warning: field `rbac` is never read
+   --> src/nonce manager/nonce_security.rs:475:5
+    |
+472 | pub struct SecureNonceOperations {
+    |            --------------------- field in this struct
+...
+475 |     rbac: Arc<RbacManager>,
+    |     ^^^^
+    |
+    = note: `SecureNonceOperations` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: methods `verify_payer` and `verify_nonce_authority` are never used
+   --> src/nonce manager/nonce_security.rs:500:18
+    |
+478 | impl SecureNonceOperations {
+    | -------------------------- methods in this implementation
+...
+500 |     pub async fn verify_payer(&self, pubkey: &Pubkey, operation: &str) -> NonceResult<()> {
+    |                  ^^^^^^^^^^^^
+...
+512 |     pub async fn verify_nonce_authority(&self, pubkey: &Pubkey, operation: &str) -> NonceResult<()> {
+    |                  ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: associated function `from_bytes` is never used
+  --> src/nonce manager/nonce_signer.rs:67:12
+   |
+62 | impl LocalSigner {
+   | ---------------- associated function in this implementation
+...
+67 |     pub fn from_bytes(bytes: &[u8]) -> NonceResult<Self> {
+   |            ^^^^^^^^^^
+
+warning: struct `RemoteSigner` is never constructed
+   --> src/nonce manager/nonce_signer.rs:143:12
+    |
+143 | pub struct RemoteSigner {
+    |            ^^^^^^^^^^^^
+
+warning: associated function `new` is never used
+   --> src/nonce manager/nonce_signer.rs:149:12
+    |
+148 | impl RemoteSigner {
+    | ----------------- associated function in this implementation
+149 |     pub fn new(endpoint: String, pubkey: Pubkey) -> Self {
+    |            ^^^
+
+warning: struct `HardwareWalletSigner` is never constructed
+   --> src/nonce manager/nonce_signer.rs:169:12
+    |
+169 | pub struct HardwareWalletSigner {
+    |            ^^^^^^^^^^^^^^^^^^^^
+
+warning: associated items `new` and `query_device_capabilities` are never used
+   --> src/nonce manager/nonce_signer.rs:176:12
+    |
+175 | impl HardwareWalletSigner {
+    | ------------------------- associated items in this implementation
+176 |     pub fn new(device_path: String, derivation_path: String, pubkey: Pubkey) -> Self {
+    |            ^^^
+...
+185 |     async fn query_device_capabilities(&self) -> NonceResult<bool> {
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: enum `MetricType` is never used
+  --> src/nonce manager/nonce_telemetry.rs:18:10
+   |
+18 | pub enum MetricType {
+   |          ^^^^^^^^^^
+
+warning: fields `tainted_total`, `rotations_total`, `release_total`, `lease_expired_total`, and `rpc_failures_total` are never read
+  --> src/nonce manager/nonce_telemetry.rs:34:9
+   |
+26 | pub struct NonceCounters {
+   |            ------------- fields in this struct
+...
+34 |     pub tainted_total: AtomicU64,
+   |         ^^^^^^^^^^^^^
+...
+37 |     pub rotations_total: AtomicU64,
+   |         ^^^^^^^^^^^^^^^
+...
+43 |     pub release_total: AtomicU64,
+   |         ^^^^^^^^^^^^^
+...
+46 |     pub lease_expired_total: AtomicU64,
+   |         ^^^^^^^^^^^^^^^^^^^
+...
+49 |     pub rpc_failures_total: AtomicU64,
+   |         ^^^^^^^^^^^^^^^^^^
+   |
+   = note: `NonceCounters` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: method `export_prometheus` is never used
+  --> src/nonce manager/nonce_telemetry.rs:67:12
+   |
+52 | impl NonceCounters {
+   | ------------------ method in this implementation
+...
+67 |     pub fn export_prometheus(&self) -> String {
+   |            ^^^^^^^^^^^^^^^^^
+
+warning: method `export_prometheus` is never used
+   --> src/nonce manager/nonce_telemetry.rs:166:18
+    |
+125 | impl LatencyHistogram {
+    | --------------------- method in this implementation
+...
+166 |     pub async fn export_prometheus(&self, name: &str) -> String {
+    |                  ^^^^^^^^^^^^^^^^^
+
+warning: field `p95` is never read
+   --> src/nonce manager/nonce_telemetry.rs:189:9
+    |
+187 | pub struct HistogramPercentiles {
+    |            -------------------- field in this struct
+188 |     pub p50: f64,
+189 |     pub p95: f64,
+    |         ^^^
+    |
+    = note: `HistogramPercentiles` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `pool_size`, `leases_outstanding`, `predictive_failure_prob`, and `rpc_latency_ms` are never read
+   --> src/nonce manager/nonce_telemetry.rs:198:9
+    |
+196 | pub struct NonceGauges {
+    |            ----------- fields in this struct
+197 |     /// Current nonce pool size
+198 |     pub pool_size: Arc<RwLock<u64>>,
+    |         ^^^^^^^^^
+...
+201 |     pub leases_outstanding: Arc<RwLock<u64>>,
+    |         ^^^^^^^^^^^^^^^^^^
+...
+204 |     pub predictive_failure_prob: Arc<RwLock<f64>>,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^
+...
+207 |     pub rpc_latency_ms: Arc<RwLock<f64>>,
+    |         ^^^^^^^^^^^^^^
+    |
+    = note: `NonceGauges` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: method `export_prometheus` is never used
+   --> src/nonce manager/nonce_telemetry.rs:221:18
+    |
+210 | impl NonceGauges {
+    | ---------------- method in this implementation
+...
+221 |     pub async fn export_prometheus(&self) -> String {
+    |                  ^^^^^^^^^^^^^^^^^
+
+warning: fields `gauges`, `refresh_latency`, and `alerting` are never read
+   --> src/nonce manager/nonce_telemetry.rs:256:9
+    |
+254 | pub struct NonceTelemetry {
+    |            -------------- fields in this struct
+255 |     pub counters: NonceCounters,
+256 |     pub gauges: NonceGauges,
+    |         ^^^^^^
+257 |     pub acquire_latency: LatencyHistogram,
+258 |     pub refresh_latency: LatencyHistogram,
+    |         ^^^^^^^^^^^^^^^
+259 |     pub alerting: AlertManager,
+    |         ^^^^^^^^
+    |
+    = note: `NonceTelemetry` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: methods `record_refresh`, `record_tainted`, `check_refresh_failure_rate`, `check_latency_alerts`, `export_prometheus`, and `get_diagnostics` are never used
+   --> src/nonce manager/nonce_telemetry.rs:280:18
+    |
+262 | impl NonceTelemetry {
+    | ------------------- methods in this implementation
+...
+280 |     pub async fn record_refresh(&self, success: bool, latency: Duration) {
+    |                  ^^^^^^^^^^^^^^
+...
+292 |     pub fn record_tainted(&self) {
+    |            ^^^^^^^^^^^^^^
+...
+307 |     async fn check_refresh_failure_rate(&self) {
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+331 |     pub async fn check_latency_alerts(&self) {
+    |                  ^^^^^^^^^^^^^^^^^^^^
+...
+348 |     pub async fn export_prometheus(&self) -> String {
+    |                  ^^^^^^^^^^^^^^^^^
+...
+363 |     pub async fn get_diagnostics(&self) -> TelemetryDiagnostics {
+    |                  ^^^^^^^^^^^^^^^
+
+warning: struct `TelemetryDiagnostics` is never constructed
+   --> src/nonce manager/nonce_telemetry.rs:393:12
+    |
+393 | pub struct TelemetryDiagnostics {
+    |            ^^^^^^^^^^^^^^^^^^^^
+
+warning: fields `metric`, `value`, `threshold`, and `timestamp` are never read
+   --> src/nonce manager/nonce_telemetry.rs:422:9
+    |
+419 | pub struct Alert {
+    |            ----- fields in this struct
+...
+422 |     pub metric: String,
+    |         ^^^^^^
+423 |     pub value: f64,
+    |         ^^^^^
+424 |     pub threshold: f64,
+    |         ^^^^^^^^^
+425 |     pub timestamp: Instant,
+    |         ^^^^^^^^^
+    |
+    = note: `Alert` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: methods `clear_alerts` and `get_alert_history` are never used
+   --> src/nonce manager/nonce_telemetry.rs:478:18
+    |
+436 | impl AlertManager {
+    | ----------------- methods in this implementation
+...
+478 |     pub async fn clear_alerts(&self) {
+    |                  ^^^^^^^^^^^^
+...
+483 |     pub async fn get_alert_history(&self, count: usize) -> Vec<Alert> {
+    |                  ^^^^^^^^^^^^^^^^^
+
+warning: struct `TraceContext` is never constructed
+   --> src/nonce manager/nonce_telemetry.rs:501:12
+    |
+501 | pub struct TraceContext {
+    |            ^^^^^^^^^^^^
+
+warning: associated items `new` and `elapsed_ms` are never used
+   --> src/nonce manager/nonce_telemetry.rs:511:12
+    |
+510 | impl TraceContext {
+    | ----------------- associated items in this implementation
+511 |     pub fn new(nonce_id: Option<String>) -> Self {
+    |            ^^^
+...
+521 |     pub fn elapsed_ms(&self) -> u64 {
+    |            ^^^^^^^^^^
+
+warning: variant `Unhealthy` is never constructed
+  --> src/rpc manager/rpc_pool.rs:29:5
+   |
+26 | pub enum HealthStatus {
+   |          ------------ variant in this enum
+...
+29 |     Unhealthy,
+   |     ^^^^^^^^^
+   |
+   = note: `HealthStatus` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `weight` and `max_requests_per_second` are never read
+  --> src/rpc manager/rpc_pool.rs:46:9
+   |
+43 | pub struct EndpointConfig {
+   |            -------------- fields in this struct
+...
+46 |     pub weight: f64,
+   |         ^^^^^^
+47 |     pub max_requests_per_second: u32,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `EndpointConfig` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: field `timestamp` is never read
+  --> src/rpc manager/rpc_pool.rs:85:9
+   |
+81 | pub struct HealthChangeEvent {
+   |            ----------------- field in this struct
+...
+85 |     pub timestamp: Instant,
+   |         ^^^^^^^^^
+   |
+   = note: `HealthChangeEvent` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `client`, `last_health_check`, `last_request_time`, and `last_stale_check` are never read
+   --> src/rpc manager/rpc_pool.rs:91:5
+    |
+ 89 | struct HealthTrackedEndpoint {
+    |        --------------------- fields in this struct
+ 90 |     config: EndpointConfig,
+ 91 |     client: Arc<RpcClient>,
+    |     ^^^^^^
+ 92 |     health_status: Arc<RwLock<HealthStatus>>,
+ 93 |     last_health_check: Arc<RwLock<Instant>>,
+    |     ^^^^^^^^^^^^^^^^^
+...
+ 97 |     last_request_time: Arc<RwLock<Instant>>,
+    |     ^^^^^^^^^^^^^^^^^
+...
+105 |     last_stale_check: Arc<RwLock<Instant>>,
+    |     ^^^^^^^^^^^^^^^^
+
+warning: method `clear_cooldown` is never used
+   --> src/rpc manager/rpc_pool.rs:233:14
+    |
+120 | impl HealthTrackedEndpoint {
+    | -------------------------- method in this implementation
+...
+233 |     async fn clear_cooldown(&self) {
+    |              ^^^^^^^^^^^^^^
+
+warning: fields `account`, `slot`, and `timestamp` are never read
+   --> src/rpc manager/rpc_pool.rs:242:5
+    |
+241 | struct CacheEntry {
+    |        ---------- fields in this struct
+242 |     account: Account,
+    |     ^^^^^^^
+243 |     slot: u64,
+    |     ^^^^
+244 |     timestamp: Instant,
+    |     ^^^^^^^^^
+    |
+    = note: `CacheEntry` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: multiple fields are never read
+   --> src/rpc manager/rpc_pool.rs:250:5
+    |
+248 | pub struct RpcPool {
+    |            ------- fields in this struct
+249 |     endpoints: Vec<Arc<HealthTrackedEndpoint>>,
+250 |     current_index: AtomicU64,
+    |     ^^^^^^^^^^^^^
+251 |     health_check_interval: Duration,
+    |     ^^^^^^^^^^^^^^^^^^^^^
+252 |     health_failure_threshold: u64,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^
+253 |     account_cache: DashMap<Pubkey, CacheEntry>,
+    |     ^^^^^^^^^^^^^
+254 |     cache_ttl: Duration,
+    |     ^^^^^^^^^
+...
+264 |     cooldown_period: Duration,
+    |     ^^^^^^^^^^^^^^^
+265 |     auto_retest_interval: Duration,
+    |     ^^^^^^^^^^^^^^^^^^^^
+...
+268 |     stale_timeout: Duration,
+    |     ^^^^^^^^^^^^^
+
+warning: multiple methods are never used
+   --> src/rpc manager/rpc_pool.rs:351:12
+    |
+271 | impl RpcPool {
+    | ------------ methods in this implementation
+...
+351 |     pub fn start_health_checks(self: Arc<Self>) {
+    |            ^^^^^^^^^^^^^^^^^^^
+...
+362 |     pub fn start_stats_collector(self: Arc<Self>, interval: Duration) {
+    |            ^^^^^^^^^^^^^^^^^^^^^
+...
+374 |     pub fn start_stale_detection(self: Arc<Self>) {
+    |            ^^^^^^^^^^^^^^^^^^^^^
+...
+386 |     async fn collect_and_publish_stats(&self) {
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+412 |     async fn detect_and_reconnect_stale(&self) {
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+440 |     async fn check_all_endpoints_health(&self) {
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+449 |     async fn check_endpoint_health(&self, endpoint: &Arc<HealthTrackedEndpoint>) {
+    |              ^^^^^^^^^^^^^^^^^^^^^
+...
+559 |     pub async fn select_best_endpoint(&self) -> Option<Arc<RpcClient>> {
+    |                  ^^^^^^^^^^^^^^^^^^^^
+...
+675 |     pub async fn get_account_cached(
+    |                  ^^^^^^^^^^^^^^^^^^
+...
+731 |     pub fn verify_account_with_zk_proof(
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+756 |     pub async fn get_multiple_accounts_batched(
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+826 |     pub fn prune_cache(&self) {
+    |            ^^^^^^^^^^^
+...
+833 |     pub async fn get_stats(&self) -> PoolStats {
+    |                  ^^^^^^^^^
+
+warning: struct `PoolStats` is never constructed
+   --> src/rpc manager/rpc_pool.rs:872:12
+    |
+872 | pub struct PoolStats {
+    |            ^^^^^^^^^
+
+warning: struct `EndpointStats` is never constructed
+   --> src/rpc manager/rpc_pool.rs:883:12
+    |
+883 | pub struct EndpointStats {
+    |            ^^^^^^^^^^^^^
+
+warning: associated functions `from_toml_file`, `from_json_file`, and `from_env` are never used
+   --> src/rpc manager/rpc_config.rs:107:12
+    |
+105 | impl RpcManagerConfig {
+    | --------------------- associated functions in this implementation
+106 |     /// Load configuration from a TOML file
+107 |     pub fn from_toml_file(path: &str) -> Result<Self, ConfigError> {
+    |            ^^^^^^^^^^^^^^
+...
+116 |     pub fn from_json_file(path: &str) -> Result<Self, ConfigError> {
+    |            ^^^^^^^^^^^^^^
+...
+126 |     pub fn from_env() -> Result<Self, ConfigError> {
+    |            ^^^^^^^^
+
+warning: variants `IoError`, `ParseError`, and `MissingEnvVar` are never constructed
+   --> src/rpc manager/rpc_config.rs:249:5
+    |
+248 | pub enum ConfigError {
+    |          ----------- variants in this enum
+249 |     IoError(String),
+    |     ^^^^^^^
+250 |     ParseError(String),
+    |     ^^^^^^^^^^
+251 |     ValidationError(String),
+252 |     MissingEnvVar(String),
+    |     ^^^^^^^^^^^^^
+    |
+    = note: `ConfigError` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: multiple variants are never constructed
+  --> src/rpc manager/rpc_errors.rs:25:5
+   |
+ 6 | pub enum RpcManagerError {
+   |          --------------- variants in this enum
+...
+25 |     RpcResponse {
+   |     ^^^^^^^^^^^
+...
+33 |     NonceExhausted {
+   |     ^^^^^^^^^^^^^^
+...
+44 |     Configuration(String),
+   |     ^^^^^^^^^^^^^
+...
+48 |     CircuitBreakerOpen {
+   |     ^^^^^^^^^^^^^^^^^^
+...
+61 |     NoHealthyEndpoints {
+   |     ^^^^^^^^^^^^^^^^^^
+...
+68 |     BlockhashNotFound {
+   |     ^^^^^^^^^^^^^^^^^
+...
+78 |     AccountNotFound {
+   |     ^^^^^^^^^^^^^^^
+...
+84 |     InsufficientFunds {
+   |     ^^^^^^^^^^^^^^^^^
+...
+90 |     Validation(String),
+   |     ^^^^^^^^^^
+...
+94 |     Internal(String),
+   |     ^^^^^^^^
+   |
+   = note: `RpcManagerError` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: associated function `from_client_error` is never used
+   --> src/rpc manager/rpc_errors.rs:188:12
+    |
+ 97 | impl RpcManagerError {
+    | -------------------- associated function in this implementation
+...
+188 |     pub fn from_client_error(err: ClientError, endpoint: &str) -> Self {
+    |            ^^^^^^^^^^^^^^^^^
+
+warning: struct `HealthCheckResponse` is never constructed
+ --> src/rpc manager/rpc_metrics.rs:6:12
+  |
+6 | pub struct HealthCheckResponse {
+  |            ^^^^^^^^^^^^^^^^^^^
+
+warning: struct `EndpointHealth` is never constructed
+  --> src/rpc manager/rpc_metrics.rs:14:12
+   |
+14 | pub struct EndpointHealth {
+   |            ^^^^^^^^^^^^^^
+
+warning: struct `HealthSummary` is never constructed
+  --> src/rpc manager/rpc_metrics.rs:26:12
+   |
+26 | pub struct HealthSummary {
+   |            ^^^^^^^^^^^^^
+
+warning: methods `last_latency_us` and `time_since_last_success` are never used
+   --> src/rpc manager/rpc_atomics.rs:84:12
+    |
+ 29 | impl AtomicEndpointStats {
+    | ------------------------ methods in this implementation
+...
+ 84 |     pub fn last_latency_us(&self) -> u64 {
+    |            ^^^^^^^^^^^^^^^
+...
+109 |     pub fn time_since_last_success(&self) -> Option<std::time::Duration> {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: fields `rate_limit_hits`, `predictive_switches`, and `circuit_breaker_opens` are never read
+   --> src/rpc manager/rpc_atomics.rs:143:9
+    |
+135 | pub struct AtomicGlobalMetrics {
+    |            ------------------- fields in this struct
+...
+143 |     pub rate_limit_hits: AtomicU64,
+    |         ^^^^^^^^^^^^^^^
+...
+146 |     pub predictive_switches: AtomicU64,
+    |         ^^^^^^^^^^^^^^^^^^^
+...
+149 |     pub circuit_breaker_opens: AtomicU64,
+    |         ^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `AtomicGlobalMetrics` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: methods `record_rate_limit_hit`, `record_predictive_switch`, `record_circuit_breaker_open`, and `get_error_rate` are never used
+   --> src/rpc manager/rpc_atomics.rs:169:12
+    |
+155 | impl AtomicGlobalMetrics {
+    | ------------------------ methods in this implementation
+...
+169 |     pub fn record_rate_limit_hit(&self) {
+    |            ^^^^^^^^^^^^^^^^^^^^^
+...
+173 |     pub fn record_predictive_switch(&self) {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+177 |     pub fn record_circuit_breaker_open(&self) {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+190 |     pub fn get_error_rate(&self) -> f64 {
+    |            ^^^^^^^^^^^^^^
+
+warning: associated items `from_env`, `with_env_overrides`, and `watch_config` are never used
+   --> src/sniffer/config.rs:154:12
+    |
+139 | impl SnifferConfig {
+    | ------------------ associated items in this implementation
+...
+154 |     pub fn from_env(&mut self) -> Result<()> {
+    |            ^^^^^^^^
+...
+230 |     pub fn with_env_overrides() -> Result<Self> {
+    |            ^^^^^^^^^^^^^^^^^^
+...
+238 |     pub fn watch_config(path: String) -> (watch::Sender<SnifferConfig>, watch::Receiver<SnifferConfig>) {
+    |            ^^^^^^^^^^^^
+
+warning: methods `health` and `stats` are never used
+  --> src/sniffer/integration.rs:37:8
+   |
+23 | pub trait SnifferApi {
+   |           ---------- methods in this trait
+...
+37 |     fn health(&self) -> bool;
+   |        ^^^^^^
+...
+40 |     fn stats(&self) -> String;
+   |        ^^^^^
+
+warning: methods `get_recent`, `clear`, and `len` are never used
+  --> src/sniffer/integration.rs:75:12
+   |
+55 | impl EventCollector {
+   | ------------------- methods in this implementation
+...
+75 |     pub fn get_recent(&self, count: usize) -> Vec<SnifferEvent> {
+   |            ^^^^^^^^^^
+...
+82 |     pub fn clear(&self) {
+   |            ^^^^^
+...
+87 |     pub fn len(&self) -> usize {
+   |            ^^^
+
+warning: methods `get_metrics`, `get_analytics`, `get_event_collector`, `get_handoff_diagnostics`, and `get_supervisor` are never used
+   --> src/sniffer/integration.rs:130:12
+    |
+106 | impl Sniffer {
+    | ------------ methods in this implementation
+...
+130 |     pub fn get_metrics(&self) -> Arc<SnifferMetrics> {
+    |            ^^^^^^^^^^^
+...
+135 |     pub fn get_analytics(&self) -> Arc<PredictiveAnalytics> {
+    |            ^^^^^^^^^^^^^
+...
+140 |     pub fn get_event_collector(&self) -> Arc<EventCollector> {
+    |            ^^^^^^^^^^^^^^^^^^^
+...
+145 |     pub fn get_handoff_diagnostics(&self) -> Arc<HandoffDiagnostics> {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^
+...
+150 |     pub fn get_supervisor(&self) -> Arc<Supervisor> {
+    |            ^^^^^^^^^^^^^^
+
+warning: constant `PERF_WARN_THRESHOLD_MICROS` is never used
+  --> src/sniffer/prefilter.rs:36:7
+   |
+36 | const PERF_WARN_THRESHOLD_MICROS: u128 = 100;
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `contains_program_id_fast` is never used
+   --> src/sniffer/prefilter.rs:128:8
+    |
+128 | pub fn contains_program_id_fast(tx_bytes: &[u8], program_id: &[u8; 32]) -> bool {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `contains_account_fast` is never used
+   --> src/sniffer/prefilter.rs:134:8
+    |
+134 | pub fn contains_account_fast(tx_bytes: &[u8], account: &[u8; 32]) -> bool {
+    |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: variant `Backpressure` is never constructed
+  --> src/sniffer/handoff.rs:19:5
+   |
+13 | pub enum HandoffResult {
+   |          ------------- variant in this enum
+...
+19 |     Backpressure,
+   |     ^^^^^^^^^^^^
+
+warning: methods `len` and `is_empty` are never used
+   --> src/sniffer/handoff.rs:173:12
+    |
+ 82 | impl BatchSender {
+    | ---------------- methods in this implementation
+...
+173 |     pub fn len(&self) -> usize {
+    |            ^^^
+...
+179 |     pub fn is_empty(&self) -> bool {
+    |            ^^^^^^^^
+
+warning: struct `PriorityHandler` is never constructed
+   --> src/sniffer/handoff.rs:185:12
+    |
+185 | pub struct PriorityHandler {
+    |            ^^^^^^^^^^^^^^^
+
+warning: associated items `new` and `send` are never used
+   --> src/sniffer/handoff.rs:193:12
+    |
+191 | impl PriorityHandler {
+    | -------------------- associated items in this implementation
+192 |     /// Create a new priority handler
+193 |     pub fn new(
+    |            ^^^
+...
+207 |     pub fn send(&self, candidate: PremintCandidate) -> HandoffResult {
+    |            ^^^^
+
+warning: struct `BackpressurePolicy` is never constructed
+   --> src/sniffer/handoff.rs:217:12
+    |
+217 | pub struct BackpressurePolicy {
+    |            ^^^^^^^^^^^^^^^^^^
+
+warning: associated items `new`, `with_diagnostics`, `adaptive_policy`, and `apply` are never used
+   --> src/sniffer/handoff.rs:234:12
+    |
+232 | impl BackpressurePolicy {
+    | ----------------------- associated items in this implementation
+233 |     /// Create a new backpressure policy
+234 |     pub fn new(drop_policy: DropPolicy, max_retries_high: u8, retry_delay_us: u64) -> Self {
+    |            ^^^
+...
+246 |     pub fn with_diagnostics(
+    |            ^^^^^^^^^^^^^^^^
+...
+266 |     pub fn adaptive_policy(&self) -> DropPolicy {
+    |            ^^^^^^^^^^^^^^^
+...
+290 |     pub async fn apply(
+    |                  ^^^^^
+
+warning: field `latency_correlation` is never read
+  --> src/sniffer/telemetry.rs:38:9
+   |
+ 8 | pub struct SnifferMetrics {
+   |            -------------- field in this struct
+...
+38 |     pub latency_correlation: Mutex<LatencyCorrelation>,
+   |         ^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `SnifferMetrics` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: fields `samples` and `max_samples` are never read
+  --> src/sniffer/telemetry.rs:45:5
+   |
+43 | pub struct LatencyCorrelation {
+   |            ------------------ fields in this struct
+44 |     /// Samples of (latency, confidence, was_dropped)
+45 |     samples: Vec<(u64, f64, bool)>,
+   |     ^^^^^^^
+46 |     /// Maximum samples to keep
+47 |     max_samples: usize,
+   |     ^^^^^^^^^^^
+   |
+   = note: `LatencyCorrelation` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: methods `add_sample`, `avg_latency_high_confidence`, `drop_rate_high_latency`, and `latency_confidence_correlation` are never used
+   --> src/sniffer/telemetry.rs:60:12
+    |
+ 50 | impl LatencyCorrelation {
+    | ----------------------- methods in this implementation
+...
+ 60 |     pub fn add_sample(&mut self, latency_us: u64, confidence: f64, was_dropped: bool) {
+    |            ^^^^^^^^^^
+...
+ 69 |     pub fn avg_latency_high_confidence(&self, threshold: f64) -> Option<f64> {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 84 |     pub fn drop_rate_high_latency(&self, latency_threshold: u64) -> f64 {
+    |            ^^^^^^^^^^^^^^^^^^^^^^
+...
+100 |     pub fn latency_confidence_correlation(&self) -> Option<f64> {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: methods `reset`, `record_correlation`, `get_latency_confidence_correlation`, `get_avg_latency_high_confidence`, and `get_drop_rate_high_latency` are never used
+   --> src/sniffer/telemetry.rs:194:12
+    |
+123 | impl SnifferMetrics {
+    | ------------------- methods in this implementation
+...
+194 |     pub fn reset(&self) {
+    |            ^^^^^
+...
+213 |     pub fn record_correlation(&self, latency_us: u64, confidence: f64, was_dropped: bool) {
+    |            ^^^^^^^^^^^^^^^^^^
+...
+218 |     pub fn get_latency_confidence_correlation(&self) -> Option<f64> {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+223 |     pub fn get_avg_latency_high_confidence(&self, threshold: f64) -> Option<f64> {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+228 |     pub fn get_drop_rate_high_latency(&self, latency_threshold: u64) -> f64 {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: methods `avg_queue_wait`, `get_histogram`, and `reset` are never used
+   --> src/sniffer/telemetry.rs:300:12
+    |
+251 | impl HandoffDiagnostics {
+    | ----------------------- methods in this implementation
+...
+300 |     pub fn avg_queue_wait(&self) -> Option<f64> {
+    |            ^^^^^^^^^^^^^^
+...
+309 |     pub fn get_histogram(&self) -> [u64; 4] {
+    |            ^^^^^^^^^^^^^
+...
+319 |     pub fn reset(&self) {
+    |            ^^^^^
+
+warning: struct `VerificationRequest` is never constructed
+   --> src/sniffer/security.rs:105:16
+    |
+105 |     pub struct VerificationRequest {
+    |                ^^^^^^^^^^^^^^^^^^^
+
+warning: struct `VerificationResult` is never constructed
+   --> src/sniffer/security.rs:111:16
+    |
+111 |     pub struct VerificationResult {
+    |                ^^^^^^^^^^^^^^^^^^
+
+warning: function `verifier_worker` is never used
+   --> src/sniffer/security.rs:119:18
+    |
+119 |     pub async fn verifier_worker(
+    |                  ^^^^^^^^^^^^^^^
+
+warning: function `verify_candidate_deep` is never used
+   --> src/sniffer/security.rs:144:8
+    |
+144 |     fn verify_candidate_deep(
+    |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: multiple variants are never constructed
+  --> src/sniffer/errors.rs:10:5
+   |
+ 8 | pub enum SnifferError {
+   |          ------------ variants in this enum
+ 9 |     /// Configuration validation error
+10 |     ConfigValidation(String),
+   |     ^^^^^^^^^^^^^^^^
+11 |     /// Stream connection failed
+12 |     StreamConnection(String),
+   |     ^^^^^^^^^^^^^^^^
+13 |     /// Stream disconnected unexpectedly
+14 |     StreamDisconnected,
+   |     ^^^^^^^^^^^^^^^^^^
+...
+18 |     ChannelSend(String),
+   |     ^^^^^^^^^^^
+...
+22 |     InvalidTransaction(String),
+   |     ^^^^^^^^^^^^^^^^^^
+23 |     /// gRPC error
+24 |     GrpcError(String),
+   |     ^^^^^^^^^
+25 |     /// Timeout error
+26 |     Timeout(String),
+   |     ^^^^^^^
+   |
+   = note: `SnifferError` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: variants `OutOfBounds` and `DeserializationFailed` are never constructed
+  --> src/sniffer/errors.rs:81:5
+   |
+75 | pub enum AccountExtractError {
+   |          ------------------- variants in this enum
+...
+81 |     OutOfBounds,
+   |     ^^^^^^^^^^^
+82 |     /// Deserialization failed
+83 |     DeserializationFailed,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `AccountExtractError` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: method `attempt` is never used
+   --> src/sniffer/errors.rs:138:12
+    |
+107 | impl ExponentialBackoff {
+    | ----------------------- method in this implementation
+...
+138 |     pub fn attempt(&self) -> u32 {
+    |            ^^^^^^^
+
+warning: fields `timestamp` and `size` are never read
+  --> src/sniffer/dataflow.rs:22:9
+   |
+20 |     BytesReceived {
+   |     ------------- fields in this variant
+21 |         trace_id: CandidateId,
+22 |         timestamp: Instant,
+   |         ^^^^^^^^^
+23 |         size: usize,
+   |         ^^^^
+   |
+   = note: `SnifferEvent` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `timestamp` and `latency_us` are never read
+  --> src/sniffer/dataflow.rs:28:9
+   |
+26 |     PrefilterPassed {
+   |     --------------- fields in this variant
+27 |         trace_id: CandidateId,
+28 |         timestamp: Instant,
+   |         ^^^^^^^^^
+29 |         latency_us: u64,
+   |         ^^^^^^^^^^
+   |
+   = note: `SnifferEvent` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `timestamp` and `reason` are never read
+  --> src/sniffer/dataflow.rs:34:9
+   |
+32 |     PrefilterRejected {
+   |     ----------------- fields in this variant
+33 |         trace_id: CandidateId,
+34 |         timestamp: Instant,
+   |         ^^^^^^^^^
+35 |         reason: &'static str,
+   |         ^^^^^^
+   |
+   = note: `SnifferEvent` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `timestamp`, `latency_us`, and `priority` are never read
+  --> src/sniffer/dataflow.rs:40:9
+   |
+38 |     CandidateExtracted {
+   |     ------------------ fields in this variant
+39 |         trace_id: CandidateId,
+40 |         timestamp: Instant,
+   |         ^^^^^^^^^
+41 |         latency_us: u64,
+   |         ^^^^^^^^^^
+42 |         priority: super::extractor::PriorityLevel,
+   |         ^^^^^^^^
+   |
+   = note: `SnifferEvent` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `timestamp` and `error` are never read
+  --> src/sniffer/dataflow.rs:47:9
+   |
+45 |     ExtractionFailed {
+   |     ---------------- fields in this variant
+46 |         trace_id: CandidateId,
+47 |         timestamp: Instant,
+   |         ^^^^^^^^^
+48 |         error: String,
+   |         ^^^^^
+   |
+   = note: `SnifferEvent` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `timestamp` and `latency_us` are never read
+  --> src/sniffer/dataflow.rs:53:9
+   |
+51 |     SecurityPassed {
+   |     -------------- fields in this variant
+52 |         trace_id: CandidateId,
+53 |         timestamp: Instant,
+   |         ^^^^^^^^^
+54 |         latency_us: u64,
+   |         ^^^^^^^^^^
+   |
+   = note: `SnifferEvent` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `timestamp` and `reason` are never read
+  --> src/sniffer/dataflow.rs:59:9
+   |
+57 |     SecurityRejected {
+   |     ---------------- fields in this variant
+58 |         trace_id: CandidateId,
+59 |         timestamp: Instant,
+   |         ^^^^^^^^^
+60 |         reason: &'static str,
+   |         ^^^^^^
+   |
+   = note: `SnifferEvent` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: variants `HandoffSent` and `HandoffDropped` are never constructed
+  --> src/sniffer/dataflow.rs:63:5
+   |
+18 | pub enum SnifferEvent {
+   |          ------------ variants in this enum
+...
+63 |     HandoffSent {
+   |     ^^^^^^^^^^^
+...
+70 |     HandoffDropped {
+   |     ^^^^^^^^^^^^^^
+   |
+   = note: `SnifferEvent` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: method `timestamp` is never used
+  --> src/sniffer/dataflow.rs:94:12
+   |
+77 | impl SnifferEvent {
+   | ----------------- method in this implementation
+...
+94 |     pub fn timestamp(&self) -> Instant {
+   |            ^^^^^^^^^
+
+warning: trait `DomainBoundary` is never used
+   --> src/sniffer/dataflow.rs:148:11
+    |
+148 | pub trait DomainBoundary {
+    |           ^^^^^^^^^^^^^^
+
+warning: variant `RestartWorker` is never constructed
+  --> src/sniffer/supervisor.rs:60:5
+   |
+50 | pub enum SupervisorCommand {
+   |          ----------------- variant in this enum
+...
+60 |     RestartWorker,
+   |     ^^^^^^^^^^^^^
+   |
+   = note: `SupervisorCommand` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: field `error_count` is never read
+  --> src/sniffer/supervisor.rs:90:5
+   |
+82 | pub struct Supervisor {
+   |            ---------- field in this struct
+...
+90 |     error_count: Arc<std::sync::atomic::AtomicU32>,
+   |     ^^^^^^^^^^^
+
+warning: methods `monitor_workers`, `subscribe`, and `is_healthy` are never used
+   --> src/sniffer/supervisor.rs:199:18
+    |
+ 93 | impl Supervisor {
+    | --------------- methods in this implementation
+...
+199 |     pub async fn monitor_workers(&self) {
+    |                  ^^^^^^^^^^^^^^^
+...
+243 |     pub fn subscribe(&self) -> broadcast::Receiver<SupervisorCommand> {
+    |            ^^^^^^^^^
+...
+248 |     pub fn is_healthy(&self) -> bool {
+    |            ^^^^^^^^^^
+
+warning: multiple fields are never read
+   --> src/buy_engine.rs:115:9
+    |
+112 | pub struct BuyConfig {
+    |            --------- fields in this struct
+...
+115 |     pub slippage_bps: u16,  // Basis points (0-10000)
+    |         ^^^^^^^^^^^^
+116 |     pub max_slippage_bps: u16,
+    |         ^^^^^^^^^^^^^^^^
+117 |     pub taker_fee_bps: u16,
+    |         ^^^^^^^^^^^^^
+118 |     pub max_tx_count_per_window: u32,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^
+119 |     pub max_total_spend_per_window: u64,  // in lamports
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+120 |     pub window_duration_secs: u64,
+    |         ^^^^^^^^^^^^^^^^^^^^
+121 |     pub priority_fee_lamports: u64,
+    |         ^^^^^^^^^^^^^^^^^^^^^
+122 |     pub max_compute_units: u32,
+    |         ^^^^^^^^^^^^^^^^^
+    |
+    = note: `BuyConfig` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: method `validate` is never used
+   --> src/buy_engine.rs:126:12
+    |
+125 | impl BuyConfig {
+    | -------------- method in this implementation
+126 |     pub fn validate(&self) -> Result<()> {
+    |            ^^^^^^^^
+
+warning: method `available_tokens` is never used
+   --> src/buy_engine.rs:228:18
+    |
+180 | impl TokenBucketRateLimiter {
+    | --------------------------- method in this implementation
+...
+228 |     pub async fn available_tokens(&self) -> u64 {
+    |                  ^^^^^^^^^^^^^^^^
+
+warning: methods `update_blockhash` and `is_fresh` are never used
+   --> src/buy_engine.rs:347:18
+    |
+329 | impl BlockhashManager {
+    | --------------------- methods in this implementation
+...
+347 |     pub async fn update_blockhash(&self, hash: Hash, last_valid_block_height: u64) {
+    |                  ^^^^^^^^^^^^^^^^
+...
+353 |     pub async fn is_fresh(&self) -> bool {
+    |                  ^^^^^^^^
+
+warning: variants `WarnOnAdvisory` and `AlwaysAllow` are never constructed
+   --> src/buy_engine.rs:372:5
+    |
+370 | pub enum SimulationPolicy {
+    |          ---------------- variants in this enum
+371 |     BlockOnCritical,
+372 |     WarnOnAdvisory,
+    |     ^^^^^^^^^^^^^^
+373 |     AlwaysAllow,
+    |     ^^^^^^^^^^^
+    |
+    = note: `SimulationPolicy` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: variants `CriticalFailure` and `AdvisoryFailure` are never constructed
+   --> src/buy_engine.rs:379:5
+    |
+377 | pub enum SimulationResult {
+    |          ---------------- variants in this enum
+378 |     Success,
+379 |     CriticalFailure(String),
+    |     ^^^^^^^^^^^^^^^
+380 |     AdvisoryFailure(String),
+    |     ^^^^^^^^^^^^^^^
+    |
+    = note: `SimulationResult` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: enum `UniverseState` is never used
+   --> src/buy_engine.rs:400:10
+    |
+400 | pub enum UniverseState {
+    |          ^^^^^^^^^^^^^
+
+warning: field `window_size` is never read
+   --> src/buy_engine.rs:415:5
+    |
+411 | pub struct PredictiveAnalytics {
+    |            ------------------- field in this struct
+...
+415 |     window_size: Duration,
+    |     ^^^^^^^^^^^
+    |
+    = note: `PredictiveAnalytics` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: methods `record_volume` and `get_confidence` are never used
+   --> src/buy_engine.rs:428:18
+    |
+418 | impl PredictiveAnalytics {
+    | ------------------------ methods in this implementation
+...
+428 |     pub async fn record_volume(&self, volume: u64) {
+    |                  ^^^^^^^^^^^^^
+...
+476 |     pub fn get_confidence(&self) -> u8 {
+    |            ^^^^^^^^^^^^^^
+
+warning: field `learning_rate` is never read
+   --> src/buy_engine.rs:633:5
+    |
+628 | pub struct AIBackoffStrategy {
+    |            ----------------- field in this struct
+...
+633 |     learning_rate: f64,
+    |     ^^^^^^^^^^^^^
+    |
+    = note: `AIBackoffStrategy` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: method `record_outcome` is never used
+   --> src/buy_engine.rs:670:18
+    |
+636 | impl AIBackoffStrategy {
+    | ---------------------- method in this implementation
+...
+670 |     pub async fn record_outcome(&self, delay_ms: u64, success: bool) {
+    |                  ^^^^^^^^^^^^^^
+
+warning: field `span_id` is never read
+   --> src/buy_engine.rs:689:9
+    |
+688 | pub struct TraceContext {
+    |            ------------ field in this struct
+689 |     pub span_id: String,
+    |         ^^^^^^^
+    |
+    = note: `TraceContext` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `mempool_rejections` and `realized_slippage` are never read
+   --> src/buy_engine.rs:736:9
+    |
+716 | pub struct UniverseMetrics {
+    |            --------------- fields in this struct
+...
+736 |     pub mempool_rejections: AtomicU64,
+    |         ^^^^^^^^^^^^^^^^^^
+737 |     pub realized_slippage: RwLock<VecDeque<f64>>,  // in basis points
+    |         ^^^^^^^^^^^^^^^^^
+    |
+    = note: `UniverseMetrics` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: methods `get_p99_latency`, `get_inflight_depth`, `record_mempool_rejection`, `record_slippage`, and `get_percentile_latency` are never used
+   --> src/buy_engine.rs:815:18
+    |
+740 | impl UniverseMetrics {
+    | -------------------- methods in this implementation
+...
+815 |     pub async fn get_p99_latency(&self, metric: &str) -> Option<u64> {
+    |                  ^^^^^^^^^^^^^^^
+...
+872 |     pub fn get_inflight_depth(&self) -> u64 {
+    |            ^^^^^^^^^^^^^^^^^^
+...
+876 |     pub fn record_mempool_rejection(&self) {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+880 |     pub async fn record_slippage(&self, slippage_bps: f64) {
+    |                  ^^^^^^^^^^^^^^^
+...
+888 |     pub async fn get_percentile_latency(&self, metric: &str, percentile: f64) -> Option<u64> {
+    |                  ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: fields `batch_size` and `verification_cache` are never read
+   --> src/buy_engine.rs:914:5
+    |
+913 | pub struct HardwareAcceleratedValidator {
+    |            ---------------------------- fields in this struct
+914 |     batch_size: usize,
+    |     ^^^^^^^^^^
+915 |     verification_cache: DashMap<String, bool>,
+    |     ^^^^^^^^^^^^^^^^^^
+    |
+    = note: `HardwareAcceleratedValidator` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: methods `verify_signatures_batch`, `verify_single`, and `clear_cache` are never used
+   --> src/buy_engine.rs:927:12
+    |
+918 | impl HardwareAcceleratedValidator {
+    | --------------------------------- methods in this implementation
+...
+927 |     pub fn verify_signatures_batch(&self, signatures: &[String]) -> Vec<bool> {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^
+...
+947 |     fn verify_single(&self, _signature: &str) -> bool {
+    |        ^^^^^^^^^^^^^
+...
+953 |     pub fn clear_cache(&self) {
+    |            ^^^^^^^^^^^
+
+warning: fields `tainted_sources` and `allowed_sources` are never read
+   --> src/buy_engine.rs:961:5
+    |
+960 | pub struct TaintTracker {
+    |            ------------ fields in this struct
+961 |     tainted_sources: DashMap<String, Vec<String>>,
+    |     ^^^^^^^^^^^^^^^
+962 |     allowed_sources: Vec<String>,
+    |     ^^^^^^^^^^^^^^^
+    |
+    = note: `TaintTracker` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: methods `track_input`, `is_tainted`, and `get_tainted_inputs` are never used
+   --> src/buy_engine.rs:973:12
+    |
+965 | impl TaintTracker {
+    | ----------------- methods in this implementation
+...
+973 |     pub fn track_input(&self, source: &str, data: &str) -> bool {
+    |            ^^^^^^^^^^^
+...
+988 |     pub fn is_tainted(&self, source: &str) -> bool {
+    |            ^^^^^^^^^^
+...
+992 |     pub fn get_tainted_inputs(&self, source: &str) -> Option<Vec<String>> {
+    |            ^^^^^^^^^^^^^^^^^^
+
+warning: field `proof_cache` is never read
+    --> src/buy_engine.rs:1000:5
+     |
+ 999 | pub struct ZKProofValidator {
+     |            ---------------- field in this struct
+1000 |     proof_cache: DashMap<String, bool>,
+     |     ^^^^^^^^^^^
+     |
+     = note: `ZKProofValidator` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: method `validate_candidate_zk` is never used
+    --> src/buy_engine.rs:1011:12
+     |
+1003 | impl ZKProofValidator {
+     | --------------------- method in this implementation
+...
+1011 |     pub fn validate_candidate_zk(&self, candidate_id: &str, _proof: &[u8]) -> bool {
+     |            ^^^^^^^^^^^^^^^^^^^^^
+
+warning: fields `wormhole_enabled`, `supported_chains`, and `bridge_contracts` are never read
+    --> src/buy_engine.rs:1033:9
+     |
+1032 | pub struct CrossChainConfig {
+     |            ---------------- fields in this struct
+1033 |     pub wormhole_enabled: bool,
+     |         ^^^^^^^^^^^^^^^^
+1034 |     pub supported_chains: Vec<ChainConfig>,
+     |         ^^^^^^^^^^^^^^^^
+1035 |     pub bridge_contracts: HashMap<String, Pubkey>,
+     |         ^^^^^^^^^^^^^^^^
+     |
+     = note: `CrossChainConfig` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `chain_id`, `name`, `rpc_url`, and `enabled` are never read
+    --> src/buy_engine.rs:1040:9
+     |
+1039 | pub struct ChainConfig {
+     |            ----------- fields in this struct
+1040 |     pub chain_id: u16,
+     |         ^^^^^^^^
+1041 |     pub name: String,
+     |         ^^^^
+1042 |     pub rpc_url: String,
+     |         ^^^^^^^
+1043 |     pub enabled: bool,
+     |         ^^^^^^^
+     |
+     = note: `ChainConfig` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `program_channels` and `active_programs` are never read
+    --> src/buy_engine.rs:1072:5
+     |
+1071 | pub struct MultiProgramSniffer {
+     |            ------------------- fields in this struct
+1072 |     program_channels: DashMap<String, tokio::sync::mpsc::Sender<PremintCandidate>>,
+     |     ^^^^^^^^^^^^^^^^
+1073 |     active_programs: Vec<String>,
+     |     ^^^^^^^^^^^^^^^
+     |
+     = note: `MultiProgramSniffer` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: methods `register_program_channel`, `route_candidate`, and `get_active_programs` are never used
+    --> src/buy_engine.rs:1084:12
+     |
+1076 | impl MultiProgramSniffer {
+     | ------------------------ methods in this implementation
+...
+1084 |     pub fn register_program_channel(
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1092 |     pub async fn route_candidate(&self, candidate: PremintCandidate) -> Result<()> {
+     |                  ^^^^^^^^^^^^^^^
+...
+1102 |     pub fn get_active_programs(&self) -> Vec<String> {
+     |            ^^^^^^^^^^^^^^^^^^^
+
+warning: method `record_backoff_outcome` is never used
+    --> src/buy_engine.rs:1173:14
+     |
+1126 | impl BackoffState {
+     | ----------------- method in this implementation
+...
+1173 |     async fn record_backoff_outcome(&self, delay: Duration, success: bool) {
+     |              ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: fields `tx`, `candidate`, `created_at`, `blockhash_fetch_time`, `attempts`, and `correlation_id` are never read
+    --> src/buy_engine.rs:1189:5
+     |
+1188 | struct QueuedTransaction {
+     |        ----------------- fields in this struct
+1189 |     tx: VersionedTransaction,
+     |     ^^
+1190 |     candidate: PremintCandidate,
+     |     ^^^^^^^^^
+1191 |     created_at: Instant,
+     |     ^^^^^^^^^^
+1192 |     blockhash_fetch_time: Option<Instant>,
+     |     ^^^^^^^^^^^^^^^^^^^^
+1193 |     attempts: u32,
+     |     ^^^^^^^^
+1194 |     correlation_id: String,
+     |     ^^^^^^^^^^^^^^
+     |
+     = note: `QueuedTransaction` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `queue` and `max_size` are never read
+    --> src/buy_engine.rs:1200:5
+     |
+1199 | struct TransactionQueue {
+     |        ---------------- fields in this struct
+1200 |     queue: RwLock<VecDeque<QueuedTransaction>>,
+     |     ^^^^^
+1201 |     max_size: usize,
+     |     ^^^^^^^^
+     |
+     = note: `TransactionQueue` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: methods `push`, `pop`, `len`, and `clear_stale` are never used
+    --> src/buy_engine.rs:1213:14
+     |
+1204 | impl TransactionQueue {
+     | --------------------- methods in this implementation
+...
+1213 |     async fn push(&self, item: QueuedTransaction) -> Result<()> {
+     |              ^^^^
+...
+1223 |     async fn pop(&self) -> Option<QueuedTransaction> {
+     |              ^^^
+...
+1229 |     async fn len(&self) -> usize {
+     |              ^^^
+...
+1235 |     async fn clear_stale(&self, max_age: Duration) -> usize {
+     |              ^^^^^^^^^^^
+
+warning: fields `hw_validator`, `taint_tracker`, `zk_proof_validator`, `cross_chain_config`, `multi_program_sniffer`, and `tx_queue` are never read
+    --> src/buy_engine.rs:1268:5
+     |
+1250 | pub struct BuyEngine {
+     |            --------- fields in this struct
+...
+1268 |     hw_validator: Arc<HardwareAcceleratedValidator>,
+     |     ^^^^^^^^^^^^
+1269 |     taint_tracker: Arc<TaintTracker>,
+     |     ^^^^^^^^^^^^^
+1270 |     zk_proof_validator: Arc<ZKProofValidator>,
+     |     ^^^^^^^^^^^^^^^^^^
+...
+1273 |     cross_chain_config: CrossChainConfig,
+     |     ^^^^^^^^^^^^^^^^^^
+1274 |     multi_program_sniffer: Arc<MultiProgramSniffer>,
+     |     ^^^^^^^^^^^^^^^^^^^^^
+...
+1292 |     tx_queue: Arc<TransactionQueue>,
+     |     ^^^^^^^^
+
+warning: multiple methods are never used
+    --> src/buy_engine.rs:1353:14
+     |
+1295 | impl BuyEngine {
+     | -------------- methods in this implementation
+...
+1353 |     async fn pump_transaction_queue(&self) {
+     |              ^^^^^^^^^^^^^^^^^^^^^^
+...
+1412 |     async fn enqueue_transaction(
+     |              ^^^^^^^^^^^^^^^^^^^
+...
+1437 |     async fn cleanup_stale_transactions(&self) {
+     |              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+2230 |     pub async fn set_buy_config(&self, config: BuyConfig) -> Result<()> {
+     |                  ^^^^^^^^^^^^^^
+...
+2242 |     pub async fn get_buy_config(&self) -> BuyConfig {
+     |                  ^^^^^^^^^^^^^^
+...
+2253 |     pub async fn activate_kill_switch(&self) {
+     |                  ^^^^^^^^^^^^^^^^^^^^
+...
+2260 |     pub async fn deactivate_kill_switch(&self) {
+     |                  ^^^^^^^^^^^^^^^^^^^^^^
+...
+2267 |     pub async fn set_rpc_endpoints(&self, endpoints: Vec<String>) {
+     |                  ^^^^^^^^^^^^^^^^^
+...
+2274 |     pub async fn get_rate_limiter_status(&self) -> u64 {
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^
+...
+2279 |     pub async fn export_prometheus_metrics(&self) -> String {
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+2329 |     pub async fn get_portfolio(&self) -> HashMap<Pubkey, f64> {
+     |                  ^^^^^^^^^^^^^
+...
+2334 |     pub async fn rebalance_portfolio(&self, _target_allocations: HashMap<Pubkey, f64>) -> Result<()> {
+     |                  ^^^^^^^^^^^^^^^^^^^
+...
+2341 |     pub async fn get_metrics_summary(&self) -> HashMap<String, serde_json::Value> {
+     |                  ^^^^^^^^^^^^^^^^^^^
+...
+2378 |     pub async fn record_recent_fee(&self, fee_lamports: u64) {
+     |                  ^^^^^^^^^^^^^^^^^
+...
+2387 |     pub fn get_circuit_breaker_status(&self) -> bool {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+2392 |     pub fn get_prediction_confidence(&self) -> u8 {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+2401 |     pub async fn validate_candidate_universe(&self, candidate: &PremintCandidate) -> Result<bool> {
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+2441 |     pub fn clear_security_caches(&self) {
+     |            ^^^^^^^^^^^^^^^^^^^^^
+...
+2451 |     pub fn enable_cross_chain(&mut self, chain_ids: Vec<u16>) {
+     |            ^^^^^^^^^^^^^^^^^^
+...
+2464 |     pub fn get_cross_chain_status(&self) -> HashMap<String, bool> {
+     |            ^^^^^^^^^^^^^^^^^^^^^^
+...
+2476 |     pub async fn route_candidate_to_program(&self, candidate: PremintCandidate) -> Result<()> {
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+2481 |     pub fn get_active_programs(&self) -> Vec<String> {
+     |            ^^^^^^^^^^^^^^^^^^^
+...
+2486 |     pub fn register_program_sniffer(
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+2500 |     pub async fn get_universe_diagnostics(&self) -> HashMap<String, serde_json::Value> {
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+2534 |     pub async fn export_performance_report(&self) -> String {
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: associated function `new` is never used
+   --> src/tx_builder.rs:358:12
+    |
+357 | impl TokenBucket {
+    | ---------------- associated function in this implementation
+358 |     pub fn new(capacity: f64, refill_rate: f64) -> Self {
+    |            ^^^
+
+warning: struct `CircuitBreakerStatus` is never constructed
+   --> src/tx_builder.rs:413:12
+    |
+413 | pub struct CircuitBreakerStatus {
+    |            ^^^^^^^^^^^^^^^^^^^^
+
+warning: associated items `new`, `get_state`, `get_failure_count`, `force_open`, and `force_reset` are never used
+   --> src/tx_builder.rs:432:12
+    |
+431 | impl CircuitBreaker {
+    | ------------------- associated items in this implementation
+432 |     pub fn new(failure_threshold: u32, timeout: Duration) -> Self {
+    |            ^^^
+...
+501 |     pub async fn get_state(&self) -> CircuitState {
+    |                  ^^^^^^^^^
+...
+506 |     pub fn get_failure_count(&self) -> u32 {
+    |            ^^^^^^^^^^^^^^^^^
+...
+511 |     pub async fn force_open(&self) {
+    |                  ^^^^^^^^^^
+...
+520 |     pub async fn force_reset(&self) {
+    |                  ^^^^^^^^^^^
+
+warning: fields `version`, `last_verified_slot`, and `is_verified` are never read
+   --> src/tx_builder.rs:647:9
+    |
+645 | pub struct ProgramMetadata {
+    |            --------------- fields in this struct
+646 |     /// Program version string (e.g., "1.0.0")
+647 |     pub version: String,
+    |         ^^^^^^^
+648 |     /// Last slot where this program was verified
+649 |     pub last_verified_slot: u64,
+    |         ^^^^^^^^^^^^^^^^^^
+650 |     /// Whether the program has been verified as safe
+651 |     pub is_verified: bool,
+    |         ^^^^^^^^^^^
+    |
+    = note: `ProgramMetadata` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: field `max_history_size` is never read
+   --> src/tx_builder.rs:679:5
+    |
+677 | pub struct SlippagePredictor {
+    |            ----------------- field in this struct
+678 |     history: VecDeque<f64>,
+679 |     max_history_size: usize,
+    |     ^^^^^^^^^^^^^^^^
+    |
+    = note: `SlippagePredictor` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: associated items `new` and `add_observation` are never used
+   --> src/tx_builder.rs:683:12
+    |
+682 | impl SlippagePredictor {
+    | ---------------------- associated items in this implementation
+683 |     pub fn new(max_history_size: usize) -> Self {
+    |            ^^^
+...
+690 |     pub fn add_observation(&mut self, bps: f64) {
+    |            ^^^^^^^^^^^^^^^
+
+warning: multiple fields are never read
+   --> src/tx_builder.rs:838:9
+    |
+835 | pub struct TransactionConfig {
+    |            ----------------- fields in this struct
+...
+838 |     pub priority_fee_lamports: u64,
+    |         ^^^^^^^^^^^^^^^^^^^^^
+...
+871 |     pub rpc_retry_attempts: usize,
+    |         ^^^^^^^^^^^^^^^^^^
+...
+885 |     pub jito_bundle_enabled: bool,
+    |         ^^^^^^^^^^^^^^^^^^^
+...
+888 |     pub signer_keypair_index: Option<usize>,
+    |         ^^^^^^^^^^^^^^^^^^^^
+...
+899 |     pub dex_priority: Vec<DexProgram>,
+    |         ^^^^^^^^^^^^
+...
+903 |     pub min_liquidity_lamports: u64,
+    |         ^^^^^^^^^^^^^^^^^^^^^^
+...
+920 |     pub rpc_rate_limit_rps: f64,
+    |         ^^^^^^^^^^^^^^^^^^
+...
+923 |     pub simulation_rate_limit_rps: f64,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+926 |     pub http_rate_limit_rps: f64,
+    |         ^^^^^^^^^^^^^^^^^^^
+...
+932 |     pub circuit_breaker_timeout_secs: u64,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `TransactionConfig` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: methods `add_allowed_program` and `get_program_metadata` are never used
+    --> src/tx_builder.rs:1056:12
+     |
+ 995 | impl TransactionConfig {
+     | ---------------------- methods in this implementation
+...
+1056 |     pub fn add_allowed_program(&self, program_id: Pubkey, metadata: ProgramMetadata) {
+     |            ^^^^^^^^^^^^^^^^^^^
+...
+1061 |     pub fn get_program_metadata(&self, program_id: &Pubkey) -> Option<ProgramMetadata> {
+     |            ^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `JitoBundleCandidate` is never constructed
+    --> src/tx_builder.rs:1076:12
+     |
+1076 | pub struct JitoBundleCandidate {
+     |            ^^^^^^^^^^^^^^^^^^^
+
+warning: variants `Serialization`, `FeatureNotEnabled`, `FeatureNotAvailable`, `InsufficientBalance`, `LiquidityTooLow`, and `Universe` are never constructed
+    --> src/tx_builder.rs:1111:5
+     |
+1088 | pub enum TransactionBuilderError {
+     |          ----------------------- variants in this enum
+...
+1111 |     Serialization(String),
+     |     ^^^^^^^^^^^^^
+...
+1117 |     FeatureNotEnabled { feature: String, action: String },
+     |     ^^^^^^^^^^^^^^^^^
+...
+1120 |     FeatureNotAvailable { feature: String, reason: String },
+     |     ^^^^^^^^^^^^^^^^^^^
+...
+1126 |     InsufficientBalance { required: u64, available: u64 },
+     |     ^^^^^^^^^^^^^^^^^^^
+...
+1129 |     LiquidityTooLow { available: u64, required: u64 },
+     |     ^^^^^^^^^^^^^^^
+...
+1132 |     Universe(UniverseErrorType),
+     |     ^^^^^^^^
+     |
+     = note: `TransactionBuilderError` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: variants `TransientError`, `FatalError`, `SecurityViolation`, `ComputeOverrun`, and `AnomalyDetected` are never constructed
+    --> src/tx_builder.rs:1138:5
+     |
+1137 | pub enum UniverseErrorType {
+     |          ----------------- variants in this enum
+1138 |     TransientError { reason: String, retry_after_ms: u64 },
+     |     ^^^^^^^^^^^^^^
+1139 |     FatalError { reason: String },
+     |     ^^^^^^^^^^
+1140 |     SecurityViolation { reason: String, confidence: f64 },
+     |     ^^^^^^^^^^^^^^^^^
+1141 |     ComputeOverrun { used: u32, limit: u32 },
+     |     ^^^^^^^^^^^^^^
+1142 |     AnomalyDetected { description: String, confidence: f64 },
+     |     ^^^^^^^^^^^^^^^
+     |
+     = note: `UniverseErrorType` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: method `priority` is never used
+    --> src/tx_builder.rs:1157:12
+     |
+1155 | impl DexProgram {
+     | --------------- method in this implementation
+1156 |     /// Get priority score (lower is better)
+1157 |     pub fn priority(&self) -> u8 {
+     |            ^^^^^^^^
+
+warning: fields `adaptive_ttl_enabled` and `worker_pool_semaphore` are never read
+    --> src/tx_builder.rs:1189:5
+     |
+1181 | pub struct TransactionBuilder {
+     |            ------------------ fields in this struct
+...
+1189 |     adaptive_ttl_enabled: bool,
+     |     ^^^^^^^^^^^^^^^^^^^^
+...
+1215 |     worker_pool_semaphore: Arc<Semaphore>,
+     |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: multiple associated items are never used
+    --> src/tx_builder.rs:1222:18
+     |
+1221 | impl TransactionBuilder {
+     | ----------------------- associated items in this implementation
+1222 |     pub async fn new(
+     |                  ^^^
+...
+1640 |     async fn prepare_execution_context_with_enforcement(
+     |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+2667 |     pub async fn prepare_jito_bundle(
+     |                  ^^^^^^^^^^^^^^^^^^^
+...
+2766 |     pub fn prepare_jito_bundle_simple(
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+3154 |     pub async fn unwrap_wsol(
+     |                  ^^^^^^^^^^^
+...
+3208 |     pub async fn inject_blockhash_for_tests(&self, hash: Hash) {
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+3221 |     pub async fn batch_build_buy_transactions(
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+3239 |     pub async fn batch_build_buy_transactions_with_priority(
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+3298 |     pub async fn update_slippage_predictor(&self, actual_slippage_bps: f64) {
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+3304 |     pub async fn check_balance_sufficient(
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+3326 |     pub async fn check_liquidity_depth(
+     |                  ^^^^^^^^^^^^^^^^^^^^^
+...
+3352 |     pub async fn get_current_slot(&self) -> Result<u64, TransactionBuilderError> {
+     |                  ^^^^^^^^^^^^^^^^
+...
+3362 |     pub async fn invalidate_stale_blockhashes(&self, max_slot_lag: u64) -> Result<usize, TransactionBuilderError> {
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+3384 |     pub async fn get_circuit_breaker_states(&self) -> Vec<(String, CircuitState)> {
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+3395 |     pub async fn get_circuit_breaker_states_detailed(&self) -> Vec<CircuitBreakerStatus> {
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+3414 |     pub fn start_health_probe_task(
+     |            ^^^^^^^^^^^^^^^^^^^^^^^
+...
+3474 |     pub fn get_simulation_cache_stats(&self) -> (usize, usize, u64, u64) {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+3484 |     pub async fn get_blockhash_cache_stats(&self) -> usize {
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+3489 |     pub fn clear_simulation_cache(&self) {
+     |            ^^^^^^^^^^^^^^^^^^^^^^
+...
+3497 |     pub async fn clear_blockhash_cache(&self) {
+     |                  ^^^^^^^^^^^^^^^^^^^^^
+...
+3502 |     pub fn get_nonce_acquire_count(&self) -> u64 {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^
+...
+3507 |     pub fn get_nonce_exhausted_count(&self) -> u64 {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+3512 |     pub fn get_blockhash_quorum_success_count(&self) -> u64 {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+3517 |     pub fn get_blockhash_fallback_count(&self) -> u64 {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+3522 |     pub fn get_transaction_count(&self) -> u64 {
+     |            ^^^^^^^^^^^^^^^^^^^^^
+...
+3528 |     pub fn get_rotation_checkpoint(&self, rotation_interval: u64) -> u64 {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^
+...
+3537 |     pub fn get_all_metrics(&self, config: &TransactionConfig) -> TxBuilderMetrics {
+     |            ^^^^^^^^^^^^^^^
+
+warning: struct `TxBuilderMetrics` is never constructed
+    --> src/tx_builder.rs:3556:12
+     |
+3556 | pub struct TxBuilderMetrics {
+     |            ^^^^^^^^^^^^^^^^
+
+warning: struct `MockNonceLease` is never constructed
+  --> src/tests/tx_builder_output_tests.rs:24:12
+   |
+24 |     struct MockNonceLease {
+   |            ^^^^^^^^^^^^^^
+
+warning: associated items `new`, `is_released`, and `release` are never used
+  --> src/tests/tx_builder_output_tests.rs:30:12
+   |
+29 |     impl MockNonceLease {
+   |     ------------------- associated items in this implementation
+30 |         fn new(nonce_pubkey: Pubkey) -> Self {
+   |            ^^^
+...
+37 |         async fn is_released(&self) -> bool {
+   |                  ^^^^^^^^^^^
+...
+41 |         async fn release(self) -> Result<(), String> {
+   |                  ^^^^^^^
+
+warning: fields `nonce_pubkey`, `nonce_blockhash`, and `last_valid_slot` are never read
+  --> src/tests/test_helpers.rs:37:9
+   |
+36 |     pub struct MockNonceLease {
+   |                -------------- fields in this struct
+37 |         nonce_pubkey: Pubkey,
+   |         ^^^^^^^^^^^^
+38 |         nonce_blockhash: Hash,
+   |         ^^^^^^^^^^^^^^^
+39 |         last_valid_slot: u64,
+   |         ^^^^^^^^^^^^^^^
+   |
+   = note: `MockNonceLease` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+
+warning: methods `nonce_pubkey`, `nonce_blockhash`, and `last_valid_slot` are never used
+  --> src/tests/test_helpers.rs:84:16
+   |
+47 |     impl MockNonceLease {
+   |     ------------------- methods in this implementation
+...
+84 |         pub fn nonce_pubkey(&self) -> &Pubkey {
+   |                ^^^^^^^^^^^^
+...
+89 |         pub fn nonce_blockhash(&self) -> Hash {
+   |                ^^^^^^^^^^^^^^^
+...
+94 |         pub fn last_valid_slot(&self) -> u64 {
+   |                ^^^^^^^^^^^^^^^
+
+warning: function `build_transfer_instruction` is never used
+   --> src/tests/test_helpers.rs:229:12
+    |
+229 |     pub fn build_transfer_instruction(from: &Pubkey, to: &Pubkey, lamports: u64) -> Instruction {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `build_mock_program_instruction` is never used
+   --> src/tests/test_helpers.rs:234:12
+    |
+234 |     pub fn build_mock_program_instruction(
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `create_test_keypair` is never used
+   --> src/tests/test_helpers.rs:243:12
+    |
+243 |     pub fn create_test_keypair() -> Keypair {
+    |            ^^^^^^^^^^^^^^^^^^^
+
+warning: function `create_test_keypairs` is never used
+   --> src/tests/test_helpers.rs:248:12
+    |
+248 |     pub fn create_test_keypairs(count: usize) -> Vec<Keypair> {
+    |            ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `create_test_pubkeys` is never used
+   --> src/tests/test_helpers.rs:253:12
+    |
+253 |     pub fn create_test_pubkeys(count: usize) -> Vec<Pubkey> {
+    |            ^^^^^^^^^^^^^^^^^^^
+
+warning: field `rpc_url` is never read
+   --> src/tests/test_helpers.rs:261:13
+    |
+258 |     pub struct NonceTestConfig {
+    |                --------------- field in this struct
+...
+261 |         pub rpc_url: String,
+    |             ^^^^^^^
+
+warning: method `with_rpc_url` is never used
+   --> src/tests/test_helpers.rs:288:16
+    |
+274 |     impl NonceTestConfig {
+    |     -------------------- method in this implementation
+...
+288 |         pub fn with_rpc_url(mut self, url: String) -> Self {
+    |                ^^^^^^^^^^^^
+
+warning: `bot` (bin "bot" test) generated 212 warnings
+warning: unused import: `std::sync::Arc`
+ --> examples/complete_example.rs:4:5
+  |
+4 | use std::sync::Arc;
+  |     ^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `std::time::Duration`
+ --> examples/complete_example.rs:5:5
+  |
+5 | use std::time::Duration;
+  |     ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::sync::Arc`
+  --> examples/final_integration_stage.rs:10:5
+   |
+10 | use std::sync::Arc;
+   |     ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `std::time::Duration`
+  --> examples/final_integration_stage.rs:11:5
+   |
+11 | use std::time::Duration;
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `tokio::time::sleep`
+  --> examples/final_integration_stage.rs:12:5
+   |
+12 | use tokio::time::sleep;
+   |     ^^^^^^^^^^^^^^^^^^
+
+error: invalid format string: expected `}`, found `O`
+  --> examples/tx_build_output_demo.rs:53:9
+   |
+52 |     match result {
+   |                  - because of this opening brace
+53 |         Ok(signature) => {
+   |         ^ expected `}` in format string
+   |
+   = note: if you intended to print `{`, you can escape it using `{{`
+
+warning: unused imports: `VersionedMessage`, `hash::Hash`, `signature::Keypair`, `signer::Signer`, and `v0::Message as MessageV0`
+  --> examples/tx_build_output_demo.rs:8:5
+   |
+ 8 |     hash::Hash,
+   |     ^^^^^^^^^^
+ 9 |     message::{v0::Message as MessageV0, VersionedMessage},
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+10 |     pubkey::Pubkey,
+11 |     signature::Keypair,
+   |     ^^^^^^^^^^^^^^^^^^
+12 |     signer::Signer,
+   |     ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `solana_sdk::system_instruction`
+  --> examples/tx_build_output_demo.rs:17:5
+   |
+17 | use solana_sdk::system_instruction;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `bot` (example "tx_build_output_demo") generated 2 warnings
+error: could not compile `bot` (example "tx_build_output_demo") due to 1 previous error; 2 warnings emitted
+warning: build failed, waiting for other jobs to finish...
+warning: `bot` (example "complete_example") generated 2 warnings (run `cargo fix --example "complete_example" -p bot` to apply 2 suggestions)
+warning: `bot` (example "final_integration_stage") generated 3 warnings (run `cargo fix --example "final_integration_stage" -p bot` to apply 3 suggestions)
