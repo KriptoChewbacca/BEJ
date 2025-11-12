@@ -1251,7 +1251,7 @@ impl TransactionBuilder {
 
         #[cfg(feature = "pumpfun")]
         let pumpfun_client = PumpFun::new(wallet.clone(), config.cluster.clone()).await.map_err(
-            |e| TransactionBuilderError::InstructionBuild {
+            |e: Box<dyn std::error::Error>| TransactionBuilderError::InstructionBuild {
                 program: "pumpfun".to_string(),
                 reason: e.to_string(),
             },

@@ -14,8 +14,10 @@ pub enum Mode {
     Production,
     /// Sniffing mode (only monitor, no trading)
     Sniffing,
-    /// Passive token mode (hold and monitor)
-    PassiveToken,
+    /// Passive token mode (hold and monitor a specific token)
+    PassiveToken(Pubkey),
+    /// Quantum manual mode (manual trading with quantum strategies)
+    QuantumManual,
 }
 
 /// Premint candidate from sniffer

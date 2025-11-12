@@ -53,12 +53,12 @@ impl StructuredLogger {
         );
     }
     
-    pub fn log_sell_operation(&self, mint: &str, amount: u64, success: bool) {
+    pub fn log_sell_operation(&self, mint: &str, sell_percent: f64, new_holdings_percent: f64) {
         tracing::info!(
             context_id = %self.context_id,
             mint = %mint,
-            amount = %amount,
-            success = %success,
+            sell_percent = %sell_percent,
+            new_holdings_percent = %new_holdings_percent,
             "Sell operation"
         );
     }

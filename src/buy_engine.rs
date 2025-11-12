@@ -1843,14 +1843,9 @@ impl BuyEngine {
 
         let mint = match mode {
             Mode::PassiveToken(m) => m,
-            Mode::Sniffing => {
-                ctx.logger.warn("Sell requested in Sniffing mode; ignoring", serde_json::json!({"action": "sell_rejected"}));
-                warn!(correlation_id=ctx.correlation_id, "Sell requested in Sniffing mode; ignoring");
-                return Err(anyhow!("not in PassiveToken mode"));
-            }
-            Mode::QuantumManual => {
-                ctx.logger.warn("Sell requested in QuantumManual mode; ignoring", serde_json::json!({"action": "sell_rejected"}));
-                warn!(correlation_id=ctx.correlation_id, "Sell requested in QuantumManual mode; ignoring");
+            Mode::Sniffing | Mode::QuantumManual | Mode::Simulation | Mode::Production => {
+                ctx.logger.warn("Sell requested in non-PassiveToken mode; ignoring");
+                warn!(correlation_id=ctx.correlation_id, "Sell requested in non-PassiveToken mode; ignoring");
                 return Err(anyhow!("not in PassiveToken mode"));
             }
         };
