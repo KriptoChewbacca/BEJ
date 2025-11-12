@@ -1,7 +1,5 @@
 /// Complete example demonstrating RPC Manager improvements
 /// This example shows all major features in a simplified format
-use std::sync::Arc;
-use std::time::Duration;
 
 // This is a simplified example showing the API usage
 // Actual implementation would import from the rpc_manager module

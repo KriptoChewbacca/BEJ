@@ -7,10 +7,6 @@
 //! 4. Hot configuration reload
 //! 5. Deterministic shutdown with biased select!
 
-use std::sync::Arc;
-use std::time::Duration;
-use tokio::time::sleep;
-
 // Mock sniffer module structure for example
 // In actual code, use: use ultra::sniffer::*;
 

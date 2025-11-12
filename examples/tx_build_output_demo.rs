@@ -4,17 +4,7 @@
 //!
 //! Run with: cargo run --example tx_build_output_demo (when dependencies are resolved)
 
-use solana_sdk::{
-    hash::Hash,
-    message::{v0::Message as MessageV0, VersionedMessage},
-    pubkey::Pubkey,
-    signature::Keypair,
-    signer::Signer,
-    transaction::VersionedTransaction,
-};
-// TODO(migrate-system-instruction): temporary allow, full migration post-profit
-#[allow(deprecated)]
-use solana_sdk::system_instruction;
+use solana_sdk::{pubkey::Pubkey, transaction::VersionedTransaction};
 
 /// This example demonstrates the RAII pattern for nonce management
 ///
@@ -50,18 +40,18 @@ fn main() {
     // Broadcast transaction
     let result = rpc.send_transaction(&output.tx).await;
     
-    match result {
-        Ok(signature) => {
+    match result {{
+        Ok(signature) => {{
             // Success - explicitly release nonce
             output.release_nonce().await?;
-            println!(\"Transaction successful: {}\", signature);
-        }
-        Err(e) => {
+            println!(\\\"Transaction successful: {{}}\\\", signature);
+        }}
+        Err(e) => {{
             // Error - drop output (auto-releases nonce via Drop)
             drop(output);
-            eprintln!(\"Transaction failed: {}\", e);
-        }
-    }
+            eprintln!(\\\"Transaction failed: {{}}\\\", e);
+        }}
+    }}
     "
     );
 
