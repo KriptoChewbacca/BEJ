@@ -486,43 +486,47 @@ impl UniversePredictiveModel {
         attempts_used: u32,
         jitter_used: f64,
     ) {
-        if let Some(last_prediction) = self.predictions.back_mut() {
+        // Extract prediction values we need before borrowing self mutably again
+        let (predicted_prob, needs_update) = if let Some(last_prediction) = self.predictions.back_mut() {
             last_prediction.actual_latency_ms = Some(actual_latency_ms);
             last_prediction.actual_success = Some(actual_success);
             last_prediction.actual_tps = actual_tps;
             last_prediction.actual_volume = actual_volume;
+            (last_prediction.predicted_failure_prob, actual_tps.is_some())
+        } else {
+            return;
+        };
+        
+        // RL Q-learning update
+        if let Some(tps) = actual_tps {
+            let state = CongestionState::from_tps(tps);
+            let failure_count = if actual_success { 0 } else { 1 };
             
-            // RL Q-learning update
-            if let Some(tps) = actual_tps {
-                let state = CongestionState::from_tps(tps);
-                let failure_count = if actual_success { 0 } else { 1 };
-                
-                // Compute reward: +1 for success with low latency, -1 for failure
-                let reward = if actual_success {
-                    if actual_latency_ms < 200.0 {
-                        1.0
-                    } else if actual_latency_ms < 500.0 {
-                        0.5
-                    } else {
-                        0.0
-                    }
+            // Compute reward: +1 for success with low latency, -1 for failure
+            let reward = if actual_success {
+                if actual_latency_ms < 200.0 {
+                    1.0
+                } else if actual_latency_ms < 500.0 {
+                    0.5
                 } else {
-                    -1.0
-                };
-                
-                // Update Q-value for this (state, failure_count, action) tuple
-                self.update_q_value(state, failure_count, attempts_used, jitter_used, reward);
-            }
+                    0.0
+                }
+            } else {
+                -1.0
+            };
             
-            debug!(
-                predicted = last_prediction.predicted_failure_prob,
-                actual_latency_ms = actual_latency_ms,
-                actual_success = actual_success,
-                actual_tps = ?actual_tps,
-                actual_volume = ?actual_volume,
-                "Labeled prediction with RL update"
-            );
+            // Update Q-value for this (state, failure_count, action) tuple
+            self.update_q_value(state, failure_count, attempts_used, jitter_used, reward);
         }
+        
+        debug!(
+            predicted = predicted_prob,
+            actual_latency_ms = actual_latency_ms,
+            actual_success = actual_success,
+            actual_tps = ?actual_tps,
+            actual_volume = ?actual_volume,
+            "Labeled prediction with RL update"
+        );
     }
     
     /// Update Q-value using Q-learning algorithm

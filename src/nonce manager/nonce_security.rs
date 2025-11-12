@@ -536,8 +536,8 @@ impl AuthorityRotationManager {
     /// Generate a new secure keypair for rotation
     #[instrument(skip(self))]
     pub fn generate_new_authority(&self) -> SecureKeypair {
-        // Use OS-level random number generator for cryptographic security
-        let keypair = Keypair::generate(&mut OsRng);
+        // Use Keypair::new() which internally uses a secure RNG
+        let keypair = Keypair::new();
         info!(
             new_authority = %keypair.pubkey(),
             "Generated new authority keypair"

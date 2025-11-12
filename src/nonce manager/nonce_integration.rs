@@ -242,6 +242,7 @@ impl NonceManagerApi for IntegratedNonceManager {
         let lease = NonceLease::new(
             nonce_pubkey,
             1000, // placeholder last_valid_slot
+            solana_sdk::hash::Hash::default(), // placeholder nonce_blockhash
             self.config.lease_ttl,
             move || {
                 // Synchronous callback that schedules async cleanup

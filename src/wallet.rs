@@ -63,6 +63,11 @@ impl WalletManager {
         Keypair::from_bytes(&self.keypair.to_bytes()).expect("Valid keypair")
     }
     
+    /// Get an Arc reference to the keypair (for use with libraries expecting Arc<Keypair>)
+    pub fn keypair_arc(&self) -> Arc<Keypair> {
+        Arc::clone(&self.keypair)
+    }
+    
     /// Add authority to shared pool (Security Enhancement 2)
     /// Syncs with nonce manager authority rotation
     pub async fn add_authority(&self, authority: Pubkey) {

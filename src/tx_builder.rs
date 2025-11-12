@@ -498,7 +498,7 @@ impl CircuitBreaker {
 
     /// Get current state for monitoring
     pub async fn get_state(&self) -> CircuitState {
-        *self.state.read().await
+        self.state.read().await.clone()
     }
     
     /// Task 2: Get failure count for telemetry
@@ -1146,7 +1146,9 @@ pub enum UniverseErrorType {
 pub enum DexProgram {
     PumpFun,     // Priority 0 (highest)
     LetsBonk,    // Priority 1
-    Unknown(String), // Priority 2 (lowest)
+    Raydium,     // Priority 2
+    Orca,        // Priority 3
+    Unknown(String), // Priority 255 (lowest)
 }
 
 impl DexProgram {
@@ -1155,6 +1157,8 @@ impl DexProgram {
         match self {
             DexProgram::PumpFun => 0,
             DexProgram::LetsBonk => 1,
+            DexProgram::Raydium => 2,
+            DexProgram::Orca => 3,
             DexProgram::Unknown(_) => 255,
         }
     }
@@ -1165,6 +1169,8 @@ impl From<&str> for DexProgram {
         match s.to_lowercase().as_str() {
             "pump.fun" | "pumpfun" | "pumpportal" => DexProgram::PumpFun,
             "letsbonk.fun" | "letsbonk" | "bonk" => DexProgram::LetsBonk,
+            "raydium" => DexProgram::Raydium,
+            "orca" | "whirlpool" => DexProgram::Orca,
             _ => DexProgram::Unknown(s.to_string()),
         }
     }
@@ -1236,12 +1242,7 @@ impl TransactionBuilder {
             .collect();
 
         #[cfg(feature = "pumpfun")]
-        let pumpfun_client = PumpFun::new(wallet.clone(), config.cluster.clone()).await.map_err(
-            |e: Box<dyn std::error::Error>| TransactionBuilderError::InstructionBuild {
-                program: "pumpfun".to_string(),
-                reason: e.to_string(),
-            },
-        )?;
+        let pumpfun_client = PumpFun::new(wallet.keypair_arc(), config.cluster.clone());
         
         // Initialize rate limiters
         let rpc_rate_limiter = if config.rpc_rate_limit_rps > 0.0 {
@@ -1670,9 +1671,11 @@ impl TransactionBuilder {
                 let nonce_authority = Some(self.wallet.pubkey());
                 
                 // Extract and verify ZK proof from lease
+                #[cfg(feature = "zk_enabled")]
                 let zk_proof = lease.take_proof();
                 
                 // Verify ZK proof if available (abort on low confidence)
+                #[cfg(feature = "zk_enabled")]
                 if let Some(ref proof) = zk_proof {
                     if proof.confidence < 0.5 {
                         warn!(
@@ -1700,10 +1703,18 @@ impl TransactionBuilder {
                     );
                 }
                 
+                #[cfg(feature = "zk_enabled")]
                 debug!(
                     nonce_acquire_count = self.nonce_acquire_count.load(Ordering::Relaxed),
                     nonce_pubkey = ?nonce_pubkey,
                     zk_proof_present = zk_proof.is_some(),
+                    enforce_nonce = true,
+                    "Using nonce with enforcement enabled"
+                );
+                #[cfg(not(feature = "zk_enabled"))]
+                debug!(
+                    nonce_acquire_count = self.nonce_acquire_count.load(Ordering::Relaxed),
+                    nonce_pubkey = ?nonce_pubkey,
                     enforce_nonce = true,
                     "Using nonce with enforcement enabled"
                 );
@@ -1713,6 +1724,7 @@ impl TransactionBuilder {
                     nonce_pubkey,
                     nonce_authority,
                     nonce_lease: Some(lease),
+                    #[cfg(feature = "zk_enabled")]
                     zk_proof,
                 })
             }
@@ -1747,9 +1759,11 @@ impl TransactionBuilder {
                     let nonce_authority = Some(self.wallet.pubkey());
                     
                     // Extract and verify ZK proof from lease
+                    #[cfg(feature = "zk_enabled")]
                     let zk_proof = lease.take_proof();
                     
                     // Verify ZK proof if available (abort on low confidence)
+                    #[cfg(feature = "zk_enabled")]
                     if let Some(ref proof) = zk_proof {
                         if proof.confidence < 0.5 {
                             warn!(
@@ -1777,10 +1791,17 @@ impl TransactionBuilder {
                         );
                     }
                     
+                    #[cfg(feature = "zk_enabled")]
                     debug!(
                         nonce_acquire_count = self.nonce_acquire_count.load(Ordering::Relaxed),
                         nonce_pubkey = ?nonce_pubkey,
                         zk_proof_present = zk_proof.is_some(),
+                        "Using nonce for critical operation"
+                    );
+                    #[cfg(not(feature = "zk_enabled"))]
+                    debug!(
+                        nonce_acquire_count = self.nonce_acquire_count.load(Ordering::Relaxed),
+                        nonce_pubkey = ?nonce_pubkey,
                         "Using nonce for critical operation"
                     );
                     
@@ -1789,6 +1810,7 @@ impl TransactionBuilder {
                         nonce_pubkey,
                         nonce_authority,
                         nonce_lease: Some(lease),
+                        #[cfg(feature = "zk_enabled")]
                         zk_proof,
                     })
                 }
@@ -2077,11 +2099,13 @@ impl TransactionBuilder {
         let buy_instruction = match dex_program {
             DexProgram::PumpFun => self.build_pumpfun_instruction(candidate, config).await,
             DexProgram::LetsBonk => self.build_letsbonk_instruction(candidate, config).await,
+            DexProgram::Raydium => self.build_placeholder_buy_instruction(candidate, config).await, // TODO: implement Raydium
+            DexProgram::Orca => self.build_placeholder_buy_instruction(candidate, config).await, // TODO: implement Orca
             DexProgram::Unknown(_) => self.build_placeholder_buy_instruction(candidate, config).await,
         }?;
 
         // Check if this is a placeholder instruction (no adaptive fee for placeholders)
-        let is_placeholder = matches!(dex_program, DexProgram::Unknown(_));
+        let is_placeholder = matches!(dex_program, DexProgram::Unknown(_) | DexProgram::Raydium | DexProgram::Orca);
 
         // Universe Class: Pre-simulation for CU estimation with caching
         if config.enable_simulation {
@@ -2323,9 +2347,12 @@ impl TransactionBuilder {
         };
 
         if sign {
-            self.wallet
-                .sign_transaction(&mut tx)
-                .map_err(|e| TransactionBuilderError::SigningFailed(e.to_string()))?;
+            // Sign the transaction manually since VersionedTransaction doesn't have try_sign
+            use solana_sdk::signature::Signer;
+            let keypair = self.wallet.keypair();
+            let message_bytes = tx.message.serialize();
+            let signature = keypair.sign_message(&message_bytes);
+            tx.signatures = vec![signature];
         } else {
             // Initialize with default signatures matching required number of signers
             let required = crate::compat::get_num_required_signatures(&tx.message) as usize;
@@ -2374,6 +2401,12 @@ impl TransactionBuilder {
             }
             DexProgram::LetsBonk => {
                 self.build_letsbonk_sell_instruction(mint, sell_percent, config).await
+            }
+            DexProgram::Raydium => {
+                self.build_placeholder_sell_instruction(mint, sell_percent, config).await // TODO: implement Raydium sell
+            }
+            DexProgram::Orca => {
+                self.build_placeholder_sell_instruction(mint, sell_percent, config).await // TODO: implement Orca sell
             }
             DexProgram::Unknown(_) => {
                 self.build_placeholder_sell_instruction(mint, sell_percent, config).await
@@ -2617,9 +2650,12 @@ impl TransactionBuilder {
         };
 
         if sign {
-            self.wallet
-                .sign_transaction(&mut tx)
-                .map_err(|e| TransactionBuilderError::SigningFailed(e.to_string()))?;
+            // Sign the transaction manually since VersionedTransaction doesn't have try_sign
+            use solana_sdk::signature::Signer;
+            let keypair = self.wallet.keypair();
+            let message_bytes = tx.message.serialize();
+            let signature = keypair.sign_message(&message_bytes);
+            tx.signatures = vec![signature];
         } else {
             let required = crate::compat::get_num_required_signatures(&tx.message) as usize;
             tx.signatures = vec![Signature::default(); required];
@@ -2758,50 +2794,10 @@ impl TransactionBuilder {
     ) -> Result<Instruction, TransactionBuilderError> {
         #[cfg(feature = "pumpfun")]
         {
-            // Get bonding curve for slippage calculations
-            let bonding_curve = self
-                .pumpfun_client
-                .get_bonding_curve_account(&candidate.mint)
-                .await
-                .map_err(|e| TransactionBuilderError::InstructionBuild {
-                    program: "pumpfun".to_string(),
-                    reason: e.to_string(),
-                })?;
-
-            let expected_tokens =
-                calculate_expected_tokens(&bonding_curve, config.buy_amount_lamports);
-            let min_token_out = ((expected_tokens as u128)
-                * (10000u128 - config.slippage_bps as u128)
-                / 10000u128) as u64;
-
-            // Build tx and extract buy instruction (last in tx)
-            let priority_fee = PriorityFee {
-                unit_limit: Some(config.compute_unit_limit as u64),
-                unit_price: Some(config.priority_fee_lamports),
-                ..Default::default()
-            };
-            let tx = self
-                .pumpfun_client
-                .buy(
-                    candidate.mint,
-                    config.buy_amount_lamports,
-                    Some(min_token_out),
-                    Some(priority_fee),
-                )
-                .await
-                .map_err(|e| TransactionBuilderError::InstructionBuild {
-                    program: "pumpfun".to_string(),
-                    reason: e.to_string(),
-                })?;
-
-            if let Some(ix) = tx.message.instructions.last() {
-                return Ok(ix.clone());
-            } else {
-                return Err(TransactionBuilderError::InstructionBuild {
-                    program: "pumpfun".to_string(),
-                    reason: "No instruction in tx".to_string(),
-                });
-            }
+            // Note: PumpFun SDK v4.6.0 doesn't expose buy_ix/sell_ix methods
+            // The buy() and sell() methods send transactions directly
+            // Fallback to HTTP API for instruction building
+            debug!("PumpFun SDK doesn't support instruction-only building, using fallback");
         }
 
         // Fallback do HTTP PumpPortal, gdy feature pumpfun wyłączony
@@ -3098,56 +3094,10 @@ impl TransactionBuilder {
     ) -> Result<Instruction, TransactionBuilderError> {
         #[cfg(feature = "pumpfun")]
         {
-            let ata = get_associated_token_address(&self.wallet.pubkey(), mint);
-            
-            // Get token balance directly from RPC
-            let token_account = self
-                .rpc_client_for(0)
-                .get_token_account_balance(&ata)
-                .await
-                .map_err(|e| TransactionBuilderError::InstructionBuild {
-                    program: "pumpfun".to_string(),
-                    reason: format!("Failed to get token balance: {}", e),
-                })?;
-            
-            let token_balance = token_account.ui_amount.unwrap_or(0.0) as u64;
-            let sell_amount = ((token_balance as f64) * sell_percent) as u64;
-
-            let bonding_curve = self
-                .pumpfun_client
-                .get_bonding_curve_account(mint)
-                .await
-                .map_err(|e| TransactionBuilderError::InstructionBuild {
-                    program: "pumpfun".to_string(),
-                    reason: e.to_string(),
-                })?;
-            let expected_sol = calculate_expected_sol(&bonding_curve, sell_amount);
-            let min_sol_out = ((expected_sol as u128)
-                * (10000u128 - config.slippage_bps as u128)
-                / 10000u128) as u64;
-
-            let priority_fee = PriorityFee {
-                unit_limit: Some(config.compute_unit_limit as u64),
-                unit_price: Some(config.priority_fee_lamports),
-                ..Default::default()
-            };
-            let tx = self
-                .pumpfun_client
-                .sell(*mint, Some(sell_amount), Some(min_sol_out), Some(priority_fee))
-                .await
-                .map_err(|e| TransactionBuilderError::InstructionBuild {
-                    program: "pumpfun".to_string(),
-                    reason: e.to_string(),
-                })?;
-
-            if let Some(ix) = tx.message.instructions.last() {
-                return Ok(ix.clone());
-            } else {
-                return Err(TransactionBuilderError::InstructionBuild {
-                    program: "pumpfun".to_string(),
-                    reason: "No instruction in tx".to_string(),
-                });
-            }
+            // Note: PumpFun SDK v4.6.0 doesn't expose sell_ix method
+            // The sell() method sends transactions directly
+            // Fallback to placeholder for sell instruction building
+            debug!("PumpFun SDK doesn't support sell instruction-only building, using fallback");
         }
 
         self.build_placeholder_sell_instruction(mint, sell_percent, config)
@@ -3233,15 +3183,17 @@ impl TransactionBuilder {
             })?;
 
         let versioned_message = VersionedMessage::V0(message_v0);
-        let tx = VersionedTransaction {
+        let mut tx_to_sign = VersionedTransaction {
             signatures: vec![],
             message: versioned_message,
         };
 
-        let mut tx_to_sign = tx;
-        self.wallet
-            .sign_transaction(&mut tx_to_sign)
-            .map_err(|e| TransactionBuilderError::SigningFailed(e.to_string()))?;
+        // Sign the transaction manually since VersionedTransaction doesn't have try_sign
+        use solana_sdk::signature::Signer;
+        let keypair = self.wallet.keypair();
+        let message_bytes = tx_to_sign.message.serialize();
+        let signature_data = keypair.sign_message(&message_bytes);
+        tx_to_sign.signatures = vec![signature_data];
 
         // Simple send via first RPC client
         let rpc = self.rpc_client_for(0);
@@ -3284,6 +3236,10 @@ impl TransactionBuilder {
     /// - The semaphore implements RAII pattern via SemaphorePermit guard
     /// - Permits are automatically released on drop, even if task panics
     /// - Consider using separate calls for high vs low priority batches
+    /// 
+    /// TODO: Fix borrow checker issue (E0521) - self cannot be captured in spawned tasks
+    #[allow(dead_code)]
+    #[allow(clippy::await_holding_lock)]
     pub async fn batch_build_buy_transactions_with_priority(
         &self,
         candidates: Vec<PremintCandidate>,
@@ -3370,9 +3326,11 @@ impl TransactionBuilder {
         }
         
         // Sort results by original index and extract values
-        let mut results = Arc::try_unwrap(results)
-            .unwrap_or_else(|arc| (*arc.blocking_lock()).clone())
-            .into_inner();
+        let results_vec = match Arc::try_unwrap(results) {
+            Ok(mutex) => mutex.into_inner(),
+            Err(arc) => arc.blocking_lock().clone(),
+        };
+        let mut results = results_vec;
         results.sort_by_key(|(idx, _)| *idx);
         
         results.into_iter().map(|(_, result)| result).collect()

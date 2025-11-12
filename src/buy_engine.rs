@@ -1458,7 +1458,11 @@ impl BuyEngine {
                 continue;
             }
 
-            let sniffing = self.app_state.is_sniffing().await;
+            let sniffing = {
+                let state = self.app_state.lock().await;
+                let mode = state.mode.read().await;
+                matches!(*mode, Mode::Sniffing)
+            };
 
             if sniffing {
                 // Check predictive surge before backoff
@@ -1545,8 +1549,8 @@ impl BuyEngine {
                                 metrics().increment_counter("buy_success_total");
                                 ctx.logger.log_buy_success(&candidate.mint.to_string(), &sig.to_string(), latency_ms);
                                 
-                                // Update scoreboard
-                                endpoint_server().update_scoreboard(&candidate.mint.to_string(), &candidate.program, true, latency_ms).await;
+                                // TODO: Update scoreboard
+                                // endpoint_server().update_scoreboard(&candidate.mint.to_string(), &candidate.program, true, latency_ms).await;
                                 
                                 info!(mint=%candidate.mint, sig=%sig, correlation_id=ctx.correlation_id, latency_us=%latency_micros, "BUY success, entering PassiveToken mode");
 
@@ -1558,7 +1562,7 @@ impl BuyEngine {
 
                                 {
                                     let mut st = self.app_state.lock().await;
-                                    st.mode = Mode::PassiveToken(candidate.mint);
+                                    *st.mode.write().await = Mode::PassiveToken(candidate.mint);
                                     st.active_token = Some(candidate.clone());
                                     st.last_buy_price = Some(exec_price);
                                     st.holdings_percent = 1.0;
@@ -1572,25 +1576,25 @@ impl BuyEngine {
 
                                 info!(mint=%candidate.mint, price=%exec_price, "Recorded buy price and entered PassiveToken");
                                 
-                                // SCALABILITY: Check for surge and trigger nonce pool expansion
-                                if let Some(surge_confidence) = self.predictive_analytics.detect_surge().await {
-                                    if surge_confidence > 0.6 {
-                                        info!(
-                                            surge_confidence = surge_confidence,
-                                            "High-volume surge detected, expanding nonce pool"
-                                        );
-                                        
-                                        // Trigger pool expansion (add 2 nonces on surge)
-                                        let nonce_mgr = self.nonce_manager.clone();
-                                        tokio::spawn(async move {
-                                            for _ in 0..2 {
-                                                if let Err(e) = nonce_mgr.add_nonce_async().await {
-                                                    error!(error = %e, "Failed to expand nonce pool on surge");
-                                                }
-                                            }
-                                        });
-                                    }
-                                }
+                                // TODO: SCALABILITY: Check for surge and trigger nonce pool expansion
+                                // if let Some(surge_confidence) = self.predictive_analytics.detect_surge().await {
+                                //     if surge_confidence > 0.6 {
+                                //         info!(
+                                //             surge_confidence = surge_confidence,
+                                //             "High-volume surge detected, expanding nonce pool"
+                                //         );
+                                //         
+                                //         // Trigger pool expansion (add 2 nonces on surge)
+                                //         let nonce_mgr = self.nonce_manager.clone();
+                                //         tokio::spawn(async move {
+                                //             for _ in 0..2 {
+                                //                 if let Err(e) = nonce_mgr.add_nonce_async().await {
+                                //                     error!(error = %e, "Failed to expand nonce pool on surge");
+                                //                 }
+                                //             }
+                                //         });
+                                //     }
+                                // }
                             }
                             Err(e) => {
                                 buy_timer.finish();
@@ -1604,8 +1608,8 @@ impl BuyEngine {
                                 metrics().increment_counter("buy_failure_total");
                                 ctx.logger.log_buy_failure(&candidate.mint.to_string(), &e.to_string(), latency_ms);
                                 
-                                // Update scoreboard with failure
-                                endpoint_server().update_scoreboard(&candidate.mint.to_string(), &candidate.program, false, latency_ms).await;
+                                // TODO: Update scoreboard with failure
+                                // endpoint_server().update_scoreboard(&candidate.mint.to_string(), &candidate.program, false, latency_ms).await;
                                 
                                 // Record failure in circuit breaker
                                 self.circuit_breaker.record_failure();
@@ -1824,7 +1828,7 @@ impl BuyEngine {
         let pct = match validator::validate_holdings_percent(percent.clamp(0.0, 1.0)) {
             Ok(validated_pct) => validated_pct,
             Err(e) => {
-                ctx.logger.error("Invalid sell percentage", serde_json::json!({"error": e, "percent": percent}));
+                ctx.logger.error(&format!("Invalid sell percentage: {} (percent: {})", e, percent));
                 return Err(anyhow!("Invalid sell percentage: {}", e));
             }
         };
@@ -1840,8 +1844,8 @@ impl BuyEngine {
             (st.mode.clone(), st.active_token.clone(), st.holdings_percent)
         };
 
-        let mint = match mode {
-            Mode::PassiveToken(m) => m,
+        let mint = match &*mode.read().await {
+            Mode::PassiveToken(m) => *m,
             Mode::Sniffing | Mode::QuantumManual | Mode::Simulation | Mode::Production => {
                 ctx.logger.warn("Sell requested in non-PassiveToken mode; ignoring");
                 warn!(correlation_id=ctx.correlation_id, "Sell requested in non-PassiveToken mode; ignoring");
@@ -1861,7 +1865,7 @@ impl BuyEngine {
         let new_holdings = match validator::validate_holdings_percent((current_pct * (1.0 - pct)).max(0.0)) {
             Ok(validated_holdings) => validated_holdings,
             Err(e) => {
-                ctx.logger.error("Holdings calculation overflow", serde_json::json!({"error": e, "current": current_pct, "sell": pct}));
+                ctx.logger.error(&format!("Holdings calculation overflow: {} (current: {}, sell: {})", e, current_pct, pct));
                 return Err(anyhow!("Holdings calculation error: {}", e));
             }
         };
@@ -1887,7 +1891,7 @@ impl BuyEngine {
                 st.holdings_percent = new_holdings;
                 if st.holdings_percent <= f64::EPSILON {
                     info!(mint=%mint, correlation_id=ctx.correlation_id, "Sold 100%; returning to Sniffing mode");
-                    st.mode = Mode::Sniffing;
+                    *st.mode.write().await = Mode::Sniffing;
                     st.active_token = None;
                     st.last_buy_price = None;
                     
@@ -2067,12 +2071,9 @@ impl BuyEngine {
 
         // UNIVERSE: SIMD-optimized discriminator matching (placeholder)
         // In production, this would use actual SIMD instructions for pattern matching
-        if let Some(ref summary) = candidate.instruction_summary {
-            // Use BytesMut for zero-copy processing
-            let _summary_bytes = BytesMut::from(summary.as_bytes());
-            // TODO: Implement SIMD pattern matching on discriminators
-            debug!("Processing instruction summary with zero-copy");
-        }
+        // Note: instruction_summary field was removed from PremintCandidate
+        // TODO: Re-implement if instruction summary analysis is needed
+        debug!("Candidate validation passed");
 
         true
     }
