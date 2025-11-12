@@ -6,8 +6,8 @@
 //! - Panic recovery with exponential backoff
 //! - Unified state tracking (Running, Paused, Stopped, Error)
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
@@ -94,7 +94,7 @@ impl Supervisor {
     /// Create a new supervisor
     pub fn new() -> Self {
         let (command_tx, _) = broadcast::channel(16);
-        
+
         Self {
             state: Arc::new(AtomicU8::new(SnifferState::Stopped as u8)),
             command_tx,
@@ -116,14 +116,20 @@ impl Supervisor {
 
     /// Register a worker
     pub async fn register_worker(&self, worker: WorkerHandle) {
-        info!("Registering worker: {} (critical: {})", worker.name, worker.critical);
+        info!(
+            "Registering worker: {} (critical: {})",
+            worker.name, worker.critical
+        );
         self.workers.lock().await.push(worker);
     }
 
     /// Start all workers
     pub async fn start(&self) -> anyhow::Result<()> {
         if self.state() != SnifferState::Stopped {
-            return Err(anyhow::anyhow!("Cannot start: current state is {:?}", self.state()));
+            return Err(anyhow::anyhow!(
+                "Cannot start: current state is {:?}",
+                self.state()
+            ));
         }
 
         self.set_state(SnifferState::Starting);
@@ -170,7 +176,7 @@ impl Supervisor {
 
         for worker in workers.drain(..) {
             let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
-            
+
             match tokio::time::timeout(remaining, worker.handle).await {
                 Ok(Ok(())) => {
                     debug!("Worker '{}' stopped successfully", worker.name);
@@ -219,9 +225,12 @@ impl Supervisor {
             // Handle failed workers
             for idx in failed_workers.iter().rev() {
                 let worker = workers.remove(*idx);
-                
+
                 if worker.critical {
-                    error!("Critical worker '{}' failed - entering error state", worker.name);
+                    error!(
+                        "Critical worker '{}' failed - entering error state",
+                        worker.name
+                    );
                     self.set_state(SnifferState::Error);
                     self.error_count.fetch_add(1, Ordering::Relaxed);
                 } else {
@@ -263,18 +272,18 @@ mod tests {
     #[tokio::test]
     async fn test_supervisor_state_transitions() {
         let supervisor = Supervisor::new();
-        
+
         assert_eq!(supervisor.state(), SnifferState::Stopped);
-        
+
         supervisor.start().await.unwrap();
         assert_eq!(supervisor.state(), SnifferState::Running);
-        
+
         supervisor.pause();
         assert_eq!(supervisor.state(), SnifferState::Paused);
-        
+
         supervisor.resume();
         assert_eq!(supervisor.state(), SnifferState::Running);
-        
+
         supervisor.stop(Duration::from_secs(1)).await.unwrap();
         assert_eq!(supervisor.state(), SnifferState::Stopped);
     }
@@ -282,14 +291,14 @@ mod tests {
     #[tokio::test]
     async fn test_supervisor_worker_registration() {
         let supervisor = Supervisor::new();
-        
+
         let handle = tokio::spawn(async {
             tokio::time::sleep(Duration::from_millis(10)).await;
         });
-        
+
         let worker = WorkerHandle::new("test_worker".to_string(), handle, false);
         supervisor.register_worker(worker).await;
-        
+
         assert_eq!(supervisor.workers.lock().await.len(), 1);
     }
 
@@ -300,12 +309,12 @@ mod tests {
         assert_eq!(SnifferState::from(3), SnifferState::Paused);
         assert_eq!(SnifferState::from(5), SnifferState::Error);
     }
-    
+
     /// Concurrent test to verify no deadlocks with multiple workers
     #[tokio::test]
     async fn test_supervisor_concurrent_worker_registration() {
         let supervisor = Arc::new(Supervisor::new());
-        
+
         // Spawn multiple workers concurrently
         let mut handles = vec![];
         for i in 0..10 {
@@ -314,25 +323,21 @@ mod tests {
                 let task = tokio::spawn(async move {
                     tokio::time::sleep(Duration::from_millis(10)).await;
                 });
-                
-                let worker = WorkerHandle::new(
-                    format!("test_worker_{}", i),
-                    task,
-                    false,
-                );
+
+                let worker = WorkerHandle::new(format!("test_worker_{}", i), task, false);
                 sup.register_worker(worker).await;
             });
             handles.push(handle);
         }
-        
+
         // Wait for all registrations to complete
         for handle in handles {
             handle.await.unwrap();
         }
-        
+
         // Verify all workers registered
         assert_eq!(supervisor.workers.lock().await.len(), 10);
-        
+
         // Stop supervisor (should not deadlock)
         let result = supervisor.stop(Duration::from_secs(5)).await;
         assert!(result.is_ok());

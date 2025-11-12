@@ -9,24 +9,24 @@
 
 #[cfg(test)]
 pub mod test_helpers {
+    use crate::compat::get_static_account_keys;
     use solana_sdk::{
         hash::Hash,
+        instruction::{AccountMeta, CompiledInstruction, Instruction},
+        message::{v0::Message as MessageV0, VersionedMessage},
         pubkey::Pubkey,
         signature::Keypair,
         signer::Signer,
-        instruction::{Instruction, AccountMeta, CompiledInstruction},
         system_instruction,
-        message::{v0::Message as MessageV0, VersionedMessage},
         transaction::VersionedTransaction,
     };
-    use crate::compat::get_static_account_keys;
-    use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+    use std::sync::Arc;
     use std::time::{Duration, Instant};
     use tokio::sync::Mutex;
 
     /// Mock NonceLease for testing (Send + Sync safe)
-    /// 
+    ///
     /// This mock lease provides:
     /// - Atomic "released" state tracking
     /// - Send + Sync traits for concurrent testing
@@ -75,7 +75,12 @@ pub mod test_helpers {
         where
             F: FnOnce() + Send + 'static,
         {
-            let mut lease = Self::new(nonce_pubkey, nonce_blockhash, last_valid_slot, lease_timeout);
+            let mut lease = Self::new(
+                nonce_pubkey,
+                nonce_blockhash,
+                last_valid_slot,
+                lease_timeout,
+            );
             lease.release_callback = Arc::new(Mutex::new(Some(Box::new(callback))));
             lease
         }
@@ -143,7 +148,7 @@ pub mod test_helpers {
             // Auto-release on drop if not already released
             if !self.released.swap(true, Ordering::SeqCst) {
                 self.release_count.fetch_add(1, Ordering::SeqCst);
-                
+
                 // Try to call callback (best effort in Drop)
                 if let Ok(mut callback_guard) = self.release_callback.try_lock() {
                     if let Some(callback) = callback_guard.take() {
@@ -174,7 +179,7 @@ pub mod test_helpers {
     }
 
     /// Helper: Build a VersionedTransaction with nonce
-    /// 
+    ///
     /// This helper constructs a complete V0 transaction with:
     /// - advance_nonce instruction (first)
     /// - Compute budget instructions
@@ -188,13 +193,13 @@ pub mod test_helpers {
         program_instructions: Vec<Instruction>,
     ) -> VersionedTransaction {
         let mut instructions = vec![];
-        
+
         // 1. advance_nonce instruction (MUST BE FIRST)
         instructions.push(system_instruction::advance_nonce_account(
             nonce_account,
             nonce_authority,
         ));
-        
+
         // 2. Compute budget instructions (optional)
         instructions.push(Instruction::new_with_bytes(
             solana_sdk::compute_budget::id(),
@@ -206,23 +211,17 @@ pub mod test_helpers {
             &[3, 0, 0, 0, 100, 0, 0, 0], // set_compute_unit_price: 100 microlamports
             vec![],
         ));
-        
+
         // 3. Program instructions
         instructions.extend(program_instructions);
-        
+
         // Build message
-        let message = MessageV0::try_compile(
-            &payer.pubkey(),
-            &instructions,
-            &[],
-            nonce_blockhash,
-        ).expect("Failed to compile message");
-        
+        let message = MessageV0::try_compile(&payer.pubkey(), &instructions, &[], nonce_blockhash)
+            .expect("Failed to compile message");
+
         // Sign transaction
-        VersionedTransaction::try_new(
-            VersionedMessage::V0(message),
-            &[payer],
-        ).expect("Failed to create transaction")
+        VersionedTransaction::try_new(VersionedMessage::V0(message), &[payer])
+            .expect("Failed to create transaction")
     }
 
     /// Helper: Build a simple transfer instruction
@@ -313,9 +312,10 @@ pub mod test_helpers {
 
         // Verify no other advance_nonce instructions
         for (idx, ix) in instructions.iter().enumerate().skip(1) {
-            if ix.program_id == solana_sdk::system_program::id() &&
-               !ix.data.is_empty() &&
-               ix.data[0] == 4 {
+            if ix.program_id == solana_sdk::system_program::id()
+                && !ix.data.is_empty()
+                && ix.data[0] == 4
+            {
                 return Err(format!(
                     "advance_nonce_account found at position {} (should only be first)",
                     idx
@@ -331,18 +331,23 @@ pub mod test_helpers {
         // Extract instructions from message - both Legacy and V0 have CompiledInstruction
         let (compiled_instructions, account_keys) = match &tx.message {
             VersionedMessage::V0(msg) => (&msg.instructions, get_static_account_keys(&tx.message)),
-            VersionedMessage::Legacy(msg) => (&msg.instructions, get_static_account_keys(&tx.message)),
-        };
-        
-        // Convert compiled instructions to regular instructions for verification
-        let instructions: Vec<Instruction> = compiled_instructions.iter().map(|ix| {
-            let program_id = account_keys[ix.program_id_index as usize];
-            Instruction {
-                program_id,
-                accounts: vec![], // Simplified for testing
-                data: ix.data.clone(),
+            VersionedMessage::Legacy(msg) => {
+                (&msg.instructions, get_static_account_keys(&tx.message))
             }
-        }).collect();
+        };
+
+        // Convert compiled instructions to regular instructions for verification
+        let instructions: Vec<Instruction> = compiled_instructions
+            .iter()
+            .map(|ix| {
+                let program_id = account_keys[ix.program_id_index as usize];
+                Instruction {
+                    program_id,
+                    accounts: vec![], // Simplified for testing
+                    data: ix.data.clone(),
+                }
+            })
+            .collect();
 
         // Verify ordering
         verify_nonce_transaction_ordering(&instructions)
@@ -427,9 +432,11 @@ pub mod test_helpers {
             let nonce_blockhash = Hash::new_unique();
             let payer = Keypair::new();
 
-            let program_instructions = vec![
-                system_instruction::transfer(&payer.pubkey(), &Pubkey::new_unique(), 1_000_000)
-            ];
+            let program_instructions = vec![system_instruction::transfer(
+                &payer.pubkey(),
+                &Pubkey::new_unique(),
+                1_000_000,
+            )];
 
             let tx = build_versioned_transaction_with_nonce(
                 &nonce_account,
@@ -474,13 +481,11 @@ pub mod test_helpers {
 
         #[test]
         fn test_verify_invalid_nonce_ordering() {
-            let instructions = vec![
-                Instruction::new_with_bytes(
-                    Pubkey::new_unique(),
-                    &[1, 2, 3],
-                    vec![],
-                ),
-            ];
+            let instructions = vec![Instruction::new_with_bytes(
+                Pubkey::new_unique(),
+                &[1, 2, 3],
+                vec![],
+            )];
 
             let result = verify_nonce_transaction_ordering(&instructions);
             assert!(result.is_err());

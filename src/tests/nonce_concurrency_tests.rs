@@ -10,32 +10,29 @@
 #[cfg(test)]
 mod nonce_concurrency_tests {
     use crate::nonce_manager::UniverseNonceManager;
-    use crate::rpc_manager::rpc_pool::{RpcPool, EndpointConfig, EndpointType};
+    use crate::rpc_manager::rpc_pool::{EndpointConfig, EndpointType, RpcPool};
     use solana_sdk::{pubkey::Pubkey, signature::Keypair};
-    use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
     use std::time::Duration;
     use tokio::time::timeout;
 
     /// Helper: Create test nonce manager
     async fn create_test_nonce_manager(pool_size: usize) -> Arc<UniverseNonceManager> {
-        use crate::nonce_manager::{UniverseNonceManager, LocalSigner};
-        
+        use crate::nonce_manager::{LocalSigner, UniverseNonceManager};
+
         let signer = Arc::new(LocalSigner::new(Keypair::new()));
         let mut nonce_accounts = vec![];
         for _ in 0..pool_size {
             nonce_accounts.push(Pubkey::new_unique());
         }
-        
-        UniverseNonceManager::new_for_testing(
-            signer,
-            nonce_accounts,
-            Duration::from_secs(300),
-        ).await
+
+        UniverseNonceManager::new_for_testing(signer, nonce_accounts, Duration::from_secs(300))
+            .await
     }
 
     /// Test: Parallel acquire without deadlocks (stress test)
-    /// 
+    ///
     /// Requirements:
     /// - 100+ parallel acquire operations
     /// - No deadlocks or hangs
@@ -45,18 +42,18 @@ mod nonce_concurrency_tests {
         const NUM_OPERATIONS: usize = 100;
         const POOL_SIZE: usize = 10;
         const TIMEOUT_SECS: u64 = 30;
-        
+
         let nonce_manager = create_test_nonce_manager(POOL_SIZE).await;
         let success_count = Arc::new(AtomicUsize::new(0));
         let blocked_count = Arc::new(AtomicUsize::new(0));
-        
+
         let mut handles = vec![];
-        
+
         for _ in 0..NUM_OPERATIONS {
             let manager = nonce_manager.clone();
             let success = success_count.clone();
             let blocked = blocked_count.clone();
-            
+
             let handle = tokio::spawn(async move {
                 // Try to acquire with timeout
                 match timeout(Duration::from_secs(5), manager.acquire_nonce()).await {
@@ -76,39 +73,47 @@ mod nonce_concurrency_tests {
                     }
                 }
             });
-            
+
             handles.push(handle);
         }
-        
+
         // Wait for all operations with global timeout
         let all_ops = async {
             for handle in handles {
                 handle.await.unwrap();
             }
         };
-        
+
         timeout(Duration::from_secs(TIMEOUT_SECS), all_ops)
             .await
             .expect("Test timed out - potential deadlock detected!");
-        
+
         // Allow cleanup
         tokio::time::sleep(Duration::from_millis(500)).await;
-        
+
         let total_ops = success_count.load(Ordering::SeqCst) + blocked_count.load(Ordering::SeqCst);
         assert_eq!(total_ops, NUM_OPERATIONS, "All operations should complete");
-        
+
         // Verify no leaks
-        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0, "No nonce leaks detected");
-        
-        println!("✓ Parallel acquire test passed: {} operations, 0 deadlocks", NUM_OPERATIONS);
-        println!("  Success: {}, Blocked: {}", 
+        assert_eq!(
+            nonce_manager.get_stats().await.permits_in_use,
+            0,
+            "No nonce leaks detected"
+        );
+
+        println!(
+            "✓ Parallel acquire test passed: {} operations, 0 deadlocks",
+            NUM_OPERATIONS
+        );
+        println!(
+            "  Success: {}, Blocked: {}",
             success_count.load(Ordering::SeqCst),
             blocked_count.load(Ordering::SeqCst)
         );
     }
 
     /// Test: High contention stress test
-    /// 
+    ///
     /// Requirements:
     /// - More acquires than available nonces (oversubscribed)
     /// - Proper blocking and queueing behavior
@@ -117,46 +122,52 @@ mod nonce_concurrency_tests {
     async fn test_high_contention_stress() {
         const NUM_OPERATIONS: usize = 50;
         const POOL_SIZE: usize = 5; // Much smaller than operations
-        
+
         let nonce_manager = create_test_nonce_manager(POOL_SIZE).await;
         let success_count = Arc::new(AtomicUsize::new(0));
-        
+
         let mut handles = vec![];
-        
+
         for i in 0..NUM_OPERATIONS {
             let manager = nonce_manager.clone();
             let success = success_count.clone();
-            
+
             let handle = tokio::spawn(async move {
                 // Stagger start times slightly
                 tokio::time::sleep(Duration::from_millis(i as u64 % 10)).await;
-                
+
                 if let Ok(lease) = manager.acquire_nonce().await {
                     // Vary hold time to create dynamic contention
                     let hold_time = 5 + (i % 15);
                     tokio::time::sleep(Duration::from_millis(hold_time as u64)).await;
-                    
+
                     drop(lease.release().await);
                     success.fetch_add(1, Ordering::SeqCst);
                 }
             });
-            
+
             handles.push(handle);
         }
-        
+
         for handle in handles {
             handle.await.unwrap();
         }
-        
+
         // Allow cleanup
         tokio::time::sleep(Duration::from_millis(500)).await;
-        
+
         // Verify no leaks
-        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0, "No nonce leaks under contention");
-        
+        assert_eq!(
+            nonce_manager.get_stats().await.permits_in_use,
+            0,
+            "No nonce leaks under contention"
+        );
+
         println!("✓ High contention stress test passed");
-        println!("  Successful acquisitions: {}/{}", 
-            success_count.load(Ordering::SeqCst), NUM_OPERATIONS
+        println!(
+            "  Successful acquisitions: {}/{}",
+            success_count.load(Ordering::SeqCst),
+            NUM_OPERATIONS
         );
     }
 
@@ -165,11 +176,11 @@ mod nonce_concurrency_tests {
     async fn test_concurrent_acquire_release_patterns() {
         const NUM_CYCLES: usize = 50;
         const POOL_SIZE: usize = 10;
-        
+
         let nonce_manager = create_test_nonce_manager(POOL_SIZE).await;
-        
+
         let mut handles = vec![];
-        
+
         // Pattern 1: Quick acquire/release
         for _ in 0..NUM_CYCLES {
             let manager = nonce_manager.clone();
@@ -179,7 +190,7 @@ mod nonce_concurrency_tests {
                 }
             }));
         }
-        
+
         // Pattern 2: Hold and release
         for _ in 0..NUM_CYCLES {
             let manager = nonce_manager.clone();
@@ -190,7 +201,7 @@ mod nonce_concurrency_tests {
                 }
             }));
         }
-        
+
         // Pattern 3: Auto-release via drop
         for _ in 0..NUM_CYCLES {
             let manager = nonce_manager.clone();
@@ -201,17 +212,21 @@ mod nonce_concurrency_tests {
                 }
             }));
         }
-        
+
         for handle in handles {
             handle.await.unwrap();
         }
-        
+
         // Allow cleanup
         tokio::time::sleep(Duration::from_millis(500)).await;
-        
+
         // Verify no leaks
-        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0, "No leaks across patterns");
-        
+        assert_eq!(
+            nonce_manager.get_stats().await.permits_in_use,
+            0,
+            "No leaks across patterns"
+        );
+
         println!("✓ Concurrent acquire/release patterns test passed");
     }
 
@@ -221,48 +236,55 @@ mod nonce_concurrency_tests {
         const NUM_THREADS: usize = 20;
         const OPERATIONS_PER_THREAD: usize = 10;
         const POOL_SIZE: usize = 5;
-        
+
         let nonce_manager = create_test_nonce_manager(POOL_SIZE).await;
         let total_operations = Arc::new(AtomicUsize::new(0));
-        
+
         let mut handles = vec![];
-        
+
         for _ in 0..NUM_THREADS {
             let manager = nonce_manager.clone();
             let counter = total_operations.clone();
-            
+
             let handle = tokio::spawn(async move {
                 for _ in 0..OPERATIONS_PER_THREAD {
                     if let Ok(lease) = manager.acquire_nonce().await {
                         // Increment counter (test for race conditions)
                         counter.fetch_add(1, Ordering::SeqCst);
-                        
+
                         // Small delay
                         tokio::time::sleep(Duration::from_millis(5)).await;
-                        
+
                         drop(lease.release().await);
                     }
                 }
             });
-            
+
             handles.push(handle);
         }
-        
+
         for handle in handles {
             handle.await.unwrap();
         }
-        
+
         // Allow cleanup
         tokio::time::sleep(Duration::from_millis(500)).await;
-        
+
         // Verify counter integrity (no race conditions in counting)
         let count = total_operations.load(Ordering::SeqCst);
         println!("Total successful operations: {}", count);
-        
+
         // Verify no leaks
-        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0, "No race condition leaks");
-        
-        println!("✓ No race conditions detected across {} threads", NUM_THREADS);
+        assert_eq!(
+            nonce_manager.get_stats().await.permits_in_use,
+            0,
+            "No race condition leaks"
+        );
+
+        println!(
+            "✓ No race conditions detected across {} threads",
+            NUM_THREADS
+        );
     }
 
     /// Test: Burst acquire pattern (many simultaneous acquires)
@@ -270,9 +292,9 @@ mod nonce_concurrency_tests {
     async fn test_burst_acquire_pattern() {
         const BURST_SIZE: usize = 50;
         const POOL_SIZE: usize = 10;
-        
+
         let nonce_manager = create_test_nonce_manager(POOL_SIZE).await;
-        
+
         // Launch burst of simultaneous acquires
         let handles: Vec<_> = (0..BURST_SIZE)
             .map(|_| {
@@ -285,19 +307,26 @@ mod nonce_concurrency_tests {
                 })
             })
             .collect();
-        
+
         // Wait for all
         for handle in handles {
             handle.await.unwrap();
         }
-        
+
         // Allow cleanup
         tokio::time::sleep(Duration::from_millis(500)).await;
-        
+
         // Verify no leaks
-        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0, "No leaks after burst");
-        
-        println!("✓ Burst acquire pattern test passed: {} simultaneous acquires", BURST_SIZE);
+        assert_eq!(
+            nonce_manager.get_stats().await.permits_in_use,
+            0,
+            "No leaks after burst"
+        );
+
+        println!(
+            "✓ Burst acquire pattern test passed: {} simultaneous acquires",
+            BURST_SIZE
+        );
     }
 
     /// Test: Long-running leases with interleaved quick operations
@@ -306,10 +335,10 @@ mod nonce_concurrency_tests {
         const NUM_LONG: usize = 5;
         const NUM_SHORT: usize = 50;
         const POOL_SIZE: usize = 10;
-        
+
         let nonce_manager = create_test_nonce_manager(POOL_SIZE).await;
         let mut handles = vec![];
-        
+
         // Long-running leases
         for _ in 0..NUM_LONG {
             let manager = nonce_manager.clone();
@@ -320,7 +349,7 @@ mod nonce_concurrency_tests {
                 }
             }));
         }
-        
+
         // Short-running leases interleaved
         for _ in 0..NUM_SHORT {
             let manager = nonce_manager.clone();
@@ -331,17 +360,21 @@ mod nonce_concurrency_tests {
                 }
             }));
         }
-        
+
         for handle in handles {
             handle.await.unwrap();
         }
-        
+
         // Allow cleanup
         tokio::time::sleep(Duration::from_millis(500)).await;
-        
+
         // Verify no leaks
-        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0, "No leaks with mixed durations");
-        
+        assert_eq!(
+            nonce_manager.get_stats().await.permits_in_use,
+            0,
+            "No leaks with mixed durations"
+        );
+
         println!("✓ Mixed lease durations test passed");
     }
 
@@ -350,48 +383,52 @@ mod nonce_concurrency_tests {
     async fn test_acquire_fairness() {
         const POOL_SIZE: usize = 1; // Single nonce for fairness testing
         const NUM_ACQUIRES: usize = 10;
-        
+
         let nonce_manager = create_test_nonce_manager(POOL_SIZE).await;
         let order = Arc::new(tokio::sync::Mutex::new(Vec::new()));
-        
+
         let mut handles = vec![];
-        
+
         for i in 0..NUM_ACQUIRES {
             let manager = nonce_manager.clone();
             let order_clone = order.clone();
-            
+
             let handle = tokio::spawn(async move {
                 if let Ok(lease) = manager.acquire_nonce().await {
                     // Record order
                     order_clone.lock().await.push(i);
-                    
+
                     tokio::time::sleep(Duration::from_millis(20)).await;
                     drop(lease.release().await);
                 }
             });
-            
+
             handles.push(handle);
-            
+
             // Small delay to ensure ordering
             tokio::time::sleep(Duration::from_millis(5)).await;
         }
-        
+
         for handle in handles {
             handle.await.unwrap();
         }
-        
+
         // Allow cleanup
         tokio::time::sleep(Duration::from_millis(200)).await;
-        
+
         let acquired_order = order.lock().await;
         println!("Acquire order: {:?}", *acquired_order);
-        
+
         // Verify some acquires succeeded
         assert!(!acquired_order.is_empty(), "Some acquires should succeed");
-        
+
         // Verify no leaks
-        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0, "No leaks after fairness test");
-        
+        assert_eq!(
+            nonce_manager.get_stats().await.permits_in_use,
+            0,
+            "No leaks after fairness test"
+        );
+
         println!("✓ Acquire fairness test passed");
     }
 
@@ -400,17 +437,17 @@ mod nonce_concurrency_tests {
     async fn test_concurrent_drop_and_release() {
         const NUM_OPERATIONS: usize = 30;
         const POOL_SIZE: usize = 10;
-        
+
         let nonce_manager = create_test_nonce_manager(POOL_SIZE).await;
         let mut handles = vec![];
-        
+
         for i in 0..NUM_OPERATIONS {
             let manager = nonce_manager.clone();
-            
+
             let handle = tokio::spawn(async move {
                 if let Ok(lease) = manager.acquire_nonce().await {
                     tokio::time::sleep(Duration::from_millis(10)).await;
-                    
+
                     if i % 2 == 0 {
                         // Explicit release
                         drop(lease.release().await);
@@ -420,23 +457,24 @@ mod nonce_concurrency_tests {
                     }
                 }
             });
-            
+
             handles.push(handle);
         }
-        
+
         for handle in handles {
             handle.await.unwrap();
         }
-        
+
         // Allow cleanup
         tokio::time::sleep(Duration::from_millis(500)).await;
-        
+
         // Verify no leaks
         assert_eq!(
-            nonce_manager.get_stats().await.permits_in_use, 0,
+            nonce_manager.get_stats().await.permits_in_use,
+            0,
             "No leaks with mixed release strategies"
         );
-        
+
         println!("✓ Concurrent drop and release test passed");
     }
 
@@ -445,13 +483,13 @@ mod nonce_concurrency_tests {
     async fn test_stress_with_cancellation() {
         const NUM_OPERATIONS: usize = 40;
         const POOL_SIZE: usize = 10;
-        
+
         let nonce_manager = create_test_nonce_manager(POOL_SIZE).await;
         let mut handles = vec![];
-        
+
         for i in 0..NUM_OPERATIONS {
             let manager = nonce_manager.clone();
-            
+
             let handle = tokio::spawn(async move {
                 if let Ok(lease) = manager.acquire_nonce().await {
                     // Cancel some operations early
@@ -459,28 +497,29 @@ mod nonce_concurrency_tests {
                         // Early return (lease auto-dropped)
                         return;
                     }
-                    
+
                     tokio::time::sleep(Duration::from_millis(15)).await;
                     drop(lease.release().await);
                 }
             });
-            
+
             handles.push(handle);
         }
-        
+
         for handle in handles {
             handle.await.unwrap();
         }
-        
+
         // Allow cleanup
         tokio::time::sleep(Duration::from_millis(500)).await;
-        
+
         // Verify no leaks
         assert_eq!(
-            nonce_manager.get_stats().await.permits_in_use, 0,
+            nonce_manager.get_stats().await.permits_in_use,
+            0,
             "No leaks with cancellations"
         );
-        
+
         println!("✓ Stress test with cancellation passed");
     }
 }

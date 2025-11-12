@@ -7,10 +7,7 @@
 //! - Automatic slot updates on confirmation
 use super::nonce_errors::{NonceError, NonceResult};
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::{
-    pubkey::Pubkey,
-    signature::Signature,
-};
+use solana_sdk::{pubkey::Pubkey, signature::Signature};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, RwLock};
@@ -78,19 +75,15 @@ impl SignatureMonitor {
             results_tx,
         }
     }
-    
+
     /// Monitor a signature in the background
-    pub fn monitor(
-        self,
-        signature: Signature,
-        nonce_account: Pubkey,
-        started_at: Instant,
-    ) {
+    pub fn monitor(self, signature: Signature, nonce_account: Pubkey, started_at: Instant) {
         tokio::spawn(async move {
-            self.monitor_internal(signature, nonce_account, started_at).await;
+            self.monitor_internal(signature, nonce_account, started_at)
+                .await;
         });
     }
-    
+
     async fn monitor_internal(
         &self,
         signature: Signature,
@@ -102,14 +95,14 @@ impl SignatureMonitor {
             nonce_account = %nonce_account,
             "Starting signature monitoring"
         );
-        
+
         let mut attempts = 0;
         let mut interval = tokio::time::interval(self.check_interval);
-        
+
         loop {
             interval.tick().await;
             attempts += 1;
-            
+
             // Check for timeout
             if started_at.elapsed() >= self.timeout {
                 warn!(
@@ -118,7 +111,7 @@ impl SignatureMonitor {
                     timeout_sec = self.timeout.as_secs(),
                     "Signature monitoring timed out"
                 );
-                
+
                 let telemetry = RefreshTelemetry {
                     nonce_account,
                     signature,
@@ -129,17 +122,17 @@ impl SignatureMonitor {
                     success: false,
                     error: Some("Timeout".to_string()),
                 };
-                
+
                 let _ = self.results_tx.send(MonitorResult {
                     signature,
                     status: RefreshStatus::Timeout,
                     last_valid_slot: None,
                     telemetry,
                 });
-                
+
                 return;
             }
-            
+
             // Check signature status
             match self.rpc_client.get_signature_status(&signature).await {
                 Ok(Some(status)) => {
@@ -149,7 +142,7 @@ impl SignatureMonitor {
                             error = ?err,
                             "Transaction failed"
                         );
-                        
+
                         let telemetry = RefreshTelemetry {
                             nonce_account,
                             signature,
@@ -160,17 +153,17 @@ impl SignatureMonitor {
                             success: false,
                             error: Some(err.to_string()),
                         };
-                        
+
                         let _ = self.results_tx.send(MonitorResult {
                             signature,
                             status: RefreshStatus::Failed(err.to_string()),
                             last_valid_slot: None,
                             telemetry,
                         });
-                        
+
                         return;
                     }
-                    
+
                     // If status is Ok(()), transaction is confirmed
                     debug!(
                         signature = %signature,
@@ -178,10 +171,10 @@ impl SignatureMonitor {
                         latency_ms = started_at.elapsed().as_millis(),
                         "Transaction confirmed"
                     );
-                    
+
                     // Try to get the updated slot info
                     let last_valid_slot = self.get_nonce_last_valid_slot(nonce_account).await;
-                    
+
                     let telemetry = RefreshTelemetry {
                         nonce_account,
                         signature,
@@ -192,14 +185,14 @@ impl SignatureMonitor {
                         success: true,
                         error: None,
                     };
-                    
+
                     let _ = self.results_tx.send(MonitorResult {
                         signature,
                         status: RefreshStatus::Confirmed,
                         last_valid_slot,
                         telemetry,
                     });
-                    
+
                     return;
                 }
                 Ok(None) => {
@@ -221,7 +214,7 @@ impl SignatureMonitor {
             }
         }
     }
-    
+
     async fn get_nonce_last_valid_slot(&self, nonce_account: Pubkey) -> Option<u64> {
         match self.rpc_client.get_account(&nonce_account).await {
             Ok(account) => {
@@ -278,7 +271,7 @@ impl NonBlockingRefresh {
             results_tx,
         }
     }
-    
+
     /// Send a transaction without blocking for confirmation
     pub async fn send_refresh_transaction(
         &self,
@@ -288,7 +281,7 @@ impl NonBlockingRefresh {
         nonce_account: Pubkey,
     ) -> NonceResult<Signature> {
         let started_at = Instant::now();
-        
+
         // Send transaction
         let signature = rpc_client
             .send_transaction(transaction)
@@ -297,13 +290,13 @@ impl NonBlockingRefresh {
                 endpoint: Some(endpoint.clone()),
                 message: e.to_string(),
             })?;
-        
+
         debug!(
             signature = %signature,
             nonce_account = %nonce_account,
             "Refresh transaction sent, monitoring in background"
         );
-        
+
         // Start background monitoring
         let monitor = SignatureMonitor::new(
             rpc_client,
@@ -312,24 +305,24 @@ impl NonBlockingRefresh {
             Duration::from_secs(60),    // Timeout after 60 seconds
             self.results_tx.clone(),
         );
-        
+
         monitor.monitor(signature, nonce_account, started_at);
-        
+
         Ok(signature)
     }
-    
+
     /// Get the next completed refresh result (non-blocking)
     pub async fn try_recv_result(&self) -> Option<MonitorResult> {
         self.results_rx.write().await.recv().await
     }
-    
+
     /// Process pending refresh results
     pub async fn process_results<F>(&self, mut handler: F)
     where
         F: FnMut(MonitorResult),
     {
         let mut rx = self.results_rx.write().await;
-        
+
         // Drain all available results
         while let Ok(result) = rx.try_recv() {
             handler(result);
@@ -346,13 +339,13 @@ impl Default for NonBlockingRefresh {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_refresh_telemetry_latency() {
         let start = Instant::now();
         std::thread::sleep(Duration::from_millis(10));
         let end = Instant::now();
-        
+
         let telemetry = RefreshTelemetry {
             nonce_account: Pubkey::new_unique(),
             signature: Signature::default(),
@@ -363,12 +356,12 @@ mod tests {
             success: true,
             error: None,
         };
-        
+
         let latency = telemetry.latency_ms();
         assert!(latency.is_some());
         assert!(latency.unwrap() >= 10);
     }
-    
+
     #[test]
     fn test_refresh_status_equality() {
         assert_eq!(RefreshStatus::Pending, RefreshStatus::Pending);
@@ -376,17 +369,15 @@ mod tests {
         assert_eq!(RefreshStatus::Timeout, RefreshStatus::Timeout);
         assert_ne!(RefreshStatus::Pending, RefreshStatus::Confirmed);
     }
-    
+
     #[tokio::test]
     async fn test_non_blocking_refresh_creation() {
         let refresh = NonBlockingRefresh::new();
-        
+
         // Should be able to try receiving without blocking
-        let result = tokio::time::timeout(
-            Duration::from_millis(10),
-            refresh.try_recv_result()
-        ).await;
-        
+        let result =
+            tokio::time::timeout(Duration::from_millis(10), refresh.try_recv_result()).await;
+
         // Should timeout because there are no results
         assert!(result.is_err());
     }

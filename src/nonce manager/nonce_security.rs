@@ -1,5 +1,5 @@
 //! Security hardening for nonce management
-//! 
+//!
 //! This module implements Step 5 requirements:
 //! - Zeroize for keypair memory protection
 //! - File permission checks (POSIX)
@@ -12,14 +12,14 @@ use solana_sdk::{
     transaction::Transaction,
 };
 // TODO(migrate-system-instruction): temporary allow, full migration post-profit
+use serde::{Deserialize, Serialize};
 #[allow(deprecated)]
 use solana_sdk::system_instruction;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn, instrument};
-use serde::{Deserialize, Serialize};
+use tracing::{debug, error, info, instrument, warn};
 use zeroize::Zeroize;
 
 use super::nonce_errors::{NonceError, NonceResult};
@@ -35,7 +35,7 @@ impl SecureKeypair {
     pub fn new(keypair: Keypair) -> Self {
         Self { inner: keypair }
     }
-    
+
     /// Create from bytes (bytes will be zeroized)
     pub fn from_bytes(mut bytes: Vec<u8>) -> NonceResult<Self> {
         // Validate length
@@ -49,32 +49,33 @@ impl SecureKeypair {
         // Reject all-zero keys
         if bytes.iter().all(|&b| b == 0) {
             bytes.zeroize();
-            return Err(NonceError::Signing("Invalid keypair: all-zero key rejected".to_string()));
+            return Err(NonceError::Signing(
+                "Invalid keypair: all-zero key rejected".to_string(),
+            ));
         }
-        
+
         let keypair = Keypair::try_from(bytes.as_slice())
             .map_err(|e| NonceError::Signing(format!("Invalid keypair bytes: {}", e)))?;
-        
+
         // Zeroize the input bytes
         bytes.zeroize();
-        
+
         Ok(Self { inner: keypair })
     }
-    
+
     /// Get the public key
     pub fn pubkey(&self) -> Pubkey {
         self.inner.pubkey()
     }
-    
+
     /// Sign a transaction
     pub fn sign_transaction(&self, transaction: &mut Transaction) -> NonceResult<()> {
-        transaction.try_sign(
-            &[&self.inner],
-            transaction.message.recent_blockhash,
-        ).map_err(|e| NonceError::Signing(e.to_string()))?;
+        transaction
+            .try_sign(&[&self.inner], transaction.message.recent_blockhash)
+            .map_err(|e| NonceError::Signing(e.to_string()))?;
         Ok(())
     }
-    
+
     /// Get a reference to the inner keypair (use carefully!)
     pub fn keypair(&self) -> &Keypair {
         &self.inner
@@ -87,7 +88,7 @@ impl Drop for SecureKeypair {
         let bytes = self.inner.to_bytes();
         let mut bytes_mut = bytes.to_vec();
         bytes_mut.zeroize();
-        
+
         debug!(
             pubkey = %self.inner.pubkey(),
             operation = "zeroize",
@@ -101,13 +102,13 @@ impl Drop for SecureKeypair {
 pub enum Role {
     /// Payer role - pays for transactions
     Payer,
-    
+
     /// Nonce authority - can advance nonce accounts
     NonceAuthority,
-    
+
     /// Admin - can rotate authorities
     Admin,
-    
+
     /// Multisig approver
     Approver,
 }
@@ -135,7 +136,7 @@ impl RbacManager {
             audit_log: Arc::new(RwLock::new(Vec::new())),
         }
     }
-    
+
     /// Assign a role to an account
     #[instrument(skip(self))]
     pub async fn assign_role(
@@ -150,31 +151,34 @@ impl RbacManager {
             assigned_at: SystemTime::now(),
             assigned_by,
         };
-        
+
         self.assignments.write().await.push(assignment);
-        
+
         info!(
             pubkey = %pubkey,
             role = ?role,
             assigned_by = %assigned_by,
             "Role assigned"
         );
-        
+
         self.log_security_event(SecurityEventType::RoleAssigned {
             target: pubkey,
             role,
             assigned_by,
-        }).await;
-        
+        })
+        .await;
+
         Ok(())
     }
-    
+
     /// Check if an account has a role
     pub async fn has_role(&self, pubkey: &Pubkey, role: &Role) -> bool {
         let assignments = self.assignments.read().await;
-        assignments.iter().any(|a| &a.pubkey == pubkey && &a.role == role)
+        assignments
+            .iter()
+            .any(|a| &a.pubkey == pubkey && &a.role == role)
     }
-    
+
     /// Verify role for operation
     #[instrument(skip(self))]
     pub async fn verify_role(
@@ -188,17 +192,18 @@ impl RbacManager {
                 actor: *pubkey,
                 operation: operation.to_string(),
                 required_role: required_role.clone(),
-            }).await;
-            
+            })
+            .await;
+
             return Err(NonceError::Signing(format!(
                 "Account {} does not have required role {:?} for operation {}",
                 pubkey, required_role, operation
             )));
         }
-        
+
         Ok(())
     }
-    
+
     /// Get all roles for an account
     pub async fn get_roles(&self, pubkey: &Pubkey) -> Vec<Role> {
         let assignments = self.assignments.read().await;
@@ -208,17 +213,17 @@ impl RbacManager {
             .map(|a| a.role.clone())
             .collect()
     }
-    
+
     /// Log a security event
     async fn log_security_event(&self, event: SecurityEventType) {
         let log_entry = SecurityAuditLog {
             timestamp: SystemTime::now(),
             event,
         };
-        
+
         self.audit_log.write().await.push(log_entry);
     }
-    
+
     /// Get security audit log
     pub async fn get_audit_log(&self) -> Vec<SecurityAuditLog> {
         self.audit_log.read().await.clone()
@@ -281,60 +286,68 @@ impl FilePermissionChecker {
     #[cfg(unix)]
     pub fn check_secure_permissions(path: &Path) -> NonceResult<()> {
         use std::os::unix::fs::PermissionsExt;
-        
-        let metadata = std::fs::metadata(path)
-            .map_err(|e| NonceError::Configuration(format!("Cannot read file {}: {}", path.display(), e)))?;
-        
+
+        let metadata = std::fs::metadata(path).map_err(|e| {
+            NonceError::Configuration(format!("Cannot read file {}: {}", path.display(), e))
+        })?;
+
         let permissions = metadata.permissions();
         let mode = permissions.mode() & 0o777;
-        
+
         // Allow 0600 (rw-------) or 0400 (r--------)
         if mode != 0o600 && mode != 0o400 {
             return Err(NonceError::Configuration(format!(
                 "Insecure file permissions {:o} for {}. Expected 0600 or 0400",
-                mode, path.display()
+                mode,
+                path.display()
             )));
         }
-        
+
         debug!(
             path = %path.display(),
             mode = format!("{:o}", mode),
             "File permissions verified"
         );
-        
+
         Ok(())
     }
-    
+
     /// Check file permissions (non-Unix platforms)
     #[cfg(not(unix))]
     pub fn check_secure_permissions(path: &Path) -> NonceResult<()> {
         warn!("File permission checking not available on this platform");
         Ok(())
     }
-    
+
     /// Set secure permissions on a file (Unix only)
     #[cfg(unix)]
     pub fn set_secure_permissions(path: &Path) -> NonceResult<()> {
         use std::os::unix::fs::PermissionsExt;
-        
-        let metadata = std::fs::metadata(path)
-            .map_err(|e| NonceError::Configuration(format!("Cannot read file {}: {}", path.display(), e)))?;
-        
+
+        let metadata = std::fs::metadata(path).map_err(|e| {
+            NonceError::Configuration(format!("Cannot read file {}: {}", path.display(), e))
+        })?;
+
         let mut permissions = metadata.permissions();
         permissions.set_mode(0o600);
-        
-        std::fs::set_permissions(path, permissions)
-            .map_err(|e| NonceError::Configuration(format!("Cannot set permissions for {}: {}", path.display(), e)))?;
-        
+
+        std::fs::set_permissions(path, permissions).map_err(|e| {
+            NonceError::Configuration(format!(
+                "Cannot set permissions for {}: {}",
+                path.display(),
+                e
+            ))
+        })?;
+
         info!(
             path = %path.display(),
             mode = "0600",
             "Secure file permissions set"
         );
-        
+
         Ok(())
     }
-    
+
     /// Set secure permissions (non-Unix platforms)
     #[cfg(not(unix))]
     pub fn set_secure_permissions(path: &Path) -> NonceResult<()> {
@@ -359,11 +372,11 @@ impl HsmSigner {
             pubkey,
         }
     }
-    
+
     pub fn pubkey(&self) -> Pubkey {
         self.pubkey
     }
-    
+
     /// Sign a transaction using HSM
     pub async fn sign_transaction(&self, _transaction: &mut Transaction) -> NonceResult<()> {
         // Placeholder for HSM integration
@@ -372,15 +385,15 @@ impl HsmSigner {
         // 2. Request signature from the specified key
         // 3. Verify the signature
         // 4. Apply to transaction
-        
+
         error!(
             device_id = %self.device_id,
             key_index = self.key_index,
             "HSM signer not yet implemented"
         );
-        
+
         Err(NonceError::Signing(
-            "HSM signer integration not yet implemented".to_string()
+            "HSM signer integration not yet implemented".to_string(),
         ))
     }
 }
@@ -401,11 +414,11 @@ impl RemoteSignerAdapter {
             pubkey,
         }
     }
-    
+
     pub fn pubkey(&self) -> Pubkey {
         self.pubkey
     }
-    
+
     /// Sign a transaction using remote signer
     pub async fn sign_transaction(&self, _transaction: &mut Transaction) -> NonceResult<()> {
         // Placeholder for remote signer integration
@@ -415,14 +428,14 @@ impl RemoteSignerAdapter {
         // 3. Authenticate using API key
         // 4. Receive signature
         // 5. Apply signature to transaction
-        
+
         error!(
             endpoint = %self.endpoint,
             "Remote signer not yet implemented"
         );
-        
+
         Err(NonceError::Signing(
-            "Remote signer integration not yet implemented".to_string()
+            "Remote signer integration not yet implemented".to_string(),
         ))
     }
 }
@@ -441,11 +454,11 @@ impl LedgerSigner {
             pubkey,
         }
     }
-    
+
     pub fn pubkey(&self) -> Pubkey {
         self.pubkey
     }
-    
+
     /// Sign a transaction using Ledger device
     pub async fn sign_transaction(&self, _transaction: &mut Transaction) -> NonceResult<()> {
         // Placeholder for Ledger integration
@@ -455,14 +468,14 @@ impl LedgerSigner {
         // 3. Wait for user confirmation
         // 4. Retrieve signature from device
         // 5. Apply to transaction
-        
+
         error!(
             derivation_path = %self.derivation_path,
             "Ledger signer not yet implemented"
         );
-        
+
         Err(NonceError::Signing(
-            "Ledger signer integration not yet implemented".to_string()
+            "Ledger signer integration not yet implemented".to_string(),
         ))
     }
 }
@@ -477,25 +490,23 @@ pub struct SecureNonceOperations {
 
 impl SecureNonceOperations {
     /// Create with role separation
-    pub async fn new(
-        payer: Pubkey,
-        nonce_authority: Pubkey,
-        admin: Pubkey,
-    ) -> Self {
+    pub async fn new(payer: Pubkey, nonce_authority: Pubkey, admin: Pubkey) -> Self {
         let rbac = Arc::new(RbacManager::new());
-        
+
         // Assign roles
         rbac.assign_role(payer, Role::Payer, admin).await.ok();
-        rbac.assign_role(nonce_authority, Role::NonceAuthority, admin).await.ok();
+        rbac.assign_role(nonce_authority, Role::NonceAuthority, admin)
+            .await
+            .ok();
         rbac.assign_role(admin, Role::Admin, admin).await.ok();
-        
+
         Self {
             payer,
             nonce_authority,
             rbac,
         }
     }
-    
+
     /// Verify payer for an operation
     pub async fn verify_payer(&self, pubkey: &Pubkey, operation: &str) -> NonceResult<()> {
         if pubkey != &self.payer {
@@ -504,27 +515,34 @@ impl SecureNonceOperations {
                 operation, self.payer, pubkey
             )));
         }
-        
+
         self.rbac.verify_role(pubkey, &Role::Payer, operation).await
     }
-    
+
     /// Verify nonce authority for an operation
-    pub async fn verify_nonce_authority(&self, pubkey: &Pubkey, operation: &str) -> NonceResult<()> {
+    pub async fn verify_nonce_authority(
+        &self,
+        pubkey: &Pubkey,
+        operation: &str,
+    ) -> NonceResult<()> {
         if pubkey != &self.nonce_authority {
             return Err(NonceError::Signing(format!(
                 "Invalid nonce authority for operation {}: expected {}, got {}",
                 operation, self.nonce_authority, pubkey
             )));
         }
-        
-        self.rbac.verify_role(pubkey, &Role::NonceAuthority, operation).await
+
+        self.rbac
+            .verify_role(pubkey, &Role::NonceAuthority, operation)
+            .await
     }
-    
+
     /// Ensure payer and nonce authority are different
     pub fn verify_role_separation(&self) -> NonceResult<()> {
         if self.payer == self.nonce_authority {
             return Err(NonceError::Configuration(
-                "Security violation: payer and nonce authority must be different accounts".to_string()
+                "Security violation: payer and nonce authority must be different accounts"
+                    .to_string(),
             ));
         }
         Ok(())
@@ -546,7 +564,7 @@ impl AuthorityRotationManager {
             rotation_threshold,
         }
     }
-    
+
     /// Generate a new secure keypair for rotation
     #[instrument(skip(self))]
     pub fn generate_new_authority(&self) -> SecureKeypair {
@@ -558,12 +576,12 @@ impl AuthorityRotationManager {
         );
         SecureKeypair::new(keypair)
     }
-    
+
     /// Check if rotation is needed based on counter
     pub fn needs_rotation(&self, counter: u64) -> bool {
         counter > 0 && counter % self.rotation_threshold == 0
     }
-    
+
     /// Build authority rotation transaction
     /// This creates the instruction to transfer nonce authority ownership
     #[instrument(skip(self, current_authority, new_authority))]
@@ -580,26 +598,24 @@ impl AuthorityRotationManager {
             &current_authority.pubkey(),
             &new_authority,
         );
-        
+
         // Also advance the nonce to ensure fresh state
-        let advance_ix = system_instruction::advance_nonce_account(
-            &nonce_account,
-            &current_authority.pubkey(),
-        );
-        
+        let advance_ix =
+            system_instruction::advance_nonce_account(&nonce_account, &current_authority.pubkey());
+
         // Create transaction with both instructions
         let mut transaction = Transaction::new_with_payer(
             &[advance_ix, authorize_ix],
             Some(&current_authority.pubkey()),
         );
         transaction.message.recent_blockhash = recent_blockhash;
-        
+
         // Sign the transaction
         current_authority.sign_transaction(&mut transaction)?;
-        
+
         Ok(transaction)
     }
-    
+
     /// Log authority rotation event
     #[instrument(skip(self))]
     pub async fn log_rotation(
@@ -615,14 +631,14 @@ impl AuthorityRotationManager {
             new_authority,
             rotation_count,
         };
-        
+
         let log_entry = SecurityAuditLog {
             timestamp: SystemTime::now(),
             event,
         };
-        
+
         self.audit_log.write().await.push(log_entry);
-        
+
         info!(
             nonce_account = %nonce_account,
             old_authority = %old_authority,
@@ -631,7 +647,7 @@ impl AuthorityRotationManager {
             "Authority rotated successfully"
         );
     }
-    
+
     /// Get audit log for rotations
     pub async fn get_rotation_log(&self) -> Vec<SecurityAuditLog> {
         self.audit_log.read().await.clone()
@@ -656,25 +672,25 @@ use super::nonce_manager_integrated::ZkProofData;
 // use solana_zk_sdk as zk_sdk;
 
 /// Batch verify ZK proofs for multiple nonces
-/// 
+///
 /// # Arguments
 /// * `proofs` - Vector of ZK proof data references to verify
 /// * `current_slot` - Current network slot for staleness check
-/// 
+///
 /// # Returns
 /// Vector of confidence scores (0.0 to 1.0) for each proof
-/// 
+///
 /// # Performance
 /// - Uses GPU-accelerated batch verification when available (>10 proofs)
 /// - Falls back to sequential verification for small batches (<10 proofs)
 /// - Target: 4x speedup for batches >= 10 proofs
-/// 
+///
 /// # Implementation
 /// With `zk_enabled` feature:
 /// - Groups proofs into batch vector
 /// - Uses solana-zk-sdk batch_verify() for parallel GPU processing
 /// - Processes all proofs in single pass
-/// 
+///
 /// Without feature or on error:
 /// - Falls back to sequential verification
 /// - Still faster than individual calls due to reduced overhead
@@ -685,9 +701,9 @@ pub async fn batch_verify_zk(
     if proofs.is_empty() {
         return Ok(Vec::new());
     }
-    
+
     let batch_size = proofs.len();
-    
+
     // For small batches, use sequential verification (overhead not worth it)
     if batch_size < 10 {
         debug!(
@@ -696,7 +712,7 @@ pub async fn batch_verify_zk(
         );
         return sequential_verify_zk(proofs, current_slot).await;
     }
-    
+
     #[cfg(feature = "zk_enabled")]
     {
         // Attempt GPU-accelerated batch verification
@@ -718,7 +734,7 @@ pub async fn batch_verify_zk(
             }
         }
     }
-    
+
     // Fallback: Sequential verification
     sequential_verify_zk(proofs, current_slot).await
 }
@@ -730,15 +746,15 @@ async fn sequential_verify_zk(
 ) -> NonceResult<Vec<f64>> {
     let batch_size = proofs.len();
     let mut confidence_scores = Vec::with_capacity(batch_size);
-    
+
     for proof_data in proofs {
         // Verify each proof individually
         // Note: This is a simplified version - in production, you'd call
         // the actual verification method from ImprovedNonceAccount
-        
+
         let proof_slot = proof_data.public_inputs[0];
         let slot_diff = current_slot.saturating_sub(proof_slot);
-        
+
         // Calculate confidence based on slot staleness
         let confidence = if slot_diff == 0 {
             1.0
@@ -751,15 +767,12 @@ async fn sequential_verify_zk(
         } else {
             0.50
         };
-        
+
         confidence_scores.push(confidence);
     }
-    
-    debug!(
-        batch_size = batch_size,
-        "Sequential verification completed"
-    );
-    
+
+    debug!(batch_size = batch_size, "Sequential verification completed");
+
     Ok(confidence_scores)
 }
 
@@ -776,137 +789,143 @@ async fn batch_verify_groth16(
     // 2. Call zk_sdk::batch_verify() with verification key
     // 3. Use GPU/FPGA acceleration for parallel processing
     // 4. Calculate confidence scores based on results + staleness
-    
+
     // For now, return error to trigger sequential fallback
     Err(NonceError::Internal(
-        "Batch Groth16 verification not yet implemented".to_string()
+        "Batch Groth16 verification not yet implemented".to_string(),
     ))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_secure_keypair_zeroization() {
         let keypair = Keypair::new();
         let pubkey = keypair.pubkey();
-        
+
         {
             let secure = SecureKeypair::new(keypair);
             assert_eq!(secure.pubkey(), pubkey);
         }
         // secure is dropped here, memory should be zeroized
     }
-    
+
     #[tokio::test]
     async fn test_rbac_role_assignment() {
         let rbac = RbacManager::new();
         let pubkey = Pubkey::new_unique();
         let admin = Pubkey::new_unique();
-        
+
         rbac.assign_role(pubkey, Role::Payer, admin).await.unwrap();
-        
+
         assert!(rbac.has_role(&pubkey, &Role::Payer).await);
         assert!(!rbac.has_role(&pubkey, &Role::Admin).await);
     }
-    
+
     #[tokio::test]
     async fn test_rbac_verification() {
         let rbac = RbacManager::new();
         let pubkey = Pubkey::new_unique();
         let admin = Pubkey::new_unique();
-        
+
         rbac.assign_role(pubkey, Role::Payer, admin).await.unwrap();
-        
-        let result = rbac.verify_role(&pubkey, &Role::Payer, "test_operation").await;
+
+        let result = rbac
+            .verify_role(&pubkey, &Role::Payer, "test_operation")
+            .await;
         assert!(result.is_ok());
-        
-        let result = rbac.verify_role(&pubkey, &Role::Admin, "test_operation").await;
+
+        let result = rbac
+            .verify_role(&pubkey, &Role::Admin, "test_operation")
+            .await;
         assert!(result.is_err());
     }
-    
+
     #[tokio::test]
     async fn test_role_separation() {
         let payer = Pubkey::new_unique();
         let nonce_authority = Pubkey::new_unique();
         let admin = Pubkey::new_unique();
-        
+
         let ops = SecureNonceOperations::new(payer, nonce_authority, admin).await;
-        
+
         // Should pass - different accounts
         assert!(ops.verify_role_separation().is_ok());
-        
+
         // Test with same account
         let ops_bad = SecureNonceOperations::new(payer, payer, admin).await;
         assert!(ops_bad.verify_role_separation().is_err());
     }
-    
+
     #[test]
     fn test_secure_keypair_from_bytes() {
         let keypair = Keypair::new();
         let bytes = keypair.to_bytes().to_vec();
         let pubkey = keypair.pubkey();
-        
+
         let secure = SecureKeypair::from_bytes(bytes.clone()).unwrap();
         assert_eq!(secure.pubkey(), pubkey);
-        
+
         // bytes should be zeroized by from_bytes
         // Note: we can't directly verify this in the test since bytes is moved,
         // but the implementation should handle it
     }
-    
+
     #[test]
     fn test_authority_rotation_manager_new() {
         let manager = AuthorityRotationManager::new(100);
         assert_eq!(manager.rotation_threshold, 100);
     }
-    
+
     #[test]
     fn test_authority_rotation_needs_rotation() {
         let manager = AuthorityRotationManager::new(100);
-        
+
         // Not at threshold yet
         assert!(!manager.needs_rotation(50));
         assert!(!manager.needs_rotation(99));
-        
+
         // At threshold
         assert!(manager.needs_rotation(100));
         assert!(manager.needs_rotation(200));
         assert!(manager.needs_rotation(300));
-        
+
         // Zero should not trigger rotation
         assert!(!manager.needs_rotation(0));
     }
-    
+
     #[test]
     fn test_authority_rotation_generate_new_authority() {
         let manager = AuthorityRotationManager::new(100);
         let secure_keypair = manager.generate_new_authority();
-        
+
         // Verify it generates a valid keypair
         let pubkey = secure_keypair.pubkey();
         assert_ne!(pubkey, Pubkey::default());
     }
-    
+
     #[tokio::test]
     async fn test_authority_rotation_logging() {
         let manager = AuthorityRotationManager::new(100);
         let nonce_account = Pubkey::new_unique();
         let old_authority = Pubkey::new_unique();
         let new_authority = Pubkey::new_unique();
-        
-        manager.log_rotation(nonce_account, old_authority, new_authority, 100).await;
-        
+
+        manager
+            .log_rotation(nonce_account, old_authority, new_authority, 100)
+            .await;
+
         let log = manager.get_rotation_log().await;
         assert_eq!(log.len(), 1);
-        
+
         match &log[0].event {
-            SecurityEventType::AuthorityRotation { 
-                nonce_account: logged_nonce, 
+            SecurityEventType::AuthorityRotation {
+                nonce_account: logged_nonce,
                 old_authority: logged_old,
                 new_authority: logged_new,
-                rotation_count 
+                rotation_count,
             } => {
                 assert_eq!(logged_nonce, &nonce_account);
                 assert_eq!(logged_old, &old_authority);
@@ -916,30 +935,30 @@ mod tests {
             _ => panic!("Expected AuthorityRotation event"),
         }
     }
-    
+
     #[test]
     fn test_authority_rotation_build_transaction() {
         use solana_sdk::hash::Hash;
-        
+
         let manager = AuthorityRotationManager::new(100);
         let nonce_account = Pubkey::new_unique();
         let current_authority = SecureKeypair::new(Keypair::new());
         let new_authority = Pubkey::new_unique();
         let recent_blockhash = Hash::new_unique();
-        
+
         let result = manager.build_rotation_transaction(
             nonce_account,
             &current_authority,
             new_authority,
             recent_blockhash,
         );
-        
+
         assert!(result.is_ok());
         let transaction = result.unwrap();
-        
+
         // Transaction should have 2 instructions (advance + authorize)
         assert_eq!(transaction.message.instructions.len(), 2);
-        
+
         // Should have at least one signature
         assert!(!transaction.signatures.is_empty());
     }

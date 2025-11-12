@@ -151,7 +151,7 @@ pub fn get_required_signers(message: &VersionedMessage) -> &[Pubkey] {
     let header = get_message_header(message);
     let account_keys = get_static_account_keys(message);
     let num_signers = header.num_required_signatures as usize;
-    
+
     // Required signers are always the first N accounts
     &account_keys[..num_signers.min(account_keys.len())]
 }
@@ -233,11 +233,11 @@ mod tests {
     fn test_legacy_message_header() {
         let payer = Keypair::new();
         let recipient = Pubkey::new_unique();
-        
+
         let instruction = system_instruction::transfer(&payer.pubkey(), &recipient, 1000);
         let message = Message::new(&[instruction], Some(&payer.pubkey()));
         let versioned_message = VersionedMessage::Legacy(message);
-        
+
         let header = get_message_header(&versioned_message);
         assert_eq!(header.num_required_signatures, 1);
     }
@@ -246,16 +246,12 @@ mod tests {
     fn test_v0_message_header() {
         let payer = Keypair::new();
         let recipient = Pubkey::new_unique();
-        
+
         let instruction = system_instruction::transfer(&payer.pubkey(), &recipient, 1000);
-        let message_v0 = MessageV0::try_compile(
-            &payer.pubkey(),
-            &[instruction],
-            &[],
-            Hash::default(),
-        ).unwrap();
+        let message_v0 =
+            MessageV0::try_compile(&payer.pubkey(), &[instruction], &[], Hash::default()).unwrap();
         let versioned_message = VersionedMessage::V0(message_v0);
-        
+
         let header = get_message_header(&versioned_message);
         assert_eq!(header.num_required_signatures, 1);
     }
@@ -264,11 +260,11 @@ mod tests {
     fn test_legacy_static_account_keys() {
         let payer = Keypair::new();
         let recipient = Pubkey::new_unique();
-        
+
         let instruction = system_instruction::transfer(&payer.pubkey(), &recipient, 1000);
         let message = Message::new(&[instruction], Some(&payer.pubkey()));
         let versioned_message = VersionedMessage::Legacy(message);
-        
+
         let keys = get_static_account_keys(&versioned_message);
         assert!(keys.len() >= 2); // At least payer and recipient
         assert_eq!(keys[0], payer.pubkey());
@@ -278,16 +274,12 @@ mod tests {
     fn test_v0_static_account_keys() {
         let payer = Keypair::new();
         let recipient = Pubkey::new_unique();
-        
+
         let instruction = system_instruction::transfer(&payer.pubkey(), &recipient, 1000);
-        let message_v0 = MessageV0::try_compile(
-            &payer.pubkey(),
-            &[instruction],
-            &[],
-            Hash::default(),
-        ).unwrap();
+        let message_v0 =
+            MessageV0::try_compile(&payer.pubkey(), &[instruction], &[], Hash::default()).unwrap();
         let versioned_message = VersionedMessage::V0(message_v0);
-        
+
         let keys = get_static_account_keys(&versioned_message);
         assert!(keys.len() >= 2); // At least payer and recipient
         assert_eq!(keys[0], payer.pubkey());
@@ -297,11 +289,11 @@ mod tests {
     fn test_legacy_required_signers() {
         let payer = Keypair::new();
         let recipient = Pubkey::new_unique();
-        
+
         let instruction = system_instruction::transfer(&payer.pubkey(), &recipient, 1000);
         let message = Message::new(&[instruction], Some(&payer.pubkey()));
         let versioned_message = VersionedMessage::Legacy(message);
-        
+
         let signers = get_required_signers(&versioned_message);
         assert_eq!(signers.len(), 1);
         assert_eq!(signers[0], payer.pubkey());
@@ -311,16 +303,12 @@ mod tests {
     fn test_v0_required_signers() {
         let payer = Keypair::new();
         let recipient = Pubkey::new_unique();
-        
+
         let instruction = system_instruction::transfer(&payer.pubkey(), &recipient, 1000);
-        let message_v0 = MessageV0::try_compile(
-            &payer.pubkey(),
-            &[instruction],
-            &[],
-            Hash::default(),
-        ).unwrap();
+        let message_v0 =
+            MessageV0::try_compile(&payer.pubkey(), &[instruction], &[], Hash::default()).unwrap();
         let versioned_message = VersionedMessage::V0(message_v0);
-        
+
         let signers = get_required_signers(&versioned_message);
         assert_eq!(signers.len(), 1);
         assert_eq!(signers[0], payer.pubkey());
@@ -330,11 +318,11 @@ mod tests {
     fn test_num_required_signatures() {
         let payer = Keypair::new();
         let recipient = Pubkey::new_unique();
-        
+
         let instruction = system_instruction::transfer(&payer.pubkey(), &recipient, 1000);
         let message = Message::new(&[instruction], Some(&payer.pubkey()));
         let versioned_message = VersionedMessage::Legacy(message);
-        
+
         assert_eq!(get_num_required_signatures(&versioned_message), 1);
     }
 
@@ -343,17 +331,17 @@ mod tests {
         let payer = Keypair::new();
         let signer2 = Keypair::new();
         let recipient = Pubkey::new_unique();
-        
+
         // Create an instruction that requires two signers
         let instruction = system_instruction::transfer(&payer.pubkey(), &recipient, 1000);
         let mut message = Message::new(&[instruction], Some(&payer.pubkey()));
-        
+
         // Manually add second signer to demonstrate multisig
         message.account_keys.insert(1, signer2.pubkey());
         message.header.num_required_signatures = 2;
-        
+
         let versioned_message = VersionedMessage::Legacy(message);
-        
+
         let signers = get_required_signers(&versioned_message);
         assert_eq!(signers.len(), 2);
         assert_eq!(get_num_required_signatures(&versioned_message), 2);

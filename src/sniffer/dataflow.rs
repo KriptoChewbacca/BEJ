@@ -171,9 +171,9 @@ mod tests {
 
     #[test]
     fn test_validated_candidate() {
+        use super::super::extractor::{PremintCandidate, PriorityLevel};
         use smallvec::SmallVec;
         use solana_sdk::pubkey::Pubkey;
-        use super::super::extractor::{PremintCandidate, PriorityLevel};
 
         let candidate = PremintCandidate::new(
             Pubkey::new_unique(),
@@ -185,7 +185,7 @@ mod tests {
 
         let validated = ValidatedCandidate::new(candidate.clone(), 100);
         assert_eq!(validated.validation_latency_us, 100);
-        
+
         let inner = validated.into_inner();
         assert_eq!(inner.trace_id, candidate.trace_id);
     }

@@ -1,7 +1,7 @@
 //! Security module with inline sanity checks and async verification pool
 
-use solana_sdk::pubkey::Pubkey;
 use super::extractor::PremintCandidate;
+use solana_sdk::pubkey::Pubkey;
 
 /// Inline sanity check for transaction size
 /// Returns true if transaction size is within acceptable bounds
@@ -9,7 +9,7 @@ use super::extractor::PremintCandidate;
 pub fn check_tx_size(tx_bytes: &[u8]) -> bool {
     const MIN_TX_SIZE: usize = 64;
     const MAX_TX_SIZE: usize = 1232; // Solana max transaction size
-    
+
     let size = tx_bytes.len();
     size >= MIN_TX_SIZE && size <= MAX_TX_SIZE
 }
@@ -28,19 +28,19 @@ pub fn is_suspicious_pubkey(pubkey: &Pubkey) -> bool {
     if *pubkey == Pubkey::default() {
         return true;
     }
-    
+
     // Check for all 0xFF
     let bytes = pubkey.to_bytes();
     if bytes.iter().all(|&b| b == 0xFF) {
         return true;
     }
-    
+
     // Check for repeating patterns (simplified check)
     // If first 4 bytes are all the same, might be suspicious
     if bytes[0] == bytes[1] && bytes[1] == bytes[2] && bytes[2] == bytes[3] {
         return true;
     }
-    
+
     false
 }
 
@@ -52,22 +52,22 @@ pub fn is_valid_candidate(candidate: &PremintCandidate) -> bool {
     if !is_valid_pubkey(&candidate.mint) {
         return false;
     }
-    
+
     // Check mint is not suspicious
     if is_suspicious_pubkey(&candidate.mint) {
         return false;
     }
-    
+
     // Check we have at least one account
     if candidate.accounts.is_empty() {
         return false;
     }
-    
+
     // Check price hint is reasonable (not NaN, not negative, not infinite)
     if !candidate.price_hint.is_finite() || candidate.price_hint < 0.0 {
         return false;
     }
-    
+
     // All checks passed
     true
 }
@@ -80,17 +80,17 @@ pub fn quick_sanity_check(tx_bytes: &[u8]) -> bool {
     if !check_tx_size(tx_bytes) {
         return false;
     }
-    
+
     // Check not all zeros
     if tx_bytes.iter().all(|&b| b == 0) {
         return false;
     }
-    
+
     // Check not all 0xFF
     if tx_bytes.iter().all(|&b| b == 0xFF) {
         return false;
     }
-    
+
     true
 }
 
@@ -100,20 +100,20 @@ pub mod async_verifier {
     use super::*;
     use tokio::sync::mpsc;
     use tracing::{debug, warn};
-    
+
     /// Verification request
     pub struct VerificationRequest {
         pub candidate: PremintCandidate,
         pub tx_bytes: Vec<u8>,
     }
-    
+
     /// Verification result
     pub struct VerificationResult {
         pub candidate: PremintCandidate,
         pub is_valid: bool,
         pub reason: Option<String>,
     }
-    
+
     /// Async verifier worker
     /// This runs in a separate task and performs heavy verification
     pub async fn verifier_worker(
@@ -121,30 +121,27 @@ pub mod async_verifier {
         tx: mpsc::Sender<VerificationResult>,
     ) {
         debug!("Verifier worker started");
-        
+
         while let Some(request) = rx.recv().await {
             let result = verify_candidate_deep(&request.candidate, &request.tx_bytes);
-            
+
             let verification_result = VerificationResult {
                 candidate: request.candidate,
                 is_valid: result.is_ok(),
                 reason: result.err(),
             };
-            
+
             if tx.send(verification_result).await.is_err() {
                 warn!("Failed to send verification result - receiver dropped");
                 break;
             }
         }
-        
+
         debug!("Verifier worker stopped");
     }
-    
+
     /// Deep verification of candidate (expensive - NOT for hot path)
-    fn verify_candidate_deep(
-        candidate: &PremintCandidate,
-        tx_bytes: &[u8],
-    ) -> Result<(), String> {
+    fn verify_candidate_deep(candidate: &PremintCandidate, tx_bytes: &[u8]) -> Result<(), String> {
         // Perform expensive checks here
         // For example:
         // - Full transaction deserialization
@@ -152,19 +149,19 @@ pub mod async_verifier {
         // - Program ID validation against known list
         // - Account ownership checks
         // - Data payload validation
-        
+
         // Quick inline checks first
         if !is_valid_candidate(candidate) {
             return Err("Candidate failed inline validation".to_string());
         }
-        
+
         if !quick_sanity_check(tx_bytes) {
             return Err("Transaction failed sanity check".to_string());
         }
-        
+
         // Add more expensive checks here as needed
         // For now, we pass if inline checks succeed
-        
+
         Ok(())
     }
 }
@@ -172,8 +169,8 @@ pub mod async_verifier {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use smallvec::SmallVec;
     use crate::sniffer::extractor::PriorityLevel;
+    use smallvec::SmallVec;
 
     #[test]
     fn test_check_tx_size() {
@@ -186,7 +183,7 @@ mod tests {
     fn test_is_valid_pubkey() {
         let default_pubkey = Pubkey::default();
         assert!(!is_valid_pubkey(&default_pubkey));
-        
+
         let valid_pubkey = Pubkey::new_unique();
         assert!(is_valid_pubkey(&valid_pubkey));
     }
@@ -196,11 +193,11 @@ mod tests {
         // All zeros
         let zero_pubkey = Pubkey::default();
         assert!(is_suspicious_pubkey(&zero_pubkey));
-        
+
         // All 0xFF
         let ff_pubkey = Pubkey::from([0xFF; 32]);
         assert!(is_suspicious_pubkey(&ff_pubkey));
-        
+
         // Repeating pattern
         let mut bytes = [0u8; 32];
         bytes[0] = 0xAA;
@@ -209,7 +206,7 @@ mod tests {
         bytes[3] = 0xAA;
         let pattern_pubkey = Pubkey::from(bytes);
         assert!(is_suspicious_pubkey(&pattern_pubkey));
-        
+
         // Valid random pubkey
         let valid_pubkey = Pubkey::new_unique();
         assert!(!is_suspicious_pubkey(&valid_pubkey));
@@ -220,16 +217,11 @@ mod tests {
         let valid_mint = Pubkey::new_unique();
         let mut accounts = SmallVec::new();
         accounts.push(Pubkey::new_unique());
-        
-        let valid_candidate = PremintCandidate::new(
-            valid_mint,
-            accounts.clone(),
-            1.5,
-            123,
-            PriorityLevel::High,
-        );
+
+        let valid_candidate =
+            PremintCandidate::new(valid_mint, accounts.clone(), 1.5, 123, PriorityLevel::High);
         assert!(is_valid_candidate(&valid_candidate));
-        
+
         // Invalid mint
         let invalid_candidate = PremintCandidate::new(
             Pubkey::default(),
@@ -239,25 +231,15 @@ mod tests {
             PriorityLevel::High,
         );
         assert!(!is_valid_candidate(&invalid_candidate));
-        
+
         // No accounts
-        let no_accounts_candidate = PremintCandidate::new(
-            valid_mint,
-            SmallVec::new(),
-            1.5,
-            123,
-            PriorityLevel::High,
-        );
+        let no_accounts_candidate =
+            PremintCandidate::new(valid_mint, SmallVec::new(), 1.5, 123, PriorityLevel::High);
         assert!(!is_valid_candidate(&no_accounts_candidate));
-        
+
         // Invalid price
-        let invalid_price_candidate = PremintCandidate::new(
-            valid_mint,
-            accounts,
-            f64::NAN,
-            123,
-            PriorityLevel::High,
-        );
+        let invalid_price_candidate =
+            PremintCandidate::new(valid_mint, accounts, f64::NAN, 123, PriorityLevel::High);
         assert!(!is_valid_candidate(&invalid_price_candidate));
     }
 

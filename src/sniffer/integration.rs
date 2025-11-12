@@ -1,47 +1,49 @@
 //! Public API and integration layer for the Sniffer
 
 use anyhow::Result;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 use tokio::time::{interval, sleep};
 use tracing::{debug, error, info, warn};
 
-use super::config::SnifferConfig;
-use super::telemetry::{SnifferMetrics, HandoffDiagnostics};
 use super::analytics::PredictiveAnalytics;
-use super::extractor::{PremintCandidate, PriorityLevel};
-use super::prefilter;
-use super::security;
-use super::handoff;
+use super::config::SnifferConfig;
 use super::core;
 use super::dataflow::SnifferEvent;
+use super::extractor::{PremintCandidate, PriorityLevel};
+use super::handoff;
+use super::prefilter;
+use super::security;
 use super::supervisor::{Supervisor, WorkerHandle};
+use super::telemetry::{HandoffDiagnostics, SnifferMetrics};
 
 /// Public API trait for Sniffer operations
 pub trait SnifferApi {
     /// Start the sniffer and return a receiver for candidates
-    fn start(&self) -> impl std::future::Future<Output = Result<mpsc::Receiver<PremintCandidate>>> + Send;
-    
+    fn start(
+        &self,
+    ) -> impl std::future::Future<Output = Result<mpsc::Receiver<PremintCandidate>>> + Send;
+
     /// Stop the sniffer
     fn stop(&self);
-    
+
     /// Pause the sniffer (stop producing candidates but keep connection alive)
     fn pause(&self);
-    
+
     /// Resume the sniffer after pause
     fn resume(&self);
-    
+
     /// Check health status
     fn health(&self) -> bool;
-    
+
     /// Get current metrics snapshot
     fn stats(&self) -> String;
-    
+
     /// Check if running
     fn is_running(&self) -> bool;
-    
+
     /// Check if paused
     fn is_paused(&self) -> bool;
 }
@@ -167,11 +169,8 @@ impl Sniffer {
         info!("Starting sniffer process loop");
 
         // Subscribe to stream with retry
-        let mut stream = core::subscribe_with_retry(
-            &config,
-            Arc::clone(&running),
-            Arc::clone(&metrics),
-        ).await?;
+        let mut stream =
+            core::subscribe_with_retry(&config, Arc::clone(&running), Arc::clone(&metrics)).await?;
 
         // Batch sender for efficient handoff with diagnostics
         let mut batch_sender = handoff::BatchSender::with_diagnostics(
@@ -184,10 +183,10 @@ impl Sniffer {
 
         let _last_batch_send = Instant::now();
         let _batch_timeout = Duration::from_millis(config.batch_timeout_ms);
-        
+
         // Create shutdown channel for deterministic shutdown
         let (shutdown_tx, mut shutdown_rx) = tokio::sync::mpsc::channel::<()>(1);
-        
+
         // Spawn shutdown watcher
         let running_clone = Arc::clone(&running);
         tokio::spawn(async move {
@@ -201,19 +200,19 @@ impl Sniffer {
             // Use biased select! for deterministic shutdown priority
             tokio::select! {
                 biased;
-                
+
                 // Highest priority: shutdown signal
                 _ = shutdown_rx.recv() => {
                     info!("Shutdown signal received");
                     break;
                 }
-                
+
                 // Check if paused
                 _ = async {}, if paused.load(Ordering::Relaxed) => {
                     sleep(Duration::from_millis(100)).await;
                     continue;
                 }
-                
+
                 // Normal processing: receive transaction bytes
                 tx_bytes_opt = stream.recv() => {
                     let tx_bytes = match tx_bytes_opt {
@@ -239,7 +238,7 @@ impl Sniffer {
 
                     // Assign trace_id
                     let trace_id = trace_id_counter.fetch_add(1, Ordering::Relaxed);
-                    
+
                     // Emit: BytesReceived event
                     event_collector.collect(SnifferEvent::BytesReceived {
                         trace_id,
@@ -269,14 +268,14 @@ impl Sniffer {
                         });
                         continue;
                     }
-                    
+
                     // Emit: PrefilterPassed event
                     event_collector.collect(SnifferEvent::PrefilterPassed {
                         trace_id,
                         timestamp: Instant::now(),
                         latency_us: prefilter_start.elapsed().as_micros() as u64,
                     });
-                    
+
                     // Accumulate volume for analytics (atomic operation)
                     let volume_hint = tx_bytes.len() as f64;
                     analytics.accumulate_volume(volume_hint);
@@ -334,7 +333,7 @@ impl Sniffer {
                         });
                         continue;
                     }
-                    
+
                     // Emit: SecurityPassed event
                     event_collector.collect(SnifferEvent::SecurityPassed {
                         trace_id,
@@ -370,13 +369,13 @@ impl Sniffer {
         interval_secs: u64,
     ) {
         let mut ticker = interval(Duration::from_secs(interval_secs));
-        
+
         while running.load(Ordering::Relaxed) {
             ticker.tick().await;
-            
+
             let snapshot = metrics.snapshot();
             info!("Sniffer metrics: {}", snapshot);
-            
+
             // Calculate and log percentile latencies
             if let Some(p50) = metrics.get_percentile_latency(0.50) {
                 debug!("P50 latency: {}μs", p50);
@@ -397,7 +396,7 @@ impl Sniffer {
         interval_ms: u64,
     ) {
         let mut ticker = interval(Duration::from_millis(interval_ms));
-        
+
         while running.load(Ordering::Relaxed) {
             ticker.tick().await;
             analytics.update_ema();
@@ -411,11 +410,11 @@ impl Sniffer {
         config: SnifferConfig,
     ) {
         let mut ticker = interval(Duration::from_millis(config.ema_update_interval_ms * 2));
-        
+
         while running.load(Ordering::Relaxed) {
             ticker.tick().await;
             analytics.update_threshold(config.threshold_update_rate);
-            
+
             debug!(
                 "EMA values: short={:.2}, long={:.2}, threshold={:.2}, ratio={:.2}",
                 analytics.get_ema_values().0,
@@ -434,7 +433,7 @@ impl Sniffer {
         running: Arc<AtomicBool>,
     ) {
         use tokio::time::interval;
-        
+
         let mut check_interval = interval(Duration::from_secs(5));
         let mut last_modified = std::fs::metadata(&config_path)
             .ok()
@@ -452,14 +451,14 @@ impl Sniffer {
                         // Try to reload config
                         if let Ok(new_config) = SnifferConfig::from_file(&config_path) {
                             info!("Configuration reloaded from {}", config_path);
-                            
+
                             // Apply updates to analytics - update threshold
                             analytics.update_threshold(new_config.threshold_update_rate);
-                            
+
                             // Note: In a real implementation, you'd want to update
                             // other runtime parameters here as well through a config
                             // update channel or similar mechanism
-                            
+
                             debug!(
                                 "Applied config updates: threshold_rate={:.2}, batch_size={}, drop_policy={:?}",
                                 new_config.threshold_update_rate,
@@ -480,7 +479,7 @@ impl SnifferApi for Sniffer {
     async fn start(&self) -> Result<mpsc::Receiver<PremintCandidate>> {
         // Validate configuration
         self.config.validate()?;
-        
+
         self.running.store(true, Ordering::Release);
         self.health_ok.store(true, Ordering::Release);
 
@@ -514,15 +513,19 @@ impl SnifferApi for Sniffer {
                 health_ok.clone(),
                 event_collector.clone(),
                 handoff_diagnostics.clone(),
-            ).await {
+            )
+            .await
+            {
                 error!("Sniffer process loop error: {}", e);
             }
         });
-        self.supervisor.register_worker(WorkerHandle::new(
-            "process_loop".to_string(),
-            process_handle,
-            true, // critical worker
-        )).await;
+        self.supervisor
+            .register_worker(WorkerHandle::new(
+                "process_loop".to_string(),
+                process_handle,
+                true, // critical worker
+            ))
+            .await;
 
         // Spawn telemetry exporter and register with supervisor
         let metrics_clone = Arc::clone(&self.metrics);
@@ -531,11 +534,13 @@ impl SnifferApi for Sniffer {
         let telemetry_handle = tokio::spawn(async move {
             Self::telemetry_loop(metrics_clone, running_clone, telemetry_interval).await;
         });
-        self.supervisor.register_worker(WorkerHandle::new(
-            "telemetry_loop".to_string(),
-            telemetry_handle,
-            false, // non-critical worker
-        )).await;
+        self.supervisor
+            .register_worker(WorkerHandle::new(
+                "telemetry_loop".to_string(),
+                telemetry_handle,
+                false, // non-critical worker
+            ))
+            .await;
 
         // Spawn analytics_updater task and register with supervisor
         let analytics_clone = Arc::clone(&self.analytics);
@@ -544,11 +549,13 @@ impl SnifferApi for Sniffer {
         let analytics_handle = tokio::spawn(async move {
             Self::analytics_updater_loop(analytics_clone, running_clone, ema_update_interval).await;
         });
-        self.supervisor.register_worker(WorkerHandle::new(
-            "analytics_updater".to_string(),
-            analytics_handle,
-            false, // non-critical worker
-        )).await;
+        self.supervisor
+            .register_worker(WorkerHandle::new(
+                "analytics_updater".to_string(),
+                analytics_handle,
+                false, // non-critical worker
+            ))
+            .await;
 
         // Spawn threshold updater and register with supervisor
         let analytics_clone = Arc::clone(&self.analytics);
@@ -557,11 +564,13 @@ impl SnifferApi for Sniffer {
         let threshold_handle = tokio::spawn(async move {
             Self::threshold_update_loop(analytics_clone, running_clone, config_clone).await;
         });
-        self.supervisor.register_worker(WorkerHandle::new(
-            "threshold_updater".to_string(),
-            threshold_handle,
-            false, // non-critical worker
-        )).await;
+        self.supervisor
+            .register_worker(WorkerHandle::new(
+                "threshold_updater".to_string(),
+                threshold_handle,
+                false, // non-critical worker
+            ))
+            .await;
 
         // Spawn config reload handler
         let config_path = self.config.config_file_path.clone();
@@ -574,13 +583,16 @@ impl SnifferApi for Sniffer {
                 analytics_clone,
                 handoff_diagnostics_clone,
                 running_clone,
-            ).await;
+            )
+            .await;
         });
-        self.supervisor.register_worker(WorkerHandle::new(
-            "config_reload".to_string(),
-            config_reload_handle,
-            false, // non-critical worker
-        )).await;
+        self.supervisor
+            .register_worker(WorkerHandle::new(
+                "config_reload".to_string(),
+                config_reload_handle,
+                false, // non-critical worker
+            ))
+            .await;
 
         Ok(rx)
     }
@@ -609,7 +621,7 @@ impl SnifferApi for Sniffer {
         let is_running = self.running.load(Ordering::Relaxed);
         let is_healthy = self.health_ok.load(Ordering::Relaxed);
         let reconnects = self.metrics.reconnect_count.load(Ordering::Relaxed);
-        
+
         is_running && is_healthy && reconnects < 10
     }
 
@@ -634,7 +646,7 @@ mod tests {
     async fn test_sniffer_creation() {
         let config = SnifferConfig::default();
         let sniffer = Sniffer::new(config);
-        
+
         assert!(!sniffer.is_running());
         assert!(!sniffer.is_paused());
     }
@@ -643,15 +655,15 @@ mod tests {
     async fn test_sniffer_start_stop() {
         let config = SnifferConfig::default();
         let sniffer = Sniffer::new(config);
-        
+
         let rx = sniffer.start().await.unwrap();
         assert!(sniffer.is_running());
-        
+
         sniffer.stop();
         // Give it a moment to stop
         tokio::time::sleep(Duration::from_millis(100)).await;
         assert!(!sniffer.is_running());
-        
+
         drop(rx);
     }
 
@@ -659,15 +671,15 @@ mod tests {
     async fn test_sniffer_pause_resume() {
         let config = SnifferConfig::default();
         let sniffer = Sniffer::new(config);
-        
+
         let _rx = sniffer.start().await.unwrap();
-        
+
         sniffer.pause();
         assert!(sniffer.is_paused());
-        
+
         sniffer.resume();
         assert!(!sniffer.is_paused());
-        
+
         sniffer.stop();
     }
 }
