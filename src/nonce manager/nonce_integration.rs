@@ -275,6 +275,8 @@ impl NonceManagerApi for IntegratedNonceManager {
         let nonce_pubkey = lease.account_pubkey();
         
         // Build nonce advance instruction
+        // TODO(migrate-system-instruction): temporary allow, full migration post-profit
+        #[allow(deprecated)]
         let nonce_advance_ix = solana_sdk::system_instruction::advance_nonce_account(
             nonce_pubkey,
             &nonce_authority_pubkey,

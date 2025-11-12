@@ -165,7 +165,10 @@ mod universe_class_tests {
     #[tokio::test]
     async fn test_transaction_queue() {
         use solana_sdk::{pubkey::Pubkey, signature::Signature, transaction::VersionedTransaction};
-        use solana_sdk::{message::Message, system_instruction, transaction::Transaction};
+        use solana_sdk::{message::Message, transaction::Transaction};
+        // TODO(migrate-system-instruction): temporary allow, full migration post-profit
+        #[allow(deprecated)]
+        use solana_sdk::system_instruction;
         
         let queue = TransactionQueue::new(10);
         
@@ -210,7 +213,10 @@ mod universe_class_tests {
 
     #[tokio::test]
     async fn test_queue_stale_cleanup() {
-        use solana_sdk::{pubkey::Pubkey, message::Message, system_instruction, transaction::Transaction, transaction::VersionedTransaction};
+        use solana_sdk::{pubkey::Pubkey, message::Message, transaction::Transaction, transaction::VersionedTransaction};
+        // TODO(migrate-system-instruction): temporary allow, full migration post-profit
+        #[allow(deprecated)]
+        use solana_sdk::system_instruction;
         
         let queue = TransactionQueue::new(10);
         

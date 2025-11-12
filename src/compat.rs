@@ -224,8 +224,10 @@ mod tests {
         pubkey::Pubkey,
         signature::Keypair,
         signer::Signer,
-        system_instruction,
     };
+    // TODO(migrate-system-instruction): temporary allow, full migration post-profit
+    #[allow(deprecated)]
+    use solana_sdk::system_instruction;
 
     #[test]
     fn test_legacy_message_header() {

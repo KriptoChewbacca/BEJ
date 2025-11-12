@@ -11,8 +11,10 @@ use solana_sdk::{
     signature::Keypair,
     signer::Signer,
     transaction::VersionedTransaction,
-    system_instruction,
 };
+// TODO(migrate-system-instruction): temporary allow, full migration post-profit
+#[allow(deprecated)]
+use solana_sdk::system_instruction;
 
 /// This example demonstrates the RAII pattern for nonce management
 /// 

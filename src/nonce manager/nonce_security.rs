@@ -10,8 +10,10 @@ use solana_sdk::{
     pubkey::Pubkey,
     signature::{Keypair, Signer},
     transaction::Transaction,
-    system_instruction,
 };
+// TODO(migrate-system-instruction): temporary allow, full migration post-profit
+#[allow(deprecated)]
+use solana_sdk::system_instruction;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::SystemTime;

@@ -8,9 +8,11 @@
 use solana_sdk::{
     pubkey::Pubkey,
     signature::{Keypair, Signature, Signer},
-    system_instruction,
     transaction::Transaction,
 };
+// TODO(migrate-system-instruction): temporary allow, full migration post-profit
+#[allow(deprecated)]
+use solana_sdk::system_instruction;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};

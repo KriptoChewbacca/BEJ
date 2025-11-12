@@ -2045,7 +2045,10 @@ impl BuyEngine {
 
     #[cfg(any(test, feature = "mock-mode"))]
     fn create_placeholder_tx(_token_mint: &Pubkey, _action: &str) -> VersionedTransaction {
-        use solana_sdk::{message::Message, system_instruction, transaction::Transaction};
+        use solana_sdk::{message::Message, transaction::Transaction};
+        // TODO(migrate-system-instruction): temporary allow, full migration post-profit
+        #[allow(deprecated)]
+        use solana_sdk::system_instruction;
         
         let from = Pubkey::new_unique();
         let to = Pubkey::new_unique();

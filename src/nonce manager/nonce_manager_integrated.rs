@@ -22,9 +22,11 @@ use solana_sdk::{
     nonce::State,
     pubkey::Pubkey,
     signature::{Keypair, Signature, Signer},
-    system_instruction,
     transaction::Transaction,
 };
+// TODO(migrate-system-instruction): temporary allow, full migration post-profit
+#[allow(deprecated)]
+use solana_sdk::system_instruction;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
@@ -1250,6 +1252,8 @@ impl UniverseNonceManager {
         batch_size: usize,
     ) -> NonceResult<Vec<Signature>> {
         use solana_sdk::transaction::Transaction;
+        // TODO(migrate-system-instruction): temporary allow, full migration post-profit
+        #[allow(deprecated)]
         use solana_sdk::system_instruction;
         
         if nonce_pubkeys.is_empty() {

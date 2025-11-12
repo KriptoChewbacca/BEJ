@@ -275,10 +275,10 @@ impl Default for BatchSignatureVerifier {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use solana_sdk::{
-        hash::Hash,
-        system_instruction,
-    };
+    use solana_sdk::hash::Hash;
+    // TODO(migrate-system-instruction): temporary allow, full migration post-profit
+    #[allow(deprecated)]
+    use solana_sdk::system_instruction;
     
     #[tokio::test]
     async fn test_local_signer() {
