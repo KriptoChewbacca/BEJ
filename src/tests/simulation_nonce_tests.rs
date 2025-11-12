@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! Simulation and Nonce Interaction Tests (Issues #37-40)
 //!
 //! This module tests that simulation does NOT consume nonces:

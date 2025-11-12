@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! Instruction Ordering Tests (Issues #37-40)
 //!
 //! This module tests that advance_nonce instruction is correctly ordered:

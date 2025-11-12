@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! Test Helper Utilities (Issues #37-40)
 //!
 //! This module provides reusable test helpers:
