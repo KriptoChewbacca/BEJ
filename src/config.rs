@@ -144,7 +144,7 @@ impl Config {
     
     /// Load configuration with environment variable overrides
     pub fn from_file_with_env(path: &str) -> anyhow::Result<Self> {
-        dotenv::dotenv().ok();
+        dotenvy::dotenv().ok();
         Self::from_file(path)
     }
     
