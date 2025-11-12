@@ -1,5 +1,5 @@
 [package]
-name = "Bot"
+name = "bot"
 version = "0.1.0"
 edition = "2021"
 # rust-version = "1.83.0"  # Commented: transitive deps require edition2024 (nightly-only as of 1.83)
