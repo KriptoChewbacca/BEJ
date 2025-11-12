@@ -64,17 +64,34 @@ feature-depth = 1
 # https://embarkstudios.github.io/cargo-deny/checks/advisories/cfg.html
 [advisories]
 # The path where the advisory databases are cloned/fetched into
-#db-path = "$CARGO_HOME/advisory-dbs"
+db-path = "~/.cargo/advisory-dbs"
 # The url(s) of the advisory databases to use
-#db-urls = ["https://github.com/rustsec/advisory-db"]
+db-urls = ["https://github.com/rustsec/advisory-db"]
+# Disable advisories check if network access is not available
+# We'll document that advisories should be checked separately with network access
+yanked = "warn"
 # A list of advisory IDs to ignore. Note that ignored advisories will still
 # output a note when they are encountered.
 ignore = [
-    #"RUSTSEC-0000-0000",
-    #{ id = "RUSTSEC-0000-0000", reason = "you can specify a reason the advisory is ignored" },
-    #"a-crate-that-is-yanked@0.1.1", # you can also ignore yanked crate versions if you wish
-    #{ crate = "a-crate-that-is-yanked@0.1.1", reason = "you can specify why you are ignoring the yanked crate" },
+    # Transitive dependencies from solana-sdk that cannot be easily upgraded without breaking compatibility
+    { id = "RUSTSEC-2021-0145", reason = "atty unsound issue - transitive dep from solana-sdk via solana-logger. Only affects Windows with custom allocators. Not used in production paths." },
+    { id = "RUSTSEC-2024-0375", reason = "atty unmaintained - transitive dep from solana-sdk via solana-logger. Std::io::IsTerminal available in newer Rust, but blocked by solana-sdk version requirements." },
+    { id = "RUSTSEC-2024-0344", reason = "curve25519-dalek timing variability - transitive dep from solana-sdk via ed25519-dalek v1.0.1. Requires solana-sdk update to fix, tracking upstream." },
+    { id = "RUSTSEC-2022-0093", reason = "ed25519-dalek v1.0.1 double public key signing vulnerability - transitive dep from solana-sdk. Requires Solana SDK v2.4+ which uses ed25519-dalek v2.0+. Tracking upstream migration." },
+    { id = "RUSTSEC-2024-0388", reason = "derivative unmaintained - transitive dep from solana-sdk via ark-* crates for bn254 operations. Macro-only crate used for deriving traits, no runtime security impact." },
+    
+    # Transitive dependencies from sled embedded database
+    { id = "RUSTSEC-2025-0057", reason = "fxhash unmaintained - transitive dep from sled. Sled itself is stable for our use case. Consider alternative DB in future." },
+    { id = "RUSTSEC-2024-0384", reason = "instant unmaintained - transitive dep from sled via parking_lot. Only affects WASM targets, not used in production." },
+    
+    # Transitive dependencies from multiple sources
+    { id = "RUSTSEC-2024-0436", reason = "paste unmaintained - transitive dep from solana-sdk and eframe. Macro-only crate, no runtime security impact." },
 ]
+# If this is true, then cargo deny will use the git executable to fetch advisory database.
+# If this is false, then it uses a built-in git library.
+# Setting this to true can be helpful if you have special authentication requirements that cargo-deny does not support.
+# See Git Authentication for more information about setting up git authentication.
+git-fetch-with-cli = false
 # If this is true, then cargo deny will use the git executable to fetch advisory database.
 # If this is false, then it uses a built-in git library.
 # Setting this to true can be helpful if you have special authentication requirements that cargo-deny does not support.
@@ -89,9 +106,27 @@ ignore = [
 # See https://spdx.org/licenses/ for list of possible licenses
 # [possible values: any SPDX 3.11 short identifier (+ optional exception)].
 allow = [
-    #"MIT",
-    #"Apache-2.0",
-    #"Apache-2.0 WITH LLVM-exception",
+    # Permissive open-source licenses commonly used in Rust ecosystem
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "BSL-1.0",
+    "Zlib",
+    "Unlicense",
+    "CC0-1.0",
+    "MIT-0",
+    "0BSD",
+    "Unicode-3.0",
+    "MPL-2.0",
+    "OpenSSL",
+    "CDLA-Permissive-2.0",
+    "OFL-1.1",
+    "LicenseRef-UFL-1.0",
+    "BSD-1-Clause",
+    "LGPL-2.1-or-later",
 ]
 # The confidence threshold for detecting a license from license text.
 # The higher the value, the more closely the license text must be to the

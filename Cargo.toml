@@ -2,6 +2,7 @@
 name = "bot"
 version = "0.1.0"
 edition = "2021"
+license = "MIT OR Apache-2.0"
 # rust-version = "1.83.0"  # Commented: transitive deps require edition2024 (nightly-only as of 1.83)
 # See rust-toolchain.toml and MSRV.md for detailed explanation
 
@@ -70,7 +71,7 @@ smallvec = "1.13"
 zeroize = "1.8"
 
 # Metrics and observability
-prometheus = "0.13"
+prometheus = "0.14"
 metrics = "0.24"
 metrics-exporter-prometheus = "0.16"
 
@@ -84,7 +85,7 @@ sled = "0.34"
 
 # Configuration and environment
 config = "0.14"
-dotenv = "0.15"
+dotenvy = "0.15"
 
 # Utils
 base64 = "0.22"
