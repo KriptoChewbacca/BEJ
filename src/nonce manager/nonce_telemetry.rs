@@ -504,7 +504,7 @@ pub struct TraceContext {
     pub nonce_id: Option<String>,
     pub parent_span_id: Option<String>,
     pub trace_id: String,
-    #[serde(skip)]
+    #[serde(skip, default = "Instant::now")]
     pub start_time: Instant,
 }
 

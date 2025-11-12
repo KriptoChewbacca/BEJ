@@ -87,7 +87,6 @@ pub struct HealthChangeEvent {
 }
 
 /// Endpoint with health tracking and dynamic scoring
-#[derive(Debug)]
 struct HealthTrackedEndpoint {
     config: EndpointConfig,
     client: Arc<RpcClient>,
@@ -105,6 +104,18 @@ struct HealthTrackedEndpoint {
     // Cooldown mechanism
     cooldown_until: Arc<RwLock<Option<Instant>>>,
     last_stale_check: Arc<RwLock<Instant>>,
+}
+
+impl std::fmt::Debug for HealthTrackedEndpoint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HealthTrackedEndpoint")
+            .field("config", &self.config)
+            .field("health_status", &self.health_status)
+            .field("consecutive_failures", &self.consecutive_failures)
+            .field("total_requests", &self.total_requests)
+            .field("successful_requests", &self.successful_requests)
+            .finish_non_exhaustive()
+    }
 }
 
 impl HealthTrackedEndpoint {

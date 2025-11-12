@@ -1146,7 +1146,9 @@ pub enum UniverseErrorType {
 pub enum DexProgram {
     PumpFun,     // Priority 0 (highest)
     LetsBonk,    // Priority 1
-    Unknown(String), // Priority 2 (lowest)
+    Raydium,     // Priority 2
+    Orca,        // Priority 3
+    Unknown(String), // Priority 255 (lowest)
 }
 
 impl DexProgram {
@@ -1155,6 +1157,8 @@ impl DexProgram {
         match self {
             DexProgram::PumpFun => 0,
             DexProgram::LetsBonk => 1,
+            DexProgram::Raydium => 2,
+            DexProgram::Orca => 3,
             DexProgram::Unknown(_) => 255,
         }
     }
@@ -1165,6 +1169,8 @@ impl From<&str> for DexProgram {
         match s.to_lowercase().as_str() {
             "pump.fun" | "pumpfun" | "pumpportal" => DexProgram::PumpFun,
             "letsbonk.fun" | "letsbonk" | "bonk" => DexProgram::LetsBonk,
+            "raydium" => DexProgram::Raydium,
+            "orca" | "whirlpool" => DexProgram::Orca,
             _ => DexProgram::Unknown(s.to_string()),
         }
     }
@@ -2080,11 +2086,13 @@ impl TransactionBuilder {
         let buy_instruction = match dex_program {
             DexProgram::PumpFun => self.build_pumpfun_instruction(candidate, config).await,
             DexProgram::LetsBonk => self.build_letsbonk_instruction(candidate, config).await,
+            DexProgram::Raydium => self.build_placeholder_buy_instruction(candidate, config).await, // TODO: implement Raydium
+            DexProgram::Orca => self.build_placeholder_buy_instruction(candidate, config).await, // TODO: implement Orca
             DexProgram::Unknown(_) => self.build_placeholder_buy_instruction(candidate, config).await,
         }?;
 
         // Check if this is a placeholder instruction (no adaptive fee for placeholders)
-        let is_placeholder = matches!(dex_program, DexProgram::Unknown(_));
+        let is_placeholder = matches!(dex_program, DexProgram::Unknown(_) | DexProgram::Raydium | DexProgram::Orca);
 
         // Universe Class: Pre-simulation for CU estimation with caching
         if config.enable_simulation {
@@ -2380,6 +2388,12 @@ impl TransactionBuilder {
             }
             DexProgram::LetsBonk => {
                 self.build_letsbonk_sell_instruction(mint, sell_percent, config).await
+            }
+            DexProgram::Raydium => {
+                self.build_placeholder_sell_instruction(mint, sell_percent, config).await // TODO: implement Raydium sell
+            }
+            DexProgram::Orca => {
+                self.build_placeholder_sell_instruction(mint, sell_percent, config).await // TODO: implement Orca sell
             }
             DexProgram::Unknown(_) => {
                 self.build_placeholder_sell_instruction(mint, sell_percent, config).await
