@@ -1460,7 +1460,8 @@ impl BuyEngine {
 
             let sniffing = {
                 let state = self.app_state.lock().await;
-                matches!(*state.mode.read().await, Mode::Sniffing)
+                let mode = state.mode.read().await;
+                matches!(*mode, Mode::Sniffing)
             };
 
             if sniffing {
@@ -1827,7 +1828,7 @@ impl BuyEngine {
         let pct = match validator::validate_holdings_percent(percent.clamp(0.0, 1.0)) {
             Ok(validated_pct) => validated_pct,
             Err(e) => {
-                ctx.logger.error("Invalid sell percentage", serde_json::json!({"error": e.to_string(), "percent": percent}));
+                ctx.logger.error(&format!("Invalid sell percentage: {} (percent: {})", e, percent));
                 return Err(anyhow!("Invalid sell percentage: {}", e));
             }
         };
@@ -1864,7 +1865,7 @@ impl BuyEngine {
         let new_holdings = match validator::validate_holdings_percent((current_pct * (1.0 - pct)).max(0.0)) {
             Ok(validated_holdings) => validated_holdings,
             Err(e) => {
-                ctx.logger.error("Holdings calculation overflow", serde_json::json!({"error": e.to_string(), "current": current_pct, "sell": pct}));
+                ctx.logger.error(&format!("Holdings calculation overflow: {} (current: {}, sell: {})", e, current_pct, pct));
                 return Err(anyhow!("Holdings calculation error: {}", e));
             }
         };

@@ -238,6 +238,7 @@ impl SnifferConfig {
     pub fn watch_config(path: String) -> (watch::Sender<SnifferConfig>, watch::Receiver<SnifferConfig>) {
         let initial_config = Self::from_file(&path).unwrap_or_default();
         let (tx, rx) = watch::channel(initial_config.clone());
+        let tx_clone = tx.clone();
 
         tokio::spawn(async move {
             use tokio::time::{interval, Duration};
@@ -258,7 +259,7 @@ impl SnifferConfig {
                             // Try to reload config
                             if let Ok(new_config) = Self::from_file(&path) {
                                 tracing::info!("Configuration reloaded from {}", path);
-                                let _ = tx.send(new_config);
+                                let _ = tx_clone.send(new_config);
                             } else {
                                 tracing::warn!("Failed to reload configuration from {}", path);
                             }

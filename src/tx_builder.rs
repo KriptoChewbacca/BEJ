@@ -498,7 +498,7 @@ impl CircuitBreaker {
 
     /// Get current state for monitoring
     pub async fn get_state(&self) -> CircuitState {
-        *self.state.read().await
+        self.state.read().await.clone()
     }
     
     /// Task 2: Get failure count for telemetry
@@ -1703,11 +1703,18 @@ impl TransactionBuilder {
                     );
                 }
                 
+                #[cfg(feature = "zk_enabled")]
                 debug!(
                     nonce_acquire_count = self.nonce_acquire_count.load(Ordering::Relaxed),
                     nonce_pubkey = ?nonce_pubkey,
-                    #[cfg(feature = "zk_enabled")]
                     zk_proof_present = zk_proof.is_some(),
+                    enforce_nonce = true,
+                    "Using nonce with enforcement enabled"
+                );
+                #[cfg(not(feature = "zk_enabled"))]
+                debug!(
+                    nonce_acquire_count = self.nonce_acquire_count.load(Ordering::Relaxed),
+                    nonce_pubkey = ?nonce_pubkey,
                     enforce_nonce = true,
                     "Using nonce with enforcement enabled"
                 );
@@ -1784,11 +1791,17 @@ impl TransactionBuilder {
                         );
                     }
                     
+                    #[cfg(feature = "zk_enabled")]
                     debug!(
                         nonce_acquire_count = self.nonce_acquire_count.load(Ordering::Relaxed),
                         nonce_pubkey = ?nonce_pubkey,
-                        #[cfg(feature = "zk_enabled")]
                         zk_proof_present = zk_proof.is_some(),
+                        "Using nonce for critical operation"
+                    );
+                    #[cfg(not(feature = "zk_enabled"))]
+                    debug!(
+                        nonce_acquire_count = self.nonce_acquire_count.load(Ordering::Relaxed),
+                        nonce_pubkey = ?nonce_pubkey,
                         "Using nonce for critical operation"
                     );
                     
@@ -3223,6 +3236,10 @@ impl TransactionBuilder {
     /// - The semaphore implements RAII pattern via SemaphorePermit guard
     /// - Permits are automatically released on drop, even if task panics
     /// - Consider using separate calls for high vs low priority batches
+    /// 
+    /// TODO: Fix borrow checker issue (E0521) - self cannot be captured in spawned tasks
+    #[allow(dead_code)]
+    #[allow(clippy::await_holding_lock)]
     pub async fn batch_build_buy_transactions_with_priority(
         &self,
         candidates: Vec<PremintCandidate>,
@@ -3309,9 +3326,11 @@ impl TransactionBuilder {
         }
         
         // Sort results by original index and extract values
-        let mut results = Arc::try_unwrap(results)
-            .unwrap_or_else(|arc| (*arc.blocking_lock()).clone())
-            .into_inner();
+        let results_vec = match Arc::try_unwrap(results) {
+            Ok(mutex) => mutex.into_inner(),
+            Err(arc) => arc.blocking_lock().clone(),
+        };
+        let mut results = results_vec;
         results.sort_by_key(|(idx, _)| *idx);
         
         results.into_iter().map(|(_, result)| result).collect()

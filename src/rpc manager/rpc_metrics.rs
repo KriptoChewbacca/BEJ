@@ -66,7 +66,8 @@ impl PrometheusMetrics {
         // Add histogram buckets
         for (le, count) in buckets {
             let mut bucket_labels = labels.to_vec();
-            bucket_labels.push(("le", &le.to_string()));
+            let le_string = le.to_string();
+            bucket_labels.push(("le", &le_string));
             let bucket_label_str = Self::format_labels(&bucket_labels);
             self.metrics.push(format!(
                 "{}_bucket{{{}}} {}",
