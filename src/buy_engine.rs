@@ -2543,6 +2543,9 @@ mod tests {
     use std::future::Future;
     use std::pin::Pin;
     use tokio::sync::mpsc;
+    use crate::nonce_manager::UniverseNonceManager;
+    use crate::nonce_manager::nonce_signer::LocalSigner;
+    use crate::types::PriorityLevel;
 
     #[derive(Debug)]
     struct AlwaysOkBroadcaster;
@@ -2556,18 +2559,38 @@ mod tests {
         }
     }
 
-    // TODO: Fix test - requires updating to new BuyEngine API (UnboundedReceiver, async NonceManager::new)
-    #[tokio::test]
-    #[ignore = "Test needs updating for new BuyEngine and NonceManager API"]
+    async fn create_test_nonce_manager() -> Arc<UniverseNonceManager> {
+        // Create a test signer
+        let keypair = solana_sdk::signer::keypair::Keypair::new();
+        let signer = Arc::new(LocalSigner::new(keypair));
+        
+        // Create test nonce pubkeys
+        let nonce_pubkeys = vec![
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+        ];
+        
+        // Use new_for_testing which doesn't require RPC
+        UniverseNonceManager::new_for_testing(
+            signer,
+            nonce_pubkeys,
+            Duration::from_secs(60),
+        ).await
+    }
+
+    #[tokio::test(flavor = "current_thread")]
     async fn buy_enters_passive_and_sell_returns_to_sniffing() {
-        let (tx, rx): (mpsc::Sender<PremintCandidate>, mpsc::Receiver<PremintCandidate>) =
-            mpsc::channel(8);
+        // Seed RNG for determinism
+        fastrand::seed(42);
+        
+        let (tx, rx) = mpsc::unbounded_channel::<PremintCandidate>();
 
         let app_state = Arc::new(Mutex::new(AppState::new(Mode::Sniffing)));
+        let nonce_manager = create_test_nonce_manager().await;
 
         let mut engine = BuyEngine::new(
             Arc::new(AlwaysOkBroadcaster),
-            Arc::new(NonceManager::new(2)),
+            nonce_manager,
             rx,
             app_state.clone(),
             Config {
@@ -2581,19 +2604,20 @@ mod tests {
             mint: Pubkey::new_unique(),
             program: "pump.fun".to_string(),
             accounts: vec![],
-            priority: crate::sniffer::PriorityLevel::High,
+            priority: PriorityLevel::High,
             timestamp: 0,
             price_hint: None,
             signature: None,
         };
-        tx.send(candidate).await.unwrap();
+        tx.send(candidate).unwrap();
         drop(tx);
 
         engine.run().await;
 
         {
             let st = app_state.lock().await;
-            match st.mode {
+            let mode = st.mode.read().await;
+            match *mode {
                 Mode::PassiveToken(_) => {}
                 _ => panic!("Expected PassiveToken mode after buy"),
             }
@@ -2604,17 +2628,17 @@ mod tests {
 
         engine.sell(1.0).await.expect("sell should succeed");
         let st = app_state.lock().await;
-        assert!(st.is_sniffing());
+        assert!(st.is_sniffing().await);
         assert!(st.active_token.is_none());
         assert!(st.last_buy_price.is_none());
     }
 
-    // TODO: Fix test - requires updating to new BuyEngine API (UnboundedReceiver, async NonceManager::new)
-    #[tokio::test]
-    #[ignore = "Test needs updating for new BuyEngine and NonceManager API"]
+    #[tokio::test(flavor = "current_thread")]
     async fn test_backoff_behavior() {
-        let (tx, rx): (mpsc::Sender<PremintCandidate>, mpsc::Receiver<PremintCandidate>) =
-            mpsc::channel(8);
+        // Seed RNG for determinism
+        fastrand::seed(43);
+        
+        let (_tx, rx) = mpsc::unbounded_channel::<PremintCandidate>();
 
         let app_state = Arc::new(Mutex::new(AppState::new(Mode::Sniffing)));
 
@@ -2630,9 +2654,11 @@ mod tests {
             }
         }
 
+        let nonce_manager = create_test_nonce_manager().await;
+
         let engine = BuyEngine::new(
             Arc::new(FailingBroadcaster),
-            Arc::new(NonceManager::new(2)),
+            nonce_manager,
             rx,
             app_state.clone(),
             Config {
@@ -2659,18 +2685,19 @@ mod tests {
         assert!(no_backoff.is_none());
     }
 
-    // TODO: Fix test - requires updating to new BuyEngine API (UnboundedReceiver, async NonceManager::new)
-    #[tokio::test]
-    #[ignore = "Test needs updating for new BuyEngine and NonceManager API"]
+    #[tokio::test(flavor = "current_thread")]
     async fn test_atomic_buy_protection() {
-        let (tx, rx): (mpsc::Sender<PremintCandidate>, mpsc::Receiver<PremintCandidate>) =
-            mpsc::channel(8);
+        // Seed RNG for determinism
+        fastrand::seed(44);
+        
+        let (_tx, rx) = mpsc::unbounded_channel::<PremintCandidate>();
 
         let app_state = Arc::new(Mutex::new(AppState::new(Mode::Sniffing)));
+        let nonce_manager = create_test_nonce_manager().await;
 
         let engine = BuyEngine::new(
             Arc::new(AlwaysOkBroadcaster),
-            Arc::new(NonceManager::new(2)),
+            nonce_manager,
             rx,
             app_state.clone(),
             Config {
@@ -2684,7 +2711,7 @@ mod tests {
             mint: Pubkey::new_unique(),
             program: "pump.fun".to_string(),
             accounts: vec![],
-            priority: crate::sniffer::PriorityLevel::High,
+            priority: PriorityLevel::High,
             timestamp: 0,
             price_hint: None,
             signature: None,
@@ -2703,12 +2730,12 @@ mod tests {
         assert!(result2.unwrap_err().to_string().contains("already in progress"));
     }
 
-    // TODO: Fix test - requires updating to new BuyEngine API (UnboundedReceiver, async NonceManager::new)
-    #[tokio::test]
-    #[ignore = "Test needs updating for new BuyEngine and NonceManager API"]
+    #[tokio::test(flavor = "current_thread")]
     async fn test_sell_buy_race_protection() {
-        let (_tx, rx): (mpsc::Sender<PremintCandidate>, mpsc::Receiver<PremintCandidate>) =
-            mpsc::channel(8);
+        // Seed RNG for determinism
+        fastrand::seed(45);
+        
+        let (_tx, rx) = mpsc::unbounded_channel::<PremintCandidate>();
 
         let app_state = Arc::new(Mutex::new({
             let mut state = AppState::new(Mode::PassiveToken(Pubkey::new_unique()));
@@ -2716,7 +2743,7 @@ mod tests {
                 mint: Pubkey::new_unique(),
                 program: "pump.fun".to_string(),
                 accounts: vec![],
-                priority: crate::sniffer::PriorityLevel::High,
+                priority: PriorityLevel::High,
                 timestamp: 0,
                 price_hint: None,
                 signature: None,
@@ -2726,9 +2753,11 @@ mod tests {
             state
         }));
 
+        let nonce_manager = create_test_nonce_manager().await;
+
         let engine = BuyEngine::new(
             Arc::new(AlwaysOkBroadcaster),
-            Arc::new(NonceManager::new(2)),
+            nonce_manager,
             rx,
             app_state.clone(),
             Config::default(),
@@ -2744,16 +2773,16 @@ mod tests {
         assert!(result.unwrap_err().to_string().contains("buy operation in progress"));
     }
 
-    // TODO: Fix test - requires updating to new BuyEngine API (UnboundedReceiver, async NonceManager::new)
-    #[tokio::test]
-    #[ignore = "Test needs updating for new BuyEngine and NonceManager API"]
+    #[tokio::test(flavor = "current_thread")]
     async fn test_nonce_lease_raii_behavior() {
-        let (_tx, rx): (mpsc::Sender<PremintCandidate>, mpsc::Receiver<PremintCandidate>) =
-            mpsc::channel(8);
+        // Seed RNG for determinism
+        fastrand::seed(46);
+        
+        let (_tx, rx) = mpsc::unbounded_channel::<PremintCandidate>();
 
         let app_state = Arc::new(Mutex::new(AppState::new(Mode::Sniffing)));
 
-        let nonce_manager = Arc::new(NonceManager::new(2));
+        let nonce_manager = create_test_nonce_manager().await;
 
         let engine = BuyEngine::new(
             Arc::new(AlwaysOkBroadcaster),
@@ -2768,13 +2797,13 @@ mod tests {
         );
 
         // All permits should be available initially
-        assert_eq!(nonce_manager.available_permits(), 2);
+        assert_eq!(nonce_manager.get_stats().await.available_permits, 2);
 
         let candidate = PremintCandidate {
             mint: Pubkey::new_unique(),
             program: "pump.fun".to_string(),
             accounts: vec![],
-            priority: crate::sniffer::PriorityLevel::High,
+            priority: PriorityLevel::High,
             timestamp: 0,
             price_hint: None,
             signature: None,
@@ -2789,6 +2818,6 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(50)).await;
 
         // All permits should be available again after RAII cleanup
-        assert_eq!(nonce_manager.available_permits(), 2);
+        assert_eq!(nonce_manager.get_stats().await.available_permits, 2);
     }
 }

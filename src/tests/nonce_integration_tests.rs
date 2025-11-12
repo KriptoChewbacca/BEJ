@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! Integration Tests for Nonce Transaction Building (Issues #37-40)
 //!
 //! This module provides end-to-end integration tests:

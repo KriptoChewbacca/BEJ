@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! Sniffer Integration Example
 //!
 //! This file demonstrates how to integrate the Sniffer module with buy_engine.rs

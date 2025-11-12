@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! Comprehensive RAII and nonce management tests for Issues #37-#40
 //!
 //! This module contains all critical tests for production-grade quality:

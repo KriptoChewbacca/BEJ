@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! Performance benchmarks for Sniffer module
 //!
 //! This file provides benchmark utilities to validate the performance targets:

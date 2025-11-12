@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! Test for Task 2: Verify nonce lease usage in build_sell_transaction
 //!
 //! This test validates that build_sell_transaction properly:

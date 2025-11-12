@@ -25,6 +25,12 @@ pub use nonce_manager_integrated::UniverseNonceManager; // Also export the origi
 #[cfg(feature = "zk_enabled")]
 pub use nonce_manager_integrated::ZkProofData;
 
-pub use nonce_errors::{NonceError, NonceResult};
+pub use nonce_errors::NonceError;
+#[allow(unused_imports)]
+pub(crate) use nonce_errors::NonceResult;
 pub use nonce_lease::NonceLease;
-pub use nonce_signer::{LocalSigner, SignerService};
+pub use nonce_signer::LocalSigner;
+
+// Re-export SignerService only for internal use
+#[allow(unused_imports)]
+pub(crate) use nonce_signer::SignerService;

@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! Tests for Task 1: NonceLease semantics and RAII
 //!
 //! Validates:
@@ -17,7 +18,7 @@ mod nonce_lease_tests {
     //! 3. Watchdog monitors and reclaims expired leases
     //! 4. TTL-based expiry detection
     
-    use crate::nonce_manager::{NonceLease, NonceError, NonceResult};
+    use crate::nonce_manager::NonceLease;
     use crate::nonce_manager::nonce_lease::LeaseWatchdog;
     use solana_sdk::{hash::Hash, pubkey::Pubkey};
     use std::sync::Arc;

@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! Test suite for A1: Elimination of Mutexes in PredictiveAnalytics
 //!
 //! This module validates:

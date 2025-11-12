@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! Unit tests for Universe Class features in tx_builder.rs
 //! 
 //! These tests validate the new functionality added as part of the

@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 /// Load testing and benchmarking utilities for RPC Manager
 use std::time::{Duration, Instant};
 use std::sync::Arc;

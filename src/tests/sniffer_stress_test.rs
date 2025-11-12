@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! Stress test for Sniffer - TASK 4.2
 //!
 //! Tests:

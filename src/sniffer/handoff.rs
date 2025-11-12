@@ -364,7 +364,7 @@ mod tests {
     use super::*;
     use smallvec::SmallVec;
     use solana_sdk::pubkey::Pubkey;
-    use super::extractor::PriorityLevel;
+    use crate::sniffer::extractor::PriorityLevel;
 
     #[tokio::test]
     async fn test_try_send_candidate() {

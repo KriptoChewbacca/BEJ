@@ -1,0 +1,15 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.46s
+     Running unittests src/lib.rs (target/debug/deps/bot-7ef9f563a816c565)
+
+running 8 tests
+test compat::tests::test_legacy_static_account_keys ... ok
+test compat::tests::test_legacy_message_header ... ok
+test compat::tests::test_legacy_required_signers ... ok
+test compat::tests::test_multisig_message ... ok
+test compat::tests::test_num_required_signatures ... ok
+test compat::tests::test_v0_message_header ... ok
+test compat::tests::test_v0_required_signers ... ok
+test compat::tests::test_v0_static_account_keys ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

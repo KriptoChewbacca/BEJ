@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 #[cfg(test)]
 mod rpc_manager_integration_tests {
     use super::*;

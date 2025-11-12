@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! Unit tests for TxBuildOutput structure (Phase 1)
 //! 
 //! These tests validate the RAII pattern implementation for nonce management
@@ -89,7 +90,7 @@ mod tx_build_output_tests {
     #[test]
     fn test_tx_build_output_new_without_nonce() {
         // Test creating TxBuildOutput without nonce guard
-        let tx = create_test_transaction(1);
+        let _tx = create_test_transaction(1);
         
         // Import from parent module when integrated
         // For now, this is a placeholder test structure
@@ -123,7 +124,7 @@ mod tx_build_output_tests {
     #[tokio::test]
     async fn test_tx_build_output_release_nonce_no_guard() {
         // Test that release_nonce works when no guard is present
-        let tx = create_test_transaction(1);
+        let _tx = create_test_transaction(1);
         
         // When integrated:
         // use crate::tx_builder::TxBuildOutput;
@@ -145,7 +146,7 @@ mod tx_build_output_tests {
         
         // Create a mock nonce lease
         // let lease = create_mock_lease();
-        // let tx = create_test_transaction(1);
+        // let _tx = create_test_transaction(1);
         
         // {
         //     let output = TxBuildOutput::new(tx, Some(lease));
@@ -165,7 +166,7 @@ mod tx_build_output_tests {
         // use crate::nonce_manager::NonceLease;
         
         // let lease = create_mock_lease();
-        // let tx = create_test_transaction(1);
+        // let _tx = create_test_transaction(1);
         // let output = TxBuildOutput::new(tx, Some(lease));
         
         // Explicitly release
@@ -246,3 +247,6 @@ mod tx_build_output_tests {
 ///     assert!(available > 0);
 /// }
 /// ```
+///
+/// This documentation describes integration patterns for future enhancements.
+const _INTEGRATION_DOCS: () = ();

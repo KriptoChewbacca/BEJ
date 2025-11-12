@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 // Integration tests for RPC self-regulating pool
 // These tests demonstrate the key features of the enhanced RPC pool
 

@@ -173,7 +173,7 @@ pub mod async_verifier {
 mod tests {
     use super::*;
     use smallvec::SmallVec;
-    use super::extractor::PriorityLevel;
+    use crate::sniffer::extractor::PriorityLevel;
 
     #[test]
     fn test_check_tx_size() {

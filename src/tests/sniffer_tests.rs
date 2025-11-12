@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! Comprehensive test suite for the Sniffer module
 //!
 //! This module tests:

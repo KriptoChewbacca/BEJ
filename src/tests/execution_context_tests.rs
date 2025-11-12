@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! Comprehensive ExecutionContext Tests (Issues #37-40)
 //!
 //! This module tests ExecutionContext behavior:

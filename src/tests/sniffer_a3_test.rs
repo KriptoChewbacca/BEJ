@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! A3: Test suite for safe mint extraction implementation
 //!
 //! This test suite validates:

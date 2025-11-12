@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! Comprehensive V0 transaction compatibility tests
 //!
 //! This module tests V0 (versioned) transaction handling across:

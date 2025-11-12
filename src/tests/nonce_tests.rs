@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! Comprehensive test suite for nonce manager
 //! 
 //! This module implements Step 4 requirements:

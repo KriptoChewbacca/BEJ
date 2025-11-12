@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! A4 Test Suite: Runtime Stabilization Tests
 //!
 //! This test file validates the A4 implementation requirements:
