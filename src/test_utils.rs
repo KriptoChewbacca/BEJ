@@ -153,22 +153,12 @@ impl Default for MockTxBuilder {
 /// 
 /// This provides a test-only nonce manager that doesn't make RPC calls
 /// and has deterministic behavior.
+/// 
+/// Note: The main BuyEngine test uses the real NonceManager::new_for_testing()
+/// which is already set up for test environments. This module is here for
+/// documentation purposes and potential future enhancements.
 pub mod mock_nonce {
     use super::*;
-    use crate::nonce_manager::{NonceManager, NonceLease, NonceError, NonceResult};
-    use std::sync::atomic::{AtomicU64, Ordering};
-    
-    /// Create a NonceManager configured for testing
-    /// 
-    /// This creates a nonce manager with:
-    /// - No RPC refresh (high TTL)
-    /// - Stub backend without network calls
-    /// - Deterministic behavior
-    pub async fn create_test_nonce_manager(pool_size: usize) -> Arc<NonceManager> {
-        // Create a test nonce manager with no RPC calls
-        // The manager will use in-memory nonces for testing
-        Arc::new(NonceManager::new_for_testing(pool_size))
-    }
     
     /// Mock NonceLease for testing
     #[derive(Clone)]
@@ -233,7 +223,7 @@ mod tests {
             mint: Pubkey::new_unique(),
             program: "pump.fun".to_string(),
             accounts: vec![],
-            priority: crate::sniffer::PriorityLevel::High,
+            priority: crate::types::PriorityLevel::High,
             timestamp: 0,
             price_hint: None,
             signature: None,
@@ -258,7 +248,7 @@ mod tests {
             mint: Pubkey::new_unique(),
             program: "pump.fun".to_string(),
             accounts: vec![],
-            priority: crate::sniffer::PriorityLevel::High,
+            priority: crate::types::PriorityLevel::High,
             timestamp: 0,
             price_hint: None,
             signature: None,

@@ -755,7 +755,7 @@ mod tests {
         let attempt_count = Arc::new(AtomicU32::new(0));
         let attempt_count_clone = attempt_count.clone();
         
-        let result = retry_with_backoff("test_op", &config, || {
+        let result: Result<(), NonceError> = retry_with_backoff("test_op", &config, || {
             let _ = attempt_count_clone.fetch_add(1, Ordering::SeqCst);
             async {
                 Err(NonceError::InvalidNonceAccount(
@@ -780,7 +780,7 @@ mod tests {
         let attempt_count = Arc::new(AtomicU32::new(0));
         let attempt_count_clone = attempt_count.clone();
         
-        let result = retry_with_backoff("test_op", &config, || {
+        let result: Result<(), NonceError> = retry_with_backoff("test_op", &config, || {
             let _ = attempt_count_clone.fetch_add(1, Ordering::SeqCst);
             async {
                 Err(NonceError::Timeout(1000))
@@ -936,7 +936,7 @@ mod tests {
         let attempt_count_clone = attempt_count.clone();
         
         // This will fail and open the circuit
-        let result = retry_with_backoff_enhanced(
+        let result: Result<(), NonceError> = retry_with_backoff_enhanced(
             "test_op",
             &config,
             Some(&breaker),

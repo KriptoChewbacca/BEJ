@@ -221,7 +221,7 @@ mod simulation_nonce_tests {
         
         // Acquire nonce lease (for context)
         let lease = nonce_manager.acquire_nonce().await.unwrap();
-        let nonce_pubkey = *lease.nonce_pubkey();
+        let _nonce_pubkey = *lease.nonce_pubkey();
         let nonce_blockhash = lease.nonce_blockhash();
         
         // Build simulation instructions (WITHOUT advance_nonce)
@@ -255,7 +255,7 @@ mod simulation_nonce_tests {
         
         // Acquire nonce lease
         let lease = nonce_manager.acquire_nonce().await.unwrap();
-        let nonce_pubkey = *lease.nonce_pubkey();
+        let _nonce_pubkey = *lease.nonce_pubkey();
         let nonce_authority = Pubkey::new_unique(); // Mock authority
         
         // Build execution instructions (WITH advance_nonce)
@@ -295,7 +295,7 @@ mod simulation_nonce_tests {
             } else {
                 // Execution (with nonce)
                 let lease = nonce_manager.acquire_nonce().await.unwrap();
-                let nonce_pubkey = *lease.nonce_pubkey();
+                let _nonce_pubkey = *lease.nonce_pubkey();
                 let nonce_authority = Pubkey::new_unique();
                 
                 let exec_instructions = build_execution_instructions(
