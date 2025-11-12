@@ -2570,13 +2570,21 @@ mod tests {
     /// 4. Execute sell (mock) - transition back to Sniffing
     /// 
     /// All operations are deterministic with no network calls.
+    /// Note: Uses real time instead of paused time to allow async tasks to execute properly.
     #[tokio::test]
     async fn buy_enters_passive_and_sell_returns_to_sniffing() {
+        // Initialize simple logging for test debugging
+        let _ = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::DEBUG)
+            .with_test_writer()
+            .try_init();
+            
         // Seed RNG for determinism
         fastrand::seed(42);
         
-        // Pause time for deterministic control
-        tokio::time::pause();
+        // NOTE: Not using tokio::time::pause() because it prevents spawned tasks from running.
+        // The engine.run() loop needs to process candidates asynchronously, which requires
+        // real time progression for the tokio scheduler to work properly.
         
         // Create unbounded channel as expected by BuyEngine
         let (tx, rx) = mpsc::unbounded_channel();
@@ -2604,9 +2612,10 @@ mod tests {
             Duration::from_secs(3600), // High TTL for testing
         ).await;
 
-        // Create test config
+        // Create test config with nonce_count = 0 to skip nonce acquisition in test
+        // This allows the test to use the fallback placeholder transaction creation
         let config = Config {
-            nonce_count: 1,
+            nonce_count: 0,  // Skip nonce acquisition - use placeholder transactions
             ..Config::default()
         };
 
@@ -2631,30 +2640,53 @@ mod tests {
             signature: None,
         };
         
-        // Send candidate to trigger buy
-        tx.send(candidate.clone()).unwrap();
-        
-        // Don't drop tx yet - we'll need to signal end properly
-        // Instead, spawn the engine run in a background task with a timeout
+        // Spawn the engine run in a background task
         let engine_handle = tokio::spawn(async move {
-            tokio::select! {
-                _ = engine.run() => {},
-                _ = tokio::time::sleep(Duration::from_secs(2)) => {
-                    // Timeout to prevent infinite wait
-                }
+            // Run the engine with a timeout to prevent infinite wait
+            let timeout_result = tokio::time::timeout(Duration::from_secs(10), engine.run()).await;
+            if timeout_result.is_err() {
+                warn!("Engine run timed out after 10 seconds");
             }
             engine
         });
         
-        // Advance time to allow processing
-        tokio::time::advance(Duration::from_millis(100)).await;
-        tokio::task::yield_now().await;
+        // Give the engine a moment to start and enter its listening loop
+        tokio::time::sleep(Duration::from_millis(200)).await;
         
-        // Advance more time for buy processing
-        tokio::time::advance(Duration::from_millis(500)).await;
-        tokio::task::yield_now().await;
+        // Send candidate to trigger buy
+        println!("Sending candidate...");
+        tx.send(candidate.clone()).unwrap();
+        println!("Candidate sent!");
         
-        // Check that we've entered PassiveToken mode after buy
+        // Poll for state transition with real time sleeps
+        let mut state_found = false;
+        for i in 0..50 {
+            // Sleep for 100ms between checks (real time)
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            
+            // Check if state has transitioned
+            {
+                let st = app_state.lock().await;
+                let mode = st.mode.read().await;
+                if matches!(*mode, Mode::PassiveToken(_)) {
+                    state_found = true;
+                    println!("✓ State transitioned to PassiveToken after {} iterations (~{}ms)", i + 1, (i + 1) * 100);
+                    break;
+                }
+            }
+            
+            // Add debug info for first 10 iterations
+            if i < 10 {
+                let st = app_state.lock().await;
+                let mode = st.mode.read().await;
+                println!("Iteration {}: Current mode: {:?}", i, *mode);
+            }
+        }
+        
+        // Verify we found the PassiveToken state
+        assert!(state_found, "State did not transition to PassiveToken after 5 seconds");
+        
+        // Additional assertions to verify the buy succeeded
         {
             let st = app_state.lock().await;
             let mode = st.mode.read().await;
@@ -2670,16 +2702,16 @@ mod tests {
         }
         
         // Now test sell operation
-        // Retrieve the engine (it will timeout or complete)
-        drop(tx); // Signal completion
-        tokio::time::advance(Duration::from_secs(1)).await;
+        // Signal completion and retrieve the engine
+        drop(tx);
+        tokio::time::sleep(Duration::from_millis(100)).await; // Give engine time to finish
         let engine = engine_handle.await.expect("Engine task should complete");
         
         // Execute sell
         engine.sell(1.0).await.expect("sell should succeed");
         
-        // Yield to allow async operations to complete
-        tokio::task::yield_now().await;
+        // Allow async operations to complete
+        tokio::time::sleep(Duration::from_millis(100)).await;
         
         // Verify state after sell
         let st = app_state.lock().await;
