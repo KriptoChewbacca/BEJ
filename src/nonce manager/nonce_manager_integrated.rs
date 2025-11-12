@@ -341,7 +341,7 @@ impl ImprovedNonceAccount {
         proof_data: &ZkProofData,
         current_slot: u64,
     ) -> f64 {
-        let start = Instant::now();
+        let _start = Instant::now();
         
         #[cfg(feature = "zk_enabled")]
         {
