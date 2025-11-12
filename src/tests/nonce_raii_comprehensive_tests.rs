@@ -85,7 +85,7 @@ mod raii_comprehensive_tests {
         assert_eq!(total_ops, NUM_OPERATIONS, "Not all operations completed");
         
         // Critical assertion: All nonces must be returned to pool
-        let permits_in_use = nonce_manager.permits_in_use();
+        let permits_in_use = nonce_manager.get_stats().await.permits_in_use;
         assert_eq!(
             permits_in_use, 0,
             "Nonce leak detected! {} nonces still in use", permits_in_use
@@ -229,7 +229,7 @@ mod raii_comprehensive_tests {
         tokio::time::sleep(Duration::from_millis(500)).await;
         
         // Verify no leaks
-        assert_eq!(nonce_manager.permits_in_use(), 0);
+        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0);
         
         println!("✓ Concurrent varying hold times test passed");
     }
@@ -249,44 +249,23 @@ mod raii_comprehensive_tests {
         }
         
         // Verify no leaks
-        assert_eq!(nonce_manager.permits_in_use(), 0);
+        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0);
         
         println!("✓ Rapid cycles test passed: {} cycles", NUM_CYCLES);
     }
 
     // Helper function to create a test nonce manager
     async fn create_test_nonce_manager(pool_size: usize) -> Arc<UniverseNonceManager> {
-        use crate::nonce_manager::UniverseNonceManager;
-        use crate::rpc_manager::rpc_pool::{RpcPool, EndpointConfig, EndpointType};
+        use crate::nonce_manager::{UniverseNonceManager, LocalSigner};
         
-        // Create test RPC pool
-        let endpoint_config = EndpointConfig {
-            url: "https://api.mainnet-beta.solana.com".to_string(),
-            endpoint_type: EndpointType::Standard,
-            weight: 1.0,
-            max_requests_per_second: 100,
-        };
-        
-        let rpc_pool = Arc::new(RpcPool::new(
-            vec![endpoint_config],
-            Duration::from_secs(60),
-            5,
-            Duration::from_secs(300),
-        ));
-        
-        // Create nonce authority keypair
-        let authority = Arc::new(Keypair::new());
-        
-        // Create test nonce accounts
+        let signer = Arc::new(LocalSigner::new(Keypair::new()));
         let mut nonce_accounts = vec![];
         for _ in 0..pool_size {
             nonce_accounts.push(Pubkey::new_unique());
         }
         
-        // Create nonce manager
-        UniverseNonceManager::new(
-            rpc_pool,
-            authority,
+        UniverseNonceManager::new_for_testing(
+            signer,
             nonce_accounts,
             Duration::from_secs(300), // 5 minute lease timeout
         ).await
@@ -330,7 +309,7 @@ mod zk_integration_tests {
         drop(lease.release().await);
         
         // Verify no leaks
-        assert_eq!(nonce_manager.permits_in_use(), 0);
+        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0);
         
         println!("✓ ZK proof integration test passed");
     }
@@ -354,32 +333,16 @@ mod zk_integration_tests {
 
     // Helper to create nonce manager for ZK tests
     async fn create_test_nonce_manager_with_zk(pool_size: usize) -> Arc<UniverseNonceManager> {
-        use crate::nonce_manager::UniverseNonceManager;
-        use crate::rpc_manager::rpc_pool::{RpcPool, EndpointConfig, EndpointType};
+        use crate::nonce_manager::{UniverseNonceManager, LocalSigner};
         
-        let endpoint_config = EndpointConfig {
-            url: "https://api.mainnet-beta.solana.com".to_string(),
-            endpoint_type: EndpointType::Standard,
-            weight: 1.0,
-            max_requests_per_second: 100,
-        };
-        
-        let rpc_pool = Arc::new(RpcPool::new(
-            vec![endpoint_config],
-            Duration::from_secs(60),
-            5,
-            Duration::from_secs(300),
-        ));
-        
-        let authority = Arc::new(Keypair::new());
+        let signer = Arc::new(LocalSigner::new(Keypair::new()));
         let mut nonce_accounts = vec![];
         for _ in 0..pool_size {
             nonce_accounts.push(Pubkey::new_unique());
         }
         
-        UniverseNonceManager::new(
-            rpc_pool,
-            authority,
+        UniverseNonceManager::new_for_testing(
+            signer,
             nonce_accounts,
             Duration::from_secs(300),
         ).await

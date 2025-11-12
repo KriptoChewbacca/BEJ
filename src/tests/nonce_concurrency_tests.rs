@@ -18,29 +18,16 @@ mod nonce_concurrency_tests {
 
     /// Helper: Create test nonce manager
     async fn create_test_nonce_manager(pool_size: usize) -> Arc<UniverseNonceManager> {
-        let endpoint_config = EndpointConfig {
-            url: "https://api.mainnet-beta.solana.com".to_string(),
-            endpoint_type: EndpointType::Standard,
-            weight: 1.0,
-            max_requests_per_second: 100,
-        };
+        use crate::nonce_manager::{UniverseNonceManager, LocalSigner};
         
-        let rpc_pool = Arc::new(RpcPool::new(
-            vec![endpoint_config],
-            Duration::from_secs(60),
-            5,
-            Duration::from_secs(300),
-        ));
-        
-        let authority = Arc::new(Keypair::new());
+        let signer = Arc::new(LocalSigner::new(Keypair::new()));
         let mut nonce_accounts = vec![];
         for _ in 0..pool_size {
             nonce_accounts.push(Pubkey::new_unique());
         }
         
-        UniverseNonceManager::new(
-            rpc_pool,
-            authority,
+        UniverseNonceManager::new_for_testing(
+            signer,
             nonce_accounts,
             Duration::from_secs(300),
         ).await
@@ -110,7 +97,7 @@ mod nonce_concurrency_tests {
         assert_eq!(total_ops, NUM_OPERATIONS, "All operations should complete");
         
         // Verify no leaks
-        assert_eq!(nonce_manager.permits_in_use(), 0, "No nonce leaks detected");
+        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0, "No nonce leaks detected");
         
         println!("✓ Parallel acquire test passed: {} operations, 0 deadlocks", NUM_OPERATIONS);
         println!("  Success: {}, Blocked: {}", 
@@ -164,7 +151,7 @@ mod nonce_concurrency_tests {
         tokio::time::sleep(Duration::from_millis(500)).await;
         
         // Verify no leaks
-        assert_eq!(nonce_manager.permits_in_use(), 0, "No nonce leaks under contention");
+        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0, "No nonce leaks under contention");
         
         println!("✓ High contention stress test passed");
         println!("  Successful acquisitions: {}/{}", 
@@ -222,7 +209,7 @@ mod nonce_concurrency_tests {
         tokio::time::sleep(Duration::from_millis(500)).await;
         
         // Verify no leaks
-        assert_eq!(nonce_manager.permits_in_use(), 0, "No leaks across patterns");
+        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0, "No leaks across patterns");
         
         println!("✓ Concurrent acquire/release patterns test passed");
     }
@@ -272,7 +259,7 @@ mod nonce_concurrency_tests {
         println!("Total successful operations: {}", count);
         
         // Verify no leaks
-        assert_eq!(nonce_manager.permits_in_use(), 0, "No race condition leaks");
+        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0, "No race condition leaks");
         
         println!("✓ No race conditions detected across {} threads", NUM_THREADS);
     }
@@ -307,7 +294,7 @@ mod nonce_concurrency_tests {
         tokio::time::sleep(Duration::from_millis(500)).await;
         
         // Verify no leaks
-        assert_eq!(nonce_manager.permits_in_use(), 0, "No leaks after burst");
+        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0, "No leaks after burst");
         
         println!("✓ Burst acquire pattern test passed: {} simultaneous acquires", BURST_SIZE);
     }
@@ -352,7 +339,7 @@ mod nonce_concurrency_tests {
         tokio::time::sleep(Duration::from_millis(500)).await;
         
         // Verify no leaks
-        assert_eq!(nonce_manager.permits_in_use(), 0, "No leaks with mixed durations");
+        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0, "No leaks with mixed durations");
         
         println!("✓ Mixed lease durations test passed");
     }
@@ -402,7 +389,7 @@ mod nonce_concurrency_tests {
         assert!(!acquired_order.is_empty(), "Some acquires should succeed");
         
         // Verify no leaks
-        assert_eq!(nonce_manager.permits_in_use(), 0, "No leaks after fairness test");
+        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0, "No leaks after fairness test");
         
         println!("✓ Acquire fairness test passed");
     }
@@ -445,7 +432,7 @@ mod nonce_concurrency_tests {
         
         // Verify no leaks
         assert_eq!(
-            nonce_manager.permits_in_use(), 0,
+            nonce_manager.get_stats().await.permits_in_use, 0,
             "No leaks with mixed release strategies"
         );
         
@@ -489,7 +476,7 @@ mod nonce_concurrency_tests {
         
         // Verify no leaks
         assert_eq!(
-            nonce_manager.permits_in_use(), 0,
+            nonce_manager.get_stats().await.permits_in_use, 0,
             "No leaks with cancellations"
         );
         

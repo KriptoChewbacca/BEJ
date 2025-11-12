@@ -27,3 +27,4 @@ pub use nonce_manager_integrated::ZkProofData;
 
 pub use nonce_errors::{NonceError, NonceResult};
 pub use nonce_lease::NonceLease;
+pub use nonce_signer::{LocalSigner, SignerService};
