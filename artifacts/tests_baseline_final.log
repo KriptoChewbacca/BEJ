@@ -1,0 +1,19 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling bot v0.1.0 (/home/runner/work/BEJ/BEJ)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.76s
+     Running unittests src/lib.rs (target/debug/deps/bot-45d6a12e59a201d5)
+
+running 8 tests
+test compat::tests::test_legacy_message_header ... ok
+test compat::tests::test_legacy_static_account_keys ... ok
+test compat::tests::test_multisig_message ... ok
+test compat::tests::test_legacy_required_signers ... ok
+test compat::tests::test_num_required_signatures ... ok
+test compat::tests::test_v0_message_header ... ok
+test compat::tests::test_v0_static_account_keys ... ok
+test compat::tests::test_v0_required_signers ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
