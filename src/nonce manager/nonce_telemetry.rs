@@ -444,7 +444,7 @@ impl AlertManager {
     
     /// Trigger a new alert
     pub fn trigger_alert(&self, alert: Alert) {
-        let alert_clone = alert.clone();
+        let _alert_clone = alert.clone();
         let active_alerts = self.active_alerts.clone();
         let alert_history = self.alert_history.clone();
         let max_history = self.max_history;

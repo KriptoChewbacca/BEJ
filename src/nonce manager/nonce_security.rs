@@ -750,8 +750,8 @@ async fn sequential_verify_zk(
 /// Batch verify using Groth16 with GPU acceleration (feature-gated)
 #[cfg(feature = "zk_enabled")]
 async fn batch_verify_groth16(
-    proofs: Vec<&ZkProofData>,
-    current_slot: u64,
+    _proofs: Vec<&ZkProofData>,
+    _current_slot: u64,
 ) -> NonceResult<Vec<f64>> {
     // Note: solana-zk-sdk may not have batch verification support
     // This is a placeholder for actual implementation

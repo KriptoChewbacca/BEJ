@@ -209,7 +209,7 @@ impl IntegratedNonceManager {
 #[async_trait::async_trait]
 impl NonceManagerApi for IntegratedNonceManager {
     #[instrument(skip(self))]
-    async fn acquire_nonce(&self, timeout: Duration) -> NonceResult<NonceLease> {
+    async fn acquire_nonce(&self, _timeout: Duration) -> NonceResult<NonceLease> {
         let start = Instant::now();
         
         // For now, create a placeholder lease
@@ -377,7 +377,7 @@ impl BuyEngineNonceIntegration {
         info!(nonce = %lease.account_pubkey(), "Acquired nonce for buy transaction");
         
         // Step 2: Build transaction
-        let tx = self.nonce_manager.build_transaction_with_nonce(
+        let _tx = self.nonce_manager.build_transaction_with_nonce(
             &lease,
             instructions,
         ).await?;

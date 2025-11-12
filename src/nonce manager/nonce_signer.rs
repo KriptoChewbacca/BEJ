@@ -32,7 +32,7 @@ pub trait SignerService: Send + Sync {
     
     /// Sign a nonce advance operation (Security Enhancement 3)
     /// Used for authority rotation and HSM/Ledger integration
-    async fn sign_advance(&self, nonce_account: &Pubkey, transaction: &mut Transaction) -> NonceResult<()> {
+    async fn sign_advance(&self, _nonce_account: &Pubkey, transaction: &mut Transaction) -> NonceResult<()> {
         // Default implementation delegates to sign_transaction
         self.sign_transaction(transaction).await
     }
@@ -191,7 +191,7 @@ impl SignerService for HardwareWalletSigner {
         ))
     }
     
-    async fn sign_advance(&self, nonce_account: &Pubkey, transaction: &mut Transaction) -> NonceResult<()> {
+    async fn sign_advance(&self, nonce_account: &Pubkey, _transaction: &mut Transaction) -> NonceResult<()> {
         // Placeholder: Special handling for Ledger nonce advance operations
         // Would use rust-ledger library for device communication
         Err(NonceError::Signing(

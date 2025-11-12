@@ -486,7 +486,7 @@ impl UniversePredictiveModel {
         jitter_used: f64,
     ) {
         // Extract prediction values we need before borrowing self mutably again
-        let (predicted_prob, needs_update) = if let Some(last_prediction) = self.predictions.back_mut() {
+        let (predicted_prob, _needs_update) = if let Some(last_prediction) = self.predictions.back_mut() {
             last_prediction.actual_latency_ms = Some(actual_latency_ms);
             last_prediction.actual_success = Some(actual_success);
             last_prediction.actual_tps = actual_tps;

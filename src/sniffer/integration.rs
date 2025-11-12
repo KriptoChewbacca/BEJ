@@ -182,8 +182,8 @@ impl Sniffer {
             Arc::clone(&handoff_diagnostics),
         );
 
-        let last_batch_send = Instant::now();
-        let batch_timeout = Duration::from_millis(config.batch_timeout_ms);
+        let _last_batch_send = Instant::now();
+        let _batch_timeout = Duration::from_millis(config.batch_timeout_ms);
         
         // Create shutdown channel for deterministic shutdown
         let (shutdown_tx, mut shutdown_rx) = tokio::sync::mpsc::channel::<()>(1);
