@@ -2582,10 +2582,12 @@ mod tests {
 
         let candidate = PremintCandidate {
             mint: Pubkey::new_unique(),
-            creator: Pubkey::new_unique(),
             program: "pump.fun".to_string(),
-            slot: 0,
-            timestamp: 0, instruction_summary: None, is_jito_bundle: None,
+            accounts: vec![],
+            priority: crate::sniffer::PriorityLevel::High,
+            timestamp: 0,
+            price_hint: None,
+            signature: None,
         };
         tx.send(candidate).await.unwrap();
         drop(tx);
@@ -2689,10 +2691,12 @@ mod tests {
 
         let candidate = PremintCandidate {
             mint: Pubkey::new_unique(),
-            creator: Pubkey::new_unique(),
             program: "pump.fun".to_string(),
-            slot: 0,
-            timestamp: 0, instruction_summary: None, is_jito_bundle: None,
+            accounts: vec![],
+            priority: crate::sniffer::PriorityLevel::High,
+            timestamp: 0,
+            price_hint: None,
+            signature: None,
         };
 
         // First buy should succeed
@@ -2717,13 +2721,15 @@ mod tests {
             mode: Mode::PassiveToken(Pubkey::new_unique()),
             active_token: Some(PremintCandidate {
                 mint: Pubkey::new_unique(),
-                creator: Pubkey::new_unique(),
                 program: "pump.fun".to_string(),
-                slot: 0,
-                timestamp: 0, instruction_summary: None, is_jito_bundle: None,
+                accounts: vec![],
+                priority: crate::sniffer::PriorityLevel::High,
+                timestamp: 0,
+                price_hint: None,
+                signature: None,
             }),
             last_buy_price: Some(1.0),
-            holdings_percent: 1.0, quantum_suggestions: Vec::new(),
+            holdings_percent: 1.0,
         }));
 
         let engine = BuyEngine::new(
@@ -2775,10 +2781,12 @@ mod tests {
 
         let candidate = PremintCandidate {
             mint: Pubkey::new_unique(),
-            creator: Pubkey::new_unique(),
             program: "pump.fun".to_string(),
-            slot: 0,
-            timestamp: 0, instruction_summary: None, is_jito_bundle: None,
+            accounts: vec![],
+            priority: crate::sniffer::PriorityLevel::High,
+            timestamp: 0,
+            price_hint: None,
+            signature: None,
         };
 
         // Perform buy operation - should acquire and release nonces automatically
