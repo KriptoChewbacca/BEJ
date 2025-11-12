@@ -17,6 +17,7 @@ pub mod rpc_atomics;
 // Re-exports for convenience
 pub use rpc_pool::EndpointConfig;
 pub use rpc_pool::EndpointType;
+#[allow(unused_imports)]
 pub use rpc_errors::RpcManagerError;
 
 // Re-export RpcPool only for internal use

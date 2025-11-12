@@ -19,6 +19,7 @@ pub mod nonce_telemetry;
 // Re-exports for convenience
 // Use the integrated manager as the primary implementation (Task 1)
 pub use nonce_manager_integrated::UniverseNonceManager as NonceManager;
+#[allow(unused_imports)]
 pub use nonce_manager_integrated::UniverseNonceManager; // Also export the original name for tests
 
 // ZkProofData is only available when zk_enabled feature is active
@@ -29,6 +30,7 @@ pub use nonce_errors::NonceError;
 #[allow(unused_imports)]
 pub(crate) use nonce_errors::NonceResult;
 pub use nonce_lease::NonceLease;
+#[allow(unused_imports)]
 pub use nonce_signer::LocalSigner;
 
 // Re-export SignerService only for internal use

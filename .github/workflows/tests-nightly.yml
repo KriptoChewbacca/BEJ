@@ -21,20 +21,22 @@ jobs:
         
       - uses: Swatinem/rust-cache@v2
         with:
-          prefix-key: nightly-tests-${{ matrix.mode }}
+          prefix-key: nightly-tests
           
       - name: Create artifacts directory
         run: mkdir -p artifacts
         
       - name: Run tests (${{ matrix.mode }})
+        env:
+          RUST_BACKTRACE: 1
         run: |
           set -e
           if [ "${{ matrix.mode }}" = "baseline" ]; then
-            cargo +nightly test --lib --quiet 2>&1 | tee artifacts/tests_baseline.log
-            cargo +nightly test --lib --message-format=json > artifacts/tests_baseline.json 2>&1 || true
+            cargo +nightly test -- --nocapture
+            cargo +nightly test --message-format=json > artifacts/tests_baseline.json 2>&1 || true
           else
-            cargo +nightly test --lib --all-features --quiet 2>&1 | tee artifacts/tests_all_features.log
-            cargo +nightly test --lib --all-features --message-format=json > artifacts/tests_all_features.json 2>&1 || true
+            cargo +nightly test --all-features -- --nocapture
+            cargo +nightly test --all-features --message-format=json > artifacts/tests_all_features.json 2>&1 || true
           fi
           
       - name: Upload artifacts
