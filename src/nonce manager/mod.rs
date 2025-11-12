@@ -19,10 +19,12 @@ pub mod nonce_telemetry;
 // Re-exports for convenience
 // Use the integrated manager as the primary implementation (Task 1)
 pub use nonce_manager_integrated::UniverseNonceManager as NonceManager;
+pub use nonce_manager_integrated::UniverseNonceManager; // Also export the original name for tests
 
 // ZkProofData is only available when zk_enabled feature is active
 #[cfg(feature = "zk_enabled")]
 pub use nonce_manager_integrated::ZkProofData;
 
-pub use nonce_errors::NonceError;
+pub use nonce_errors::{NonceError, NonceResult};
 pub use nonce_lease::NonceLease;
+pub use nonce_signer::{LocalSigner, SignerService};

@@ -9,7 +9,7 @@
 #[cfg(test)]
 mod nonce_integration_tests {
     use crate::nonce_manager::UniverseNonceManager;
-    use crate::rpc_manager::rpc_pool::RpcPool;
+    use crate::rpc_manager::rpc_pool::{RpcPool, EndpointConfig, EndpointType};
     use solana_sdk::{
         hash::Hash,
         pubkey::Pubkey,
@@ -25,19 +25,16 @@ mod nonce_integration_tests {
 
     /// Helper: Create test nonce manager
     async fn create_test_nonce_manager(pool_size: usize) -> Arc<UniverseNonceManager> {
-        let rpc_pool = Arc::new(RpcPool::new(vec![
-            "https://api.mainnet-beta.solana.com".to_string()
-        ], 5));
+        use crate::nonce_manager::{UniverseNonceManager, LocalSigner};
         
-        let authority = Arc::new(Keypair::new());
+        let signer = Arc::new(LocalSigner::new(Keypair::new()));
         let mut nonce_accounts = vec![];
         for _ in 0..pool_size {
             nonce_accounts.push(Pubkey::new_unique());
         }
         
-        UniverseNonceManager::new(
-            rpc_pool,
-            authority,
+        UniverseNonceManager::new_for_testing(
+            signer,
             nonce_accounts,
             Duration::from_secs(300),
         ).await
@@ -127,7 +124,7 @@ mod nonce_integration_tests {
         tokio::time::sleep(Duration::from_millis(100)).await;
         
         // Verify no leaks
-        assert_eq!(nonce_manager.permits_in_use(), 0);
+        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0);
         
         println!("✓ E2E transaction with nonce (success path) passed");
     }
@@ -148,7 +145,7 @@ mod nonce_integration_tests {
         tokio::time::sleep(Duration::from_millis(100)).await;
         
         // Verify lease was auto-released (no leak)
-        assert_eq!(nonce_manager.permits_in_use(), 0);
+        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0);
         
         println!("✓ E2E error path with cleanup passed");
     }
@@ -184,7 +181,7 @@ mod nonce_integration_tests {
             
             // Verify no leaks after each iteration
             assert_eq!(
-                nonce_manager.permits_in_use(), 0,
+                nonce_manager.get_stats().await.permits_in_use, 0,
                 "Leak detected at iteration {}", i
             );
         }
@@ -237,7 +234,7 @@ mod nonce_integration_tests {
         tokio::time::sleep(Duration::from_millis(300)).await;
         
         // Verify no leaks
-        assert_eq!(nonce_manager.permits_in_use(), 0);
+        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0);
         
         println!("✓ Parallel transaction building test passed");
     }
@@ -266,7 +263,7 @@ mod nonce_integration_tests {
         tokio::time::sleep(Duration::from_millis(100)).await;
         
         // Verify lease was cleaned up
-        assert_eq!(nonce_manager.permits_in_use(), 0);
+        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0);
         
         println!("✓ Early return cleanup test passed");
     }
@@ -293,7 +290,7 @@ mod nonce_integration_tests {
         tokio::time::sleep(Duration::from_millis(200)).await;
         
         // Verify lease was cleaned up
-        assert_eq!(nonce_manager.permits_in_use(), 0);
+        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0);
         
         println!("✓ Panic recovery test passed");
     }
@@ -301,20 +298,17 @@ mod nonce_integration_tests {
     /// Test: Long-running transaction building with lease expiry
     #[tokio::test]
     async fn test_lease_expiry_during_transaction() {
-        // Create manager with short lease timeout
-        let rpc_pool = Arc::new(RpcPool::new(vec![
-            "https://api.mainnet-beta.solana.com".to_string()
-        ], 5));
+        use crate::nonce_manager::LocalSigner;
         
-        let authority = Arc::new(Keypair::new());
+        // Create manager with short lease timeout
+        let signer = Arc::new(LocalSigner::new(Keypair::new()));
         let nonce_accounts = vec![Pubkey::new_unique()];
         
-        let nonce_manager = Arc::new(UniverseNonceManager::new(
-            rpc_pool,
-            authority,
+        let nonce_manager = UniverseNonceManager::new_for_testing(
+            signer,
             nonce_accounts,
             Duration::from_millis(100), // Very short timeout
-        ).await);
+        ).await;
         
         // Acquire lease
         let lease = nonce_manager.acquire_nonce().await.unwrap();
@@ -332,7 +326,7 @@ mod nonce_integration_tests {
         tokio::time::sleep(Duration::from_millis(100)).await;
         
         // Verify no leaks
-        assert_eq!(nonce_manager.permits_in_use(), 0);
+        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0);
         
         println!("✓ Lease expiry during transaction test passed");
     }
@@ -396,7 +390,7 @@ mod nonce_integration_tests {
         
         tokio::time::sleep(Duration::from_millis(100)).await;
         
-        assert_eq!(nonce_manager.permits_in_use(), 0);
+        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0);
         
         println!("✓ Complex multi-operation transaction test passed");
     }
@@ -440,7 +434,7 @@ mod nonce_integration_tests {
         tokio::time::sleep(Duration::from_millis(200)).await;
         
         // Verify no leaks
-        assert_eq!(nonce_manager.permits_in_use(), 0);
+        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0);
         
         println!("✓ Retry pattern test passed: {} retries", MAX_RETRIES);
     }

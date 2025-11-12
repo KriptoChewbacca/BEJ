@@ -65,8 +65,8 @@ mod v0_transaction_compat_tests {
         let program_id = Pubkey::new_unique();
         
         // Create mock address lookup table
-        let alt_address = Pubkey::new_unique();
-        let lookup_table_accounts = vec![
+        let _alt_address = Pubkey::new_unique();
+        let _lookup_table_accounts = vec![
             Pubkey::new_unique(),
             Pubkey::new_unique(),
             Pubkey::new_unique(),

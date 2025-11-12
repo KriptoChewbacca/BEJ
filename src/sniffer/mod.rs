@@ -13,3 +13,4 @@ pub mod dataflow;             // Formal dataflow contracts, domain boundaries, e
 pub mod supervisor;           // Lifecycle management, pause/resume/stop, panic recovery
 
 // Re-export commonly used types
+pub use extractor::PriorityLevel;

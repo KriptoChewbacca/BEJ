@@ -1662,7 +1662,7 @@ impl TransactionBuilder {
         
         // enforce_nonce = true: Always acquire nonce lease or fail
         match self.nonce_manager.acquire_nonce().await {
-            Ok(mut lease) => {
+            Ok(lease) => {
                 // Record successful nonce acquisition
                 self.nonce_acquire_count.fetch_add(1, Ordering::Relaxed);
                 
@@ -1750,7 +1750,7 @@ impl TransactionBuilder {
         if use_nonce {
             // Critical operation - require nonce lease
             match self.nonce_manager.acquire_nonce().await {
-                Ok(mut lease) => {
+                Ok(lease) => {
                     // Record successful nonce acquisition
                     self.nonce_acquire_count.fetch_add(1, Ordering::Relaxed);
                     
@@ -3235,9 +3235,7 @@ impl TransactionBuilder {
     /// - Permits are automatically released on drop, even if task panics
     /// - Consider using separate calls for high vs low priority batches
     /// 
-    /// TODO: Fix borrow checker issue (E0521) - self cannot be captured in spawned tasks
-    #[allow(dead_code)]
-    #[allow(clippy::await_holding_lock)]
+    /// Note: Uses sequential processing with semaphore to respect worker pool limits
     pub async fn batch_build_buy_transactions_with_priority(
         &self,
         candidates: Vec<PremintCandidate>,
@@ -3258,80 +3256,42 @@ impl TransactionBuilder {
             );
         }
         
-        // Pre-allocate results vector
-        let results = Arc::new(tokio::sync::Mutex::new(
-            Vec::with_capacity(total)
-        ));
+        // Process candidates with semaphore control
+        let mut results = Vec::with_capacity(total);
         
-        // Use bounded worker pool via semaphore
-        let mut tasks = Vec::with_capacity(total);
-        
-        for (idx, candidate) in candidates.into_iter().enumerate() {
-            let semaphore = self.worker_pool_semaphore.clone();
-            let results = results.clone();
-            let config = config.clone();
+        for candidate in candidates {
+            // Task 4: Acquire permit with RAII guard (ensures release on drop/panic)
+            let _permit = match tokio::time::timeout(
+                Duration::from_secs(30),
+                self.worker_pool_semaphore.acquire()
+            ).await {
+                Ok(Ok(permit)) => permit,
+                Ok(Err(_)) => {
+                    // Semaphore closed
+                    results.push(Err(TransactionBuilderError::InstructionBuild {
+                        program: "batch_build".to_string(),
+                        reason: "Worker pool semaphore closed".to_string(),
+                    }));
+                    continue;
+                }
+                Err(_) => {
+                    // Timeout acquiring permit
+                    results.push(Err(TransactionBuilderError::InstructionBuild {
+                        program: "batch_build".to_string(),
+                        reason: "Timeout acquiring worker pool permit".to_string(),
+                    }));
+                    continue;
+                }
+            };
             
-            // Spawn task that will acquire semaphore permit
-            let task = tokio::spawn(async move {
-                // Task 4: Acquire permit with RAII guard (ensures release on drop/panic)
-                let _permit = match tokio::time::timeout(
-                    Duration::from_secs(30),
-                    semaphore.acquire()
-                ).await {
-                    Ok(Ok(permit)) => permit,
-                    Ok(Err(_)) => {
-                        // Semaphore closed
-                        let mut results = results.lock().await;
-                        results.push((idx, Err(TransactionBuilderError::InstructionBuild {
-                            program: "batch_build".to_string(),
-                            reason: "Worker pool semaphore closed".to_string(),
-                        })));
-                        return;
-                    }
-                    Err(_) => {
-                        // Timeout acquiring permit
-                        let mut results = results.lock().await;
-                        results.push((idx, Err(TransactionBuilderError::InstructionBuild {
-                            program: "batch_build".to_string(),
-                            reason: "Timeout acquiring worker pool permit".to_string(),
-                        })));
-                        return;
-                    }
-                };
-                
-                // Build transaction (permit held until this completes or panics)
-                let result = self.build_buy_transaction(&candidate, &config, sign).await;
-                
-                // Store result with original index
-                let mut results = results.lock().await;
-                results.push((idx, result));
-                
-                // Permit automatically released when _permit drops
-            });
+            // Build transaction (permit held until this completes or panics)
+            let result = self.build_buy_transaction(&candidate, config, sign).await;
+            results.push(result);
             
-            tasks.push(task);
+            // Permit automatically released when _permit drops
         }
         
-        // Wait for all tasks to complete
-        for task in tasks {
-            if let Err(e) = task.await {
-                let mut results = results.lock().await;
-                results.push((total, Err(TransactionBuilderError::InstructionBuild {
-                    program: "batch_build".to_string(),
-                    reason: format!("Task join error: {}", e),
-                })));
-            }
-        }
-        
-        // Sort results by original index and extract values
-        let results_vec = match Arc::try_unwrap(results) {
-            Ok(mutex) => mutex.into_inner(),
-            Err(arc) => arc.blocking_lock().clone(),
-        };
-        let mut results = results_vec;
-        results.sort_by_key(|(idx, _)| *idx);
-        
-        results.into_iter().map(|(_, result)| result).collect()
+        results
     }
     
     /// Update slippage predictor with new observation (Universe Class)
@@ -3774,7 +3734,7 @@ mod tests {
         let tx = create_test_transaction(1);
         
         {
-            let output = TxBuildOutput::new(tx, Some(lease));
+            let _output = TxBuildOutput::new(tx, Some(lease));
             // Verify lease not released yet
             assert!(!released.load(AtomicOrdering::SeqCst));
             // output goes out of scope here and Drop is called

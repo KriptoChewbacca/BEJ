@@ -8,7 +8,7 @@
 #[cfg(test)]
 mod simulation_nonce_tests {
     use crate::nonce_manager::UniverseNonceManager;
-    use crate::rpc_manager::rpc_pool::RpcPool;
+    use crate::rpc_manager::rpc_pool::{RpcPool, EndpointConfig, EndpointType};
     use solana_sdk::{
         hash::Hash,
         pubkey::Pubkey,
@@ -17,26 +17,22 @@ mod simulation_nonce_tests {
         system_instruction,
         message::{v0::Message as MessageV0, VersionedMessage},
         transaction::VersionedTransaction,
-        signer::Signer,
     };
     use std::sync::Arc;
     use std::time::Duration;
 
     /// Helper: Create test nonce manager
     async fn create_test_nonce_manager(pool_size: usize) -> Arc<UniverseNonceManager> {
-        let rpc_pool = Arc::new(RpcPool::new(vec![
-            "https://api.mainnet-beta.solana.com".to_string()
-        ], 5));
+        use crate::nonce_manager::{UniverseNonceManager, LocalSigner};
         
-        let authority = Arc::new(Keypair::new());
+        let signer = Arc::new(LocalSigner::new(Keypair::new()));
         let mut nonce_accounts = vec![];
         for _ in 0..pool_size {
             nonce_accounts.push(Pubkey::new_unique());
         }
         
-        UniverseNonceManager::new(
-            rpc_pool,
-            authority,
+        UniverseNonceManager::new_for_testing(
+            signer,
             nonce_accounts,
             Duration::from_secs(300),
         ).await
@@ -198,7 +194,7 @@ mod simulation_nonce_tests {
         let nonce_manager = create_test_nonce_manager(POOL_SIZE).await;
         
         // Get initial state
-        let initial_permits = nonce_manager.permits_in_use();
+        let initial_permits = nonce_manager.get_stats().await.permits_in_use;
         
         // Run multiple simulations (these should not consume nonces)
         for _ in 0..NUM_SIMULATIONS {
@@ -211,7 +207,7 @@ mod simulation_nonce_tests {
         
         // Verify nonce pool is unchanged
         assert_eq!(
-            nonce_manager.permits_in_use(), initial_permits,
+            nonce_manager.get_stats().await.permits_in_use, initial_permits,
             "Simulations should not consume nonces"
         );
         
@@ -320,7 +316,7 @@ mod simulation_nonce_tests {
         tokio::time::sleep(Duration::from_millis(200)).await;
         
         // Verify no leaks
-        assert_eq!(nonce_manager.permits_in_use(), 0);
+        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0);
         
         println!("✓ Interleaved simulation/execution works correctly");
     }
@@ -329,7 +325,7 @@ mod simulation_nonce_tests {
     #[tokio::test]
     async fn test_simulation_failure_preserves_nonce_pool() {
         let nonce_manager = create_test_nonce_manager(5).await;
-        let initial_permits = nonce_manager.permits_in_use();
+        let initial_permits = nonce_manager.get_stats().await.permits_in_use;
         
         // Simulate failed simulation (invalid instructions)
         let invalid_program = Pubkey::new_unique();
@@ -339,7 +335,7 @@ mod simulation_nonce_tests {
         // (simulations don't interact with nonce manager)
         
         assert_eq!(
-            nonce_manager.permits_in_use(), initial_permits,
+            nonce_manager.get_stats().await.permits_in_use, initial_permits,
             "Failed simulation shouldn't affect nonce pool"
         );
         

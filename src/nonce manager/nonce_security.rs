@@ -845,7 +845,7 @@ mod tests {
     #[test]
     fn test_secure_keypair_from_bytes() {
         let keypair = Keypair::new();
-        let mut bytes = keypair.to_bytes().to_vec();
+        let bytes = keypair.to_bytes().to_vec();
         let pubkey = keypair.pubkey();
         
         let secure = SecureKeypair::from_bytes(bytes.clone()).unwrap();

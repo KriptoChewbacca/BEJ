@@ -121,7 +121,7 @@ mod tx_builder_fee_strategy_tests {
         let fee2 = ComputeBudgetInstruction::set_compute_unit_price(20_000);
         let cu_limit = ComputeBudgetInstruction::set_compute_unit_limit(200_000);
 
-        let instructions = vec![cu_limit, fee1.clone()];
+        let instructions = vec![cu_limit.clone(), fee1.clone()];
         assert_eq!(count_compute_unit_price_instructions(&instructions), 1);
 
         // This would be a bug - two fee instructions

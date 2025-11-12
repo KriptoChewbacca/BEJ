@@ -9,7 +9,7 @@
 #[cfg(test)]
 mod execution_context_tests {
     use crate::nonce_manager::UniverseNonceManager;
-    use crate::rpc_manager::rpc_pool::RpcPool;
+    use crate::rpc_manager::rpc_pool::{RpcPool, EndpointConfig, EndpointType};
     use solana_sdk::{
         hash::Hash,
         pubkey::Pubkey,
@@ -21,19 +21,16 @@ mod execution_context_tests {
 
     /// Helper: Create test nonce manager
     async fn create_test_nonce_manager(pool_size: usize) -> Arc<UniverseNonceManager> {
-        let rpc_pool = Arc::new(RpcPool::new(vec![
-            "https://api.mainnet-beta.solana.com".to_string()
-        ], 5));
+        use crate::nonce_manager::{UniverseNonceManager, LocalSigner};
         
-        let authority = Arc::new(Keypair::new());
+        let signer = Arc::new(LocalSigner::new(Keypair::new()));
         let mut nonce_accounts = vec![];
         for _ in 0..pool_size {
             nonce_accounts.push(Pubkey::new_unique());
         }
         
-        UniverseNonceManager::new(
-            rpc_pool,
-            authority,
+        UniverseNonceManager::new_for_testing(
+            signer,
             nonce_accounts,
             Duration::from_secs(300),
         ).await
@@ -149,7 +146,7 @@ mod execution_context_tests {
         let nonce_manager = create_test_nonce_manager(5).await;
         
         // Get baseline permits
-        let baseline_permits = nonce_manager.permits_in_use();
+        let baseline_permits = nonce_manager.get_stats().await.permits_in_use;
         
         {
             // Acquire lease
@@ -157,7 +154,7 @@ mod execution_context_tests {
             
             // Permits should be in use
             assert!(
-                nonce_manager.permits_in_use() > baseline_permits,
+                nonce_manager.get_stats().await.permits_in_use > baseline_permits,
                 "Permits should be in use"
             );
             
@@ -169,7 +166,7 @@ mod execution_context_tests {
         
         // Permits should be released
         assert_eq!(
-            nonce_manager.permits_in_use(), baseline_permits,
+            nonce_manager.get_stats().await.permits_in_use, baseline_permits,
             "Permits should be released after drop"
         );
         
@@ -184,27 +181,27 @@ mod execution_context_tests {
     #[tokio::test]
     async fn test_explicit_release_vs_auto_drop() {
         let nonce_manager = create_test_nonce_manager(5).await;
-        let baseline_permits = nonce_manager.permits_in_use();
+        let baseline_permits = nonce_manager.get_stats().await.permits_in_use;
         
         // Test explicit release
         {
             let lease = nonce_manager.acquire_nonce().await.unwrap();
-            assert!(nonce_manager.permits_in_use() > baseline_permits);
+            assert!(nonce_manager.get_stats().await.permits_in_use > baseline_permits);
             drop(lease.release().await);
         }
         
         tokio::time::sleep(Duration::from_millis(100)).await;
-        assert_eq!(nonce_manager.permits_in_use(), baseline_permits);
+        assert_eq!(nonce_manager.get_stats().await.permits_in_use, baseline_permits);
         
         // Test auto-drop
         {
             let _lease = nonce_manager.acquire_nonce().await.unwrap();
-            assert!(nonce_manager.permits_in_use() > baseline_permits);
+            assert!(nonce_manager.get_stats().await.permits_in_use > baseline_permits);
             // Auto-drop here
         }
         
         tokio::time::sleep(Duration::from_millis(100)).await;
-        assert_eq!(nonce_manager.permits_in_use(), baseline_permits);
+        assert_eq!(nonce_manager.get_stats().await.permits_in_use, baseline_permits);
         
         println!("✓ Explicit release and auto-drop both work correctly");
     }

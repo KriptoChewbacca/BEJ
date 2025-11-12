@@ -260,46 +260,19 @@ mod tests {
     use super::*;
     
     // Include test modules
-    #[path = "tests/nonce_lease_tests.rs"]
     mod nonce_lease_tests;
-    
-    #[path = "tests/nonce_raii_comprehensive_tests.rs"]
     mod nonce_raii_comprehensive_tests;
-    
-    #[path = "tests/v0_transaction_compat_tests.rs"]
     mod v0_transaction_compat_tests;
-    
-    #[path = "tests/tx_builder_improvements_tests.rs"]
     mod tx_builder_improvements_tests;
-    
-    #[path = "tests/tx_builder_sell_nonce_test.rs"]
     mod tx_builder_sell_nonce_test;
-    
-    #[path = "tests/tx_builder_fee_strategy_test.rs"]
     mod tx_builder_fee_strategy_test;
-    
-    #[path = "tests/tx_builder_output_tests.rs"]
     mod tx_builder_output_tests;
-    
-    #[path = "tests/error_conversion_tests.rs"]
     mod error_conversion_tests;
-    
-    #[path = "tests/execution_context_tests.rs"]
     mod execution_context_tests;
-    
-    #[path = "tests/instruction_ordering_tests.rs"]
     mod instruction_ordering_tests;
-    
-    #[path = "tests/simulation_nonce_tests.rs"]
     mod simulation_nonce_tests;
-    
-    #[path = "tests/nonce_concurrency_tests.rs"]
     mod nonce_concurrency_tests;
-    
-    #[path = "tests/nonce_integration_tests.rs"]
     mod nonce_integration_tests;
-    
-    #[path = "tests/test_helpers.rs"]
     mod test_helpers;
     
     #[test]

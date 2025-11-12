@@ -341,7 +341,7 @@ impl ImprovedNonceAccount {
         proof_data: &ZkProofData,
         current_slot: u64,
     ) -> f64 {
-        let start = Instant::now();
+        let _start = Instant::now();
         
         #[cfg(feature = "zk_enabled")]
         {
@@ -1628,6 +1628,78 @@ impl UniverseNonceManager {
             ml_accuracy: model_stats.ml_accuracy,
             avg_prediction_error: model_stats.avg_prediction_error,
         }
+    }
+    
+    /// Test-only constructor that creates a mock nonce manager without requiring actual RPC calls
+    /// 
+    /// This constructor is intended for unit tests that need a NonceManager instance
+    /// but don't need to make actual on-chain nonce account operations.
+    #[cfg(any(test, feature = "test_utils"))]
+    pub async fn new_for_testing(
+        signer: Arc<dyn SignerService>,
+        nonce_pubkeys: Vec<Pubkey>,
+        lease_timeout: Duration,
+    ) -> Arc<Self> {
+        let pool_size = nonce_pubkeys.len();
+        
+        // Create mock nonce accounts
+        let mut accounts_vec = VecDeque::with_capacity(pool_size);
+        for pubkey in nonce_pubkeys {
+            accounts_vec.push_back(Arc::new(ImprovedNonceAccount::new(
+                pubkey,
+                Hash::new_unique(), // Mock blockhash
+                1_000_000,          // Mock slot far in the future
+            )));
+        }
+        
+        // Mock RPC client and endpoint (won't be used in tests)
+        let rpc_client = Arc::new(RpcClient::new("http://localhost:8899".to_string()));
+        let rpc_endpoint = "http://localhost:8899".to_string();
+        
+        // Initialize watchdog with test-appropriate timeout
+        let watchdog = Arc::new(LeaseWatchdog::new(
+            Duration::from_secs(5),
+            lease_timeout,
+        ));
+        
+        // Start watchdog
+        let accounts_for_watchdog = Arc::new(RwLock::new(accounts_vec.clone()));
+        let watchdog_clone = watchdog.clone();
+        watchdog_clone.start(move |expired_pubkey| {
+            let accounts = accounts_for_watchdog.clone();
+            tokio::spawn(async move {
+                let accounts_read = accounts.read().await;
+                for account in accounts_read.iter() {
+                    if account.pubkey == expired_pubkey {
+                        account.is_tainted.store(true, Ordering::SeqCst);
+                        break;
+                    }
+                }
+            });
+        }).await;
+        
+        // Initialize with default/mock values
+        let circuit_config = CircuitConfig::default();
+        let retry_config = RetryConfig::default();
+        
+        Arc::new(Self {
+            accounts: Arc::new(RwLock::new(accounts_vec)),
+            signer,
+            rpc_client,
+            rpc_endpoint,
+            rpc_pool: None,
+            available_permits: Arc::new(Semaphore::new(pool_size)),
+            permits_in_use: Arc::new(AtomicUsize::new(0)),
+            rt_handle: tokio::runtime::Handle::current(),
+            watchdog,
+            refresh_manager: Arc::new(NonBlockingRefresh::new()),
+            predictive_model: Arc::new(Mutex::new(UniversePredictiveModel::new())),
+            retry_config,
+            circuit_config: Arc::new(RwLock::new(circuit_config)),
+            total_acquires: AtomicU64::new(0),
+            total_releases: AtomicU64::new(0),
+            total_refreshes: AtomicU64::new(0),
+        })
     }
 }
 
