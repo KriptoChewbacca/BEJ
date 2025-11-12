@@ -1236,12 +1236,7 @@ impl TransactionBuilder {
             .collect();
 
         #[cfg(feature = "pumpfun")]
-        let pumpfun_client = PumpFun::new(wallet.clone(), config.cluster.clone()).await.map_err(
-            |e: Box<dyn std::error::Error>| TransactionBuilderError::InstructionBuild {
-                program: "pumpfun".to_string(),
-                reason: e.to_string(),
-            },
-        )?;
+        let pumpfun_client = PumpFun::new(wallet.keypair_arc(), config.cluster.clone());
         
         // Initialize rate limiters
         let rpc_rate_limiter = if config.rpc_rate_limit_rps > 0.0 {
@@ -1670,9 +1665,11 @@ impl TransactionBuilder {
                 let nonce_authority = Some(self.wallet.pubkey());
                 
                 // Extract and verify ZK proof from lease
+                #[cfg(feature = "zk_enabled")]
                 let zk_proof = lease.take_proof();
                 
                 // Verify ZK proof if available (abort on low confidence)
+                #[cfg(feature = "zk_enabled")]
                 if let Some(ref proof) = zk_proof {
                     if proof.confidence < 0.5 {
                         warn!(
@@ -1703,6 +1700,7 @@ impl TransactionBuilder {
                 debug!(
                     nonce_acquire_count = self.nonce_acquire_count.load(Ordering::Relaxed),
                     nonce_pubkey = ?nonce_pubkey,
+                    #[cfg(feature = "zk_enabled")]
                     zk_proof_present = zk_proof.is_some(),
                     enforce_nonce = true,
                     "Using nonce with enforcement enabled"
@@ -1713,6 +1711,7 @@ impl TransactionBuilder {
                     nonce_pubkey,
                     nonce_authority,
                     nonce_lease: Some(lease),
+                    #[cfg(feature = "zk_enabled")]
                     zk_proof,
                 })
             }
@@ -1747,9 +1746,11 @@ impl TransactionBuilder {
                     let nonce_authority = Some(self.wallet.pubkey());
                     
                     // Extract and verify ZK proof from lease
+                    #[cfg(feature = "zk_enabled")]
                     let zk_proof = lease.take_proof();
                     
                     // Verify ZK proof if available (abort on low confidence)
+                    #[cfg(feature = "zk_enabled")]
                     if let Some(ref proof) = zk_proof {
                         if proof.confidence < 0.5 {
                             warn!(
@@ -1780,6 +1781,7 @@ impl TransactionBuilder {
                     debug!(
                         nonce_acquire_count = self.nonce_acquire_count.load(Ordering::Relaxed),
                         nonce_pubkey = ?nonce_pubkey,
+                        #[cfg(feature = "zk_enabled")]
                         zk_proof_present = zk_proof.is_some(),
                         "Using nonce for critical operation"
                     );
@@ -1789,6 +1791,7 @@ impl TransactionBuilder {
                         nonce_pubkey,
                         nonce_authority,
                         nonce_lease: Some(lease),
+                        #[cfg(feature = "zk_enabled")]
                         zk_proof,
                     })
                 }
@@ -2323,9 +2326,12 @@ impl TransactionBuilder {
         };
 
         if sign {
-            self.wallet
-                .sign_transaction(&mut tx)
-                .map_err(|e| TransactionBuilderError::SigningFailed(e.to_string()))?;
+            // Sign the transaction manually since VersionedTransaction doesn't have try_sign
+            use solana_sdk::signature::Signer;
+            let keypair = self.wallet.keypair();
+            let message_bytes = tx.message.serialize();
+            let signature = keypair.sign_message(&message_bytes);
+            tx.signatures = vec![signature];
         } else {
             // Initialize with default signatures matching required number of signers
             let required = crate::compat::get_num_required_signatures(&tx.message) as usize;
@@ -2617,9 +2623,12 @@ impl TransactionBuilder {
         };
 
         if sign {
-            self.wallet
-                .sign_transaction(&mut tx)
-                .map_err(|e| TransactionBuilderError::SigningFailed(e.to_string()))?;
+            // Sign the transaction manually since VersionedTransaction doesn't have try_sign
+            use solana_sdk::signature::Signer;
+            let keypair = self.wallet.keypair();
+            let message_bytes = tx.message.serialize();
+            let signature = keypair.sign_message(&message_bytes);
+            tx.signatures = vec![signature];
         } else {
             let required = crate::compat::get_num_required_signatures(&tx.message) as usize;
             tx.signatures = vec![Signature::default(); required];
@@ -3233,15 +3242,17 @@ impl TransactionBuilder {
             })?;
 
         let versioned_message = VersionedMessage::V0(message_v0);
-        let tx = VersionedTransaction {
+        let mut tx_to_sign = VersionedTransaction {
             signatures: vec![],
             message: versioned_message,
         };
 
-        let mut tx_to_sign = tx;
-        self.wallet
-            .sign_transaction(&mut tx_to_sign)
-            .map_err(|e| TransactionBuilderError::SigningFailed(e.to_string()))?;
+        // Sign the transaction manually since VersionedTransaction doesn't have try_sign
+        use solana_sdk::signature::Signer;
+        let keypair = self.wallet.keypair();
+        let message_bytes = tx_to_sign.message.serialize();
+        let signature_data = keypair.sign_message(&message_bytes);
+        tx_to_sign.signatures = vec![signature_data];
 
         // Simple send via first RPC client
         let rpc = self.rpc_client_for(0);
