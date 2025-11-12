@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! Test for fee strategy unification
 //!
 //! Validates:

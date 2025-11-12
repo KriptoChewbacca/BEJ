@@ -1,3 +1,4 @@
+#![allow(unused_imports, unused_variables)]
 //! Unit tests for TxBuildOutput structure (Phase 1)
 //! 
 //! These tests validate the RAII pattern implementation for nonce management
@@ -246,3 +247,5 @@ mod tx_build_output_tests {
 ///     assert!(available > 0);
 /// }
 /// ```
+#[allow(dead_code)]
+const _INTEGRATION_TEST_DOCS: () = ();

@@ -2,6 +2,8 @@
 //!
 //! Enhanced RPC pooling with health checks, batching, and intelligent rotation
 
+#![allow(unused_imports)]  // Allow unused imports for re-exports that may not be used in all contexts
+
 use std::future::Future;
 use std::pin::Pin;
 use solana_sdk::{signature::Signature, transaction::VersionedTransaction};

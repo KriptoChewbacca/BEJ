@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! Simulation and Nonce Interaction Tests (Issues #37-40)
 //!
 //! This module tests that simulation does NOT consume nonces:
@@ -221,7 +222,7 @@ mod simulation_nonce_tests {
         
         // Acquire nonce lease (for context)
         let lease = nonce_manager.acquire_nonce().await.unwrap();
-        let nonce_pubkey = *lease.nonce_pubkey();
+        let _nonce_pubkey = *lease.nonce_pubkey();
         let nonce_blockhash = lease.nonce_blockhash();
         
         // Build simulation instructions (WITHOUT advance_nonce)

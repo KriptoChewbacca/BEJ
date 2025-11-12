@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 //! Test error type conversions and consolidation
 //!
 //! This test file verifies that the error handling consolidation is working correctly.

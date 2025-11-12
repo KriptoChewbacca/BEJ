@@ -1,3 +1,5 @@
+#![allow(unused_imports)]  // Allow unused imports for re-exports
+
 // Sniffer components
 pub mod config;               // SnifferConfig, Domyślne wartości, parsowanie env/toml
 pub mod integration;          // SnifferApi: start/stop/pause/resume, stats watch, health
