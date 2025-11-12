@@ -38,8 +38,9 @@ use sha2::{Sha256, Digest};
 use bytes::Bytes;
 
 // Conditional imports for ZK proof support
-#[cfg(feature = "zk_enabled")]
-use solana_zk_sdk as zk_sdk;
+// ZK SDK imported but not currently used in this module
+// #[cfg(feature = "zk_enabled")]
+// use solana_zk_sdk as zk_sdk;
 
 /// ZK proof data structure for nonce state validation
 /// Contains a succinct zk-SNARK proof (~1KB) and public inputs for verification

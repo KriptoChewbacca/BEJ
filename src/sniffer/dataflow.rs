@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 pub type CandidateId = u64;
 
 /// Event types for telemetry tracking
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub enum SnifferEvent {
     /// Raw bytes received from Geyser stream
     BytesReceived {

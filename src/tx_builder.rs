@@ -209,12 +209,6 @@ use crate::wallet::WalletManager;
 #[cfg(feature = "pumpfun")]
 use pumpfun::{accounts::BondingCurveAccount, common::types::{Cluster, PriorityFee}, PumpFun};
 
-// Optional integrations: Raydium/Orca (behind feature flags)
-#[cfg(feature = "raydium")]
-use raydium_sdk_v2::AmmSwapClient;
-#[cfg(feature = "orca")]
-use orca_whirlpools::{SwapInput, WhirlpoolClient};
-
 use spl_associated_token_account::get_associated_token_address;
 use spl_token::id as token_program_id;
 use spl_token::instruction::close_account;
@@ -1121,6 +1115,9 @@ pub enum TransactionBuilderError {
     #[error("Feature not enabled: {feature} for {action}")]
     FeatureNotEnabled { feature: String, action: String },
     
+    #[error("Feature not available: {feature} - {reason}")]
+    FeatureNotAvailable { feature: String, reason: String },
+    
     #[error("Simulation failed: {0}")]
     SimulationFailed(String),
     
@@ -1144,24 +1141,20 @@ pub enum UniverseErrorType {
     AnomalyDetected { description: String, confidence: f64 },
 }
 
-// Supported DEX programs with priority ordering (Universe Class Enhanced)
+// Supported DEX programs with priority ordering
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum DexProgram {
     PumpFun,     // Priority 0 (highest)
-    Raydium,     // Priority 1
-    Orca,        // Priority 2
-    LetsBonk,    // Priority 3
-    Unknown(String), // Priority 4 (lowest)
+    LetsBonk,    // Priority 1
+    Unknown(String), // Priority 2 (lowest)
 }
 
 impl DexProgram {
-    /// Get priority score (lower is better) (Universe Class)
+    /// Get priority score (lower is better)
     pub fn priority(&self) -> u8 {
         match self {
             DexProgram::PumpFun => 0,
-            DexProgram::Raydium => 1,
-            DexProgram::Orca => 2,
-            DexProgram::LetsBonk => 3,
+            DexProgram::LetsBonk => 1,
             DexProgram::Unknown(_) => 255,
         }
     }
@@ -1172,8 +1165,6 @@ impl From<&str> for DexProgram {
         match s.to_lowercase().as_str() {
             "pump.fun" | "pumpfun" | "pumpportal" => DexProgram::PumpFun,
             "letsbonk.fun" | "letsbonk" | "bonk" => DexProgram::LetsBonk,
-            "raydium" => DexProgram::Raydium,
-            "orca" => DexProgram::Orca,
             _ => DexProgram::Unknown(s.to_string()),
         }
     }
@@ -1246,7 +1237,7 @@ impl TransactionBuilder {
 
         #[cfg(feature = "pumpfun")]
         let pumpfun_client = PumpFun::new(wallet.clone(), config.cluster.clone()).await.map_err(
-            |e| TransactionBuilderError::InstructionBuild {
+            |e: Box<dyn std::error::Error>| TransactionBuilderError::InstructionBuild {
                 program: "pumpfun".to_string(),
                 reason: e.to_string(),
             },
@@ -2082,14 +2073,10 @@ impl TransactionBuilder {
         let adaptive_priority_fee = config.calculate_adaptive_priority_fee();
         
         // Build program-specific instruction first for simulation
-        // TODO: For true ML-based slippage, instruction builders should accept slippage parameter
-        // For now, they use config.slippage_bps directly
         let dex_program = DexProgram::from(candidate.program.as_str());
         let buy_instruction = match dex_program {
             DexProgram::PumpFun => self.build_pumpfun_instruction(candidate, config).await,
             DexProgram::LetsBonk => self.build_letsbonk_instruction(candidate, config).await,
-            DexProgram::Raydium => self.build_raydium_instruction(candidate, config).await,
-            DexProgram::Orca => self.build_orca_instruction(candidate, config).await,
             DexProgram::Unknown(_) => self.build_placeholder_buy_instruction(candidate, config).await,
         }?;
 
@@ -2388,10 +2375,6 @@ impl TransactionBuilder {
             DexProgram::LetsBonk => {
                 self.build_letsbonk_sell_instruction(mint, sell_percent, config).await
             }
-            DexProgram::Raydium => {
-                self.build_raydium_sell_instruction(mint, sell_percent, config).await
-            }
-            DexProgram::Orca => self.build_orca_sell_instruction(mint, sell_percent, config).await,
             DexProgram::Unknown(_) => {
                 self.build_placeholder_sell_instruction(mint, sell_percent, config).await
             }
@@ -2775,10 +2758,10 @@ impl TransactionBuilder {
     ) -> Result<Instruction, TransactionBuilderError> {
         #[cfg(feature = "pumpfun")]
         {
-            // Pobierz bonding curve do obliczeń slippage
+            // Get bonding curve for slippage calculations
             let bonding_curve = self
                 .pumpfun_client
-                .get_bonding_curve(candidate.mint)
+                .get_bonding_curve_account(&candidate.mint)
                 .await
                 .map_err(|e| TransactionBuilderError::InstructionBuild {
                     program: "pumpfun".to_string(),
@@ -2791,7 +2774,7 @@ impl TransactionBuilder {
                 * (10000u128 - config.slippage_bps as u128)
                 / 10000u128) as u64;
 
-            // Buduj tx i wyciągnij instrukcję buy (ostatnia w tx)
+            // Build tx and extract buy instruction (last in tx)
             let priority_fee = PriorityFee {
                 unit_limit: Some(config.compute_unit_limit as u64),
                 unit_price: Some(config.priority_fee_lamports),
@@ -2868,117 +2851,6 @@ impl TransactionBuilder {
         }
 
         self.build_placeholder_buy_instruction(candidate, config).await
-    }
-
-    async fn build_raydium_instruction(
-        &self,
-        _candidate: &PremintCandidate,
-        _config: &TransactionConfig,
-    ) -> Result<Instruction, TransactionBuilderError> {
-        #[cfg(feature = "raydium")]
-        {
-            let sol_mint =
-                Pubkey::from_str("So11111111111111111111111111111111111111112").unwrap();
-            let raydium_client = AmmSwapClient::new(
-                self.rpc_client_for(0).clone(),
-                sol_mint,
-                candidate.mint,
-                self.wallet.clone(),
-            );
-
-            let expected_tokens = raydium_client
-                .get_swap_amount_out(config.buy_amount_lamports, true) // true = SOL -> token
-                .await
-                .map_err(|e| TransactionBuilderError::InstructionBuild {
-                    program: "raydium".to_string(),
-                    reason: e.to_string(),
-                })?;
-
-            let min_token_out = ((expected_tokens as u128)
-                * (10000u128 - config.slippage_bps as u128)
-                / 10000u128) as u64;
-
-            let tx = raydium_client
-                .swap(config.buy_amount_lamports, min_token_out, true)
-                .await
-                .map_err(|e| TransactionBuilderError::InstructionBuild {
-                    program: "raydium".to_string(),
-                    reason: e.to_string(),
-                })?;
-
-            if let Some(ix) = tx.message.instructions.last() {
-                return Ok(ix.clone());
-            } else {
-                return Err(TransactionBuilderError::InstructionBuild {
-                    program: "raydium".to_string(),
-                    reason: "No instruction in tx".to_string(),
-                });
-            }
-        }
-
-        #[cfg(not(feature = "raydium"))]
-        {
-            Err(TransactionBuilderError::FeatureNotEnabled {
-                feature: "raydium".to_string(),
-                action: "Raydium buy instruction".to_string(),
-            })
-        }
-    }
-
-    async fn build_orca_instruction(
-        &self,
-        _candidate: &PremintCandidate,
-        _config: &TransactionConfig,
-    ) -> Result<Instruction, TransactionBuilderError> {
-        #[cfg(feature = "orca")]
-        {
-            let client = WhirlpoolClient::new(self.rpc_client_for(0).clone());
-            let whirlpool_address = client.derive_whirlpool_pda(
-                Pubkey::from_str("So11111111111111111111111111111111111111112").unwrap(),
-                candidate.mint,
-            );
-            let whirlpool = client
-                .get_whirlpool(&whirlpool_address)
-                .await
-                .map_err(|e| TransactionBuilderError::InstructionBuild {
-                    program: "orca".to_string(),
-                    reason: e.to_string(),
-                })?;
-
-            let quote = client
-                .swap_quote_a_to_b(config.buy_amount_lamports, false, &whirlpool) // false => exact in
-                .await
-                .map_err(|e| TransactionBuilderError::InstructionBuild {
-                    program: "orca".to_string(),
-                    reason: e.to_string(),
-                })?;
-
-            let min_token_out = ((quote.amount_out as u128)
-                * (10000u128 - config.slippage_bps as u128)
-                / 10000u128) as u64;
-
-            let swap_input = SwapInput {
-                amount: config.buy_amount_lamports,
-                other_amount_threshold: min_token_out,
-                sqrt_price_limit: quote.sqrt_price_limit,
-                amount_specified_is_input: true,
-                a_to_b: true,
-            };
-
-            let ix = client
-                .build_swap_ix(&whirlpool_address, &swap_input, &self.wallet.pubkey())
-                .instruction;
-
-            Ok(ix)
-        }
-
-        #[cfg(not(feature = "orca"))]
-        {
-            Err(TransactionBuilderError::FeatureNotEnabled {
-                feature: "orca".to_string(),
-                action: "Orca buy instruction".to_string(),
-            })
-        }
     }
 
     async fn build_pumpportal_or_memo(
@@ -3227,20 +3099,23 @@ impl TransactionBuilder {
         #[cfg(feature = "pumpfun")]
         {
             let ata = get_associated_token_address(&self.wallet.pubkey(), mint);
-            let token_balance = self
-                .pumpfun_client
-                .get_token_balance(ata)
+            
+            // Get token balance directly from RPC
+            let token_account = self
+                .rpc_client_for(0)
+                .get_token_account_balance(&ata)
                 .await
                 .map_err(|e| TransactionBuilderError::InstructionBuild {
                     program: "pumpfun".to_string(),
-                    reason: e.to_string(),
-                })?
-                .unwrap_or(0);
+                    reason: format!("Failed to get token balance: {}", e),
+                })?;
+            
+            let token_balance = token_account.ui_amount.unwrap_or(0.0) as u64;
             let sell_amount = ((token_balance as f64) * sell_percent) as u64;
 
             let bonding_curve = self
                 .pumpfun_client
-                .get_bonding_curve(*mint)
+                .get_bonding_curve_account(mint)
                 .await
                 .map_err(|e| TransactionBuilderError::InstructionBuild {
                     program: "pumpfun".to_string(),
@@ -3285,26 +3160,44 @@ impl TransactionBuilder {
         sell_percent: f64,
         config: &TransactionConfig,
     ) -> Result<Instruction, TransactionBuilderError> {
-        self.build_placeholder_sell_instruction(mint, sell_percent, config)
-            .await
-    }
+        if let Some(url) = &config.letsbonk_api_url {
+            let payload = serde_json::json!({
+                "action": "sell",
+                "mint": mint.to_string(),
+                "sell_percent": sell_percent,
+                "slippage": config.slippage_bps as f64 / 100.0,
+                "payer": self.wallet.pubkey().to_string(),
+            });
 
-    async fn build_raydium_sell_instruction(
-        &self,
-        mint: &Pubkey,
-        sell_percent: f64,
-        config: &TransactionConfig,
-    ) -> Result<Instruction, TransactionBuilderError> {
-        self.build_placeholder_sell_instruction(mint, sell_percent, config)
-            .await
-    }
+            // Apply HTTP rate limiting
+            if let Some(limiter) = &self.http_rate_limiter {
+                limiter.consume(1.0).await;
+            }
 
-    async fn build_orca_sell_instruction(
-        &self,
-        mint: &Pubkey,
-        sell_percent: f64,
-        config: &TransactionConfig,
-    ) -> Result<Instruction, TransactionBuilderError> {
+            let mut req = self.http.post(url).json(&payload);
+            if let Some(k) = &config.letsbonk_api_key {
+                req = req.header("X-API-KEY", k);
+            }
+
+            match req.send().await {
+                Ok(resp) if resp.status().is_success() => {
+                    let j: serde_json::Value = resp.json().await.map_err(|e| {
+                        TransactionBuilderError::InstructionBuild {
+                            program: "letsbonk".to_string(),
+                            reason: format!("JSON parse error: {}", e),
+                        }
+                    })?;
+                    return self.parse_external_api_response(&j, "letsbonk", config);
+                }
+                Ok(resp) => {
+                    warn!("LetsBonk API error on sell: {}", resp.status());
+                }
+                Err(e) => {
+                    warn!("LetsBonk sell request error: {}", e);
+                }
+            }
+        }
+
         self.build_placeholder_sell_instruction(mint, sell_percent, config)
             .await
     }

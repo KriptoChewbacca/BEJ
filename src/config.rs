@@ -25,6 +25,10 @@ pub struct Config {
     
     /// Monitoring and metrics
     pub monitoring: MonitoringConfig,
+    
+    /// Number of nonce accounts to use per transaction (for parallel submission)
+    #[serde(default = "default_nonce_count")]
+    pub nonce_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -128,6 +132,7 @@ fn default_nonce_refresh_interval() -> u64 { 60 }
 fn default_stream_buffer_size() -> usize { 4096 }
 fn default_metrics_port() -> u16 { 9090 }
 fn default_true() -> bool { true }
+fn default_nonce_count() -> usize { 1 }
 
 impl Config {
     /// Load configuration from TOML file
