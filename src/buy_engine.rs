@@ -2537,6 +2537,11 @@ impl BuyEngine {
     }
 }
 
+// Test utilities module (only compiled in test/test_utils feature)
+#[cfg(any(test, feature = "test_utils"))]
+#[path = "test_utils.rs"]
+mod test_utils;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2556,57 +2561,136 @@ mod tests {
         }
     }
 
-    // TODO: Fix test - requires updating to new BuyEngine API (UnboundedReceiver, async NonceManager::new)
+    /// Test: Buy enters passive mode, then sell returns to sniffing
+    /// 
+    /// This test validates the complete buy-sell cycle with deterministic behavior:
+    /// 1. Start in Sniffing mode
+    /// 2. Receive a candidate
+    /// 3. Execute buy (mock) - transition to PassiveToken
+    /// 4. Execute sell (mock) - transition back to Sniffing
+    /// 
+    /// All operations are deterministic with no network calls.
     #[tokio::test]
-    #[ignore = "Test needs updating for new BuyEngine and NonceManager API"]
     async fn buy_enters_passive_and_sell_returns_to_sniffing() {
-        let (tx, rx): (mpsc::Sender<PremintCandidate>, mpsc::Receiver<PremintCandidate>) =
-            mpsc::channel(8);
+        // Seed RNG for determinism
+        fastrand::seed(42);
+        
+        // Pause time for deterministic control
+        tokio::time::pause();
+        
+        // Create unbounded channel as expected by BuyEngine
+        let (tx, rx) = mpsc::unbounded_channel();
 
+        // Initialize app state in Sniffing mode
         let app_state = Arc::new(Mutex::new(AppState::new(Mode::Sniffing)));
 
+        // Create a test nonce manager using the existing new_for_testing method
+        // We'll use LocalSigner and create mock nonce accounts
+        use crate::nonce_manager::LocalSigner;
+        use solana_sdk::signature::Keypair;
+        
+        let test_keypair = Keypair::new();
+        let signer = Arc::new(LocalSigner::new(test_keypair));
+        
+        // Create 2 mock nonce pubkeys
+        let nonce_pubkeys = vec![
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+        ];
+        
+        let nonce_manager = NonceManager::new_for_testing(
+            signer.clone(),
+            nonce_pubkeys,
+            Duration::from_secs(3600), // High TTL for testing
+        ).await;
+
+        // Create test config
+        let config = Config {
+            nonce_count: 1,
+            ..Config::default()
+        };
+
+        // Create the engine with AlwaysOkBroadcaster (mock RPC)
         let mut engine = BuyEngine::new(
             Arc::new(AlwaysOkBroadcaster),
-            Arc::new(NonceManager::new(2)),
+            nonce_manager,
             rx,
             app_state.clone(),
-            Config {
-                nonce_count: 1,
-                ..Config::default()
-            },
-            None, // No transaction builder for tests
+            config,
+            None, // No transaction builder - will use mock mode
         );
 
+        // Create a test candidate - use types::PriorityLevel not sniffer
         let candidate = PremintCandidate {
             mint: Pubkey::new_unique(),
             program: "pump.fun".to_string(),
             accounts: vec![],
-            priority: crate::sniffer::PriorityLevel::High,
+            priority: crate::types::PriorityLevel::High,
             timestamp: 0,
             price_hint: None,
             signature: None,
         };
-        tx.send(candidate).await.unwrap();
-        drop(tx);
-
-        engine.run().await;
-
+        
+        // Send candidate to trigger buy
+        tx.send(candidate.clone()).unwrap();
+        
+        // Don't drop tx yet - we'll need to signal end properly
+        // Instead, spawn the engine run in a background task with a timeout
+        let engine_handle = tokio::spawn(async move {
+            tokio::select! {
+                _ = engine.run() => {},
+                _ = tokio::time::sleep(Duration::from_secs(2)) => {
+                    // Timeout to prevent infinite wait
+                }
+            }
+            engine
+        });
+        
+        // Advance time to allow processing
+        tokio::time::advance(Duration::from_millis(100)).await;
+        tokio::task::yield_now().await;
+        
+        // Advance more time for buy processing
+        tokio::time::advance(Duration::from_millis(500)).await;
+        tokio::task::yield_now().await;
+        
+        // Check that we've entered PassiveToken mode after buy
         {
             let st = app_state.lock().await;
-            match st.mode {
-                Mode::PassiveToken(_) => {}
-                _ => panic!("Expected PassiveToken mode after buy"),
+            let mode = st.mode.read().await;
+            match *mode {
+                Mode::PassiveToken(_) => {
+                    // Success - we're in passive mode
+                }
+                _ => panic!("Expected PassiveToken mode after buy, got: {:?}", *mode),
             }
-            assert_eq!(st.holdings_percent, 1.0);
-            assert!(st.last_buy_price.is_some());
-            assert!(st.active_token.is_some());
+            assert_eq!(st.holdings_percent, 1.0, "Holdings should be 100% after buy");
+            assert!(st.last_buy_price.is_some(), "Should have buy price");
+            assert!(st.active_token.is_some(), "Should have active token");
         }
-
+        
+        // Now test sell operation
+        // Retrieve the engine (it will timeout or complete)
+        drop(tx); // Signal completion
+        tokio::time::advance(Duration::from_secs(1)).await;
+        let engine = engine_handle.await.expect("Engine task should complete");
+        
+        // Execute sell
         engine.sell(1.0).await.expect("sell should succeed");
+        
+        // Yield to allow async operations to complete
+        tokio::task::yield_now().await;
+        
+        // Verify state after sell
         let st = app_state.lock().await;
-        assert!(st.is_sniffing());
-        assert!(st.active_token.is_none());
-        assert!(st.last_buy_price.is_none());
+        let mode = st.mode.read().await;
+        assert!(
+            matches!(*mode, Mode::Sniffing),
+            "Should return to Sniffing mode after 100% sell"
+        );
+        assert!(st.active_token.is_none(), "Active token should be None after sell");
+        assert!(st.last_buy_price.is_none(), "Buy price should be None after sell");
+        assert_eq!(st.holdings_percent, 0.0, "Holdings should be 0% after 100% sell");
     }
 
     // TODO: Fix test - requires updating to new BuyEngine API (UnboundedReceiver, async NonceManager::new)
