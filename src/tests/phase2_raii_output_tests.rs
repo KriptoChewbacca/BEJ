@@ -13,9 +13,7 @@ mod phase2_tests {
     use crate::tx_builder::TxBuildOutput;
     use solana_sdk::{
         hash::Hash,
-        instruction::Instruction,
         message::{v0::Message as MessageV0, VersionedMessage},
-        pubkey::Pubkey,
         signature::Keypair,
         signer::Signer,
         system_instruction,
@@ -58,13 +56,13 @@ mod phase2_tests {
     #[tokio::test]
     async fn test_tx_build_output_into_tx_extracts_transaction() {
         // Test that into_tx() properly extracts the transaction
-        
+
         let tx = create_test_transaction(1);
         let output = TxBuildOutput::new(tx.clone(), None);
-        
+
         // Extract transaction using into_tx
         let extracted_tx = output.into_tx();
-        
+
         // Verify it's the same transaction
         assert_eq!(extracted_tx.signatures.len(), tx.signatures.len());
         println!("✓ into_tx() properly extracts transaction");
@@ -73,13 +71,13 @@ mod phase2_tests {
     #[tokio::test]
     async fn test_tx_build_output_tx_ref_returns_reference() {
         // Test that tx_ref() returns a proper reference
-        
+
         let tx = create_test_transaction(1);
         let output = TxBuildOutput::new(tx.clone(), None);
-        
+
         // Get reference
         let tx_ref = output.tx_ref();
-        
+
         // Verify it's the same transaction
         assert_eq!(tx_ref.signatures.len(), tx.signatures.len());
         println!("✓ tx_ref() returns proper reference");
@@ -88,13 +86,13 @@ mod phase2_tests {
     #[tokio::test]
     async fn test_tx_build_output_required_signers_returns_slice() {
         // Test that required_signers() returns the proper slice
-        
+
         let tx = create_test_transaction(2);
         let output = TxBuildOutput::new(tx, None);
-        
+
         // Get required signers
         let signers = output.required_signers();
-        
+
         // Should have 2 signers
         assert_eq!(signers.len(), 2);
         println!("✓ required_signers() returns proper slice");
@@ -103,28 +101,28 @@ mod phase2_tests {
     #[tokio::test]
     async fn test_tx_build_output_release_nonce_idempotent() {
         // Test that release_nonce is idempotent (safe when no guard)
-        
+
         let tx = create_test_transaction(1);
         let output = TxBuildOutput::new(tx, None);
-        
+
         // Release should succeed even with no guard
         let result = output.release_nonce().await;
         assert!(result.is_ok());
-        
+
         println!("✓ release_nonce() is idempotent (safe with no guard)");
     }
 
     #[test]
     fn test_tx_build_output_drop_with_no_guard() {
         // Test that Drop doesn't panic with no guard
-        
+
         let tx = create_test_transaction(1);
-        
+
         {
             let _output = TxBuildOutput::new(tx, None);
             // Drop happens here
         }
-        
+
         // Should not panic
         println!("✓ Drop doesn't panic with no guard");
     }
@@ -132,28 +130,28 @@ mod phase2_tests {
     #[test]
     fn test_tx_build_output_creation_with_multiple_signers() {
         // Test TxBuildOutput creation with different signer counts
-        
+
         for num_signers in 1..=5 {
             let tx = create_test_transaction(num_signers);
             let output = TxBuildOutput::new(tx, None);
-            
+
             assert_eq!(output.required_signers().len(), num_signers as usize);
         }
-        
+
         println!("✓ TxBuildOutput handles multiple signers correctly");
     }
 
     #[tokio::test]
     async fn test_tx_build_output_double_release_safe() {
         // Test that calling release_nonce consumes output (correct RAII behavior)
-        
+
         let tx = create_test_transaction(1);
         let output = TxBuildOutput::new(tx, None);
-        
+
         // First release consumes output
         let result = output.release_nonce().await;
         assert!(result.is_ok());
-        
+
         // Output is consumed, so we can't release again (which is correct RAII behavior)
         println!("✓ release_nonce() properly consumes output (RAII semantics)");
     }

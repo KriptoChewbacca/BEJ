@@ -270,14 +270,18 @@ mod instruction_ordering_tests {
         );
 
         // Verify accounts
-        assert_eq!(ix.accounts.len(), 2, "Should have 2 accounts");
+        // advance_nonce_account has 3 accounts:
+        // 0. Nonce account (writable)
+        // 1. RecentBlockhashes sysvar (read-only)
+        // 2. Nonce authority (signer)
+        assert_eq!(ix.accounts.len(), 3, "Should have 3 accounts");
         assert_eq!(
             ix.accounts[0].pubkey, nonce_account,
             "First account is nonce"
         );
         assert_eq!(
-            ix.accounts[1].pubkey, nonce_authority,
-            "Second account is authority"
+            ix.accounts[2].pubkey, nonce_authority,
+            "Third account is authority"
         );
 
         // Verify it's detected as advance_nonce

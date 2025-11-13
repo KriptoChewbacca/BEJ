@@ -2181,7 +2181,7 @@ impl TransactionBuilder {
         // Phase 2, Task 2.3: Legacy wrapper with deprecation warning
         use std::sync::Once;
         static WARN_ONCE: Once = Once::new();
-        
+
         WARN_ONCE.call_once(|| {
             warn!(
                 "Legacy API: build_buy_transaction_with_nonce releases nonce early. \
@@ -2192,7 +2192,7 @@ impl TransactionBuilder {
         let output = self
             .build_buy_transaction_output(candidate, config, sign, enforce_nonce)
             .await?;
-        
+
         // Extract transaction, dropping the nonce guard early (legacy behavior)
         Ok(output.into_tx())
     }
@@ -2219,10 +2219,10 @@ impl TransactionBuilder {
     ///
     /// ```no_run
     /// let output = builder.build_buy_transaction_output(&candidate, &config, false, true).await?;
-    /// 
+    ///
     /// // Hold guard during broadcast
     /// let sig = rpc.send_transaction(&output.tx).await?;
-    /// 
+    ///
     /// // Explicitly release after successful broadcast
     /// output.release_nonce().await?;
     /// ```
@@ -2594,10 +2594,10 @@ impl TransactionBuilder {
             priority_fee = adaptive_priority_fee,
             "Buy transaction built successfully"
         );
-        
+
         // Phase 2, Task 2.2: Extract lease from ExecutionContext for RAII transfer
         let nonce_lease = exec_ctx.extract_lease();
-        
+
         // Phase 2, Task 2.1: Create TxBuildOutput with nonce guard
         Ok(TxBuildOutput::new(tx, nonce_lease))
     }
@@ -2658,7 +2658,7 @@ impl TransactionBuilder {
         // Phase 2, Task 2.3: Legacy wrapper with deprecation warning
         use std::sync::Once;
         static WARN_ONCE: Once = Once::new();
-        
+
         WARN_ONCE.call_once(|| {
             warn!(
                 "Legacy API: build_sell_transaction_with_nonce releases nonce early. \
@@ -2669,7 +2669,7 @@ impl TransactionBuilder {
         let output = self
             .build_sell_transaction_output(mint, program, sell_percent, config, sign, enforce_nonce)
             .await?;
-        
+
         // Extract transaction, dropping the nonce guard early (legacy behavior)
         Ok(output.into_tx())
     }
@@ -2698,10 +2698,10 @@ impl TransactionBuilder {
     ///
     /// ```no_run
     /// let output = builder.build_sell_transaction_output(mint, "pump.fun", 1.0, &config, false, true).await?;
-    /// 
+    ///
     /// // Hold guard during broadcast
     /// let sig = rpc.send_transaction(&output.tx).await?;
-    /// 
+    ///
     /// // Explicitly release after successful broadcast
     /// output.release_nonce().await?;
     /// ```
@@ -3033,10 +3033,10 @@ impl TransactionBuilder {
         }
 
         debug!(mint = %mint, "Sell transaction built successfully");
-        
+
         // Phase 2, Task 2.2: Extract lease from ExecutionContext for RAII transfer
         let nonce_lease = exec_ctx.extract_lease();
-        
+
         // Phase 2, Task 2.1: Create TxBuildOutput with nonce guard
         Ok(TxBuildOutput::new(tx, nonce_lease))
     }
