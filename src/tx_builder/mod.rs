@@ -83,10 +83,13 @@ mod legacy;
 mod output;
 mod simulate;
 
-// Re-export key types for convenience (will be populated in later tasks)
+// Re-export key types for convenience
+// Task 2: Export ExecutionContext and TxBuildOutput
+pub use context::ExecutionContext;
+pub use output::TxBuildOutput;
+
+// Future exports (will be populated in later tasks)
 // pub use builder::TxBuilder;
-// pub use context::ExecutionContext;
-// pub use output::TxBuildOutput;
 // pub use instructions::{InstructionPlan, plan_buy_instructions, sanity_check_ix_order};
 // pub use simulate::{strip_nonce_for_simulation, build_sim_tx_like};
 // pub use bundle::{Bundler, BundleCandidate, JitoBundler};
