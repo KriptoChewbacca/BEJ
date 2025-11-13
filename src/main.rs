@@ -47,6 +47,8 @@ mod rpc_manager;
 
 mod buy_engine;
 mod sniffer;
+// Legacy monolithic tx_builder - will be migrated to modular structure in Task 6
+#[path = "tx_builder_legacy.rs"]
 mod tx_builder;
 
 // Re-exports
