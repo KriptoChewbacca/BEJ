@@ -1,32 +1,43 @@
 # Transaction Builder Nonce Management Implementation Plan
 
-## Overview
-This document outlines the implementation plan for three interrelated tasks that enhance nonce management in the `tx_builder.rs` module. These changes introduce proper RAII patterns for nonce leases, enforce durable nonce usage for trading operations, and ensure correct instruction ordering.
+This plan defines precise, sequenced tasks to enhance nonce management and transaction building in `tx_builder.rs`, with safety (RAII), correctness (instruction ordering), and determinism (tests). It is written to be directly actionable by multiple agents working in parallel where possible.
 
 ---
 
-## Task 1: Default Nonce Mode Selection for Trading Operations
+## Pre-requisites and CI gates
+
+- CI required jobs (branch protection):
+  - tests-nightly (baseline + all-features, artifacts)
+  - format-check (rustfmt)
+  - clippy (no deny at first; introduce gradually)
+  - cargo-deny (licenses/bans/sources offline)
+- Feature gating hygiene:
+  - test_utils only under `#[cfg(any(test, feature = "test_utils"))]`
+  - Sanity checks for nonce order under debug/test flag (see Task 3.2)
+
+---
+
+## Task 1: Default Nonce Mode and Safe Acquisition
 
 ### Objective
-Enforce durable nonce as the default for critical trading operations (buy/sell transactions) with explicit control via `enforce_nonce` parameter.
+- Durable nonce is used by default for trade-critical operations (buy/sell), with explicit control via `enforce_nonce`.
+- Avoid TOCTTOU and race conditions in nonce allocation.
 
 ### Changes Required
 
-#### 1.1 Add `enforce_nonce` Parameter
+#### 1.1 Add `enforce_nonce` Parameter (backward-compatible)
+File: `src/tx_builder.rs`
 
-**File**: `src/tx_builder.rs`
-
-**Method Signatures to Modify**:
 ```rust
-// Current signature
+// Current
 pub async fn build_buy_transaction(
     &self,
     candidate: &PremintCandidate,
     config: &TransactionConfig,
     sign: bool,
-) -> Result<VersionedTransaction, TransactionBuilderError>
+) -> Result<VersionedTransaction, TransactionBuilderError>;
 
-// New primary signature (backward compatible wrapper)
+// New wrapper (preserves signature)
 pub async fn build_buy_transaction(
     &self,
     candidate: &PremintCandidate,
@@ -36,163 +47,134 @@ pub async fn build_buy_transaction(
     self.build_buy_transaction_with_nonce(candidate, config, sign, true).await
 }
 
-// New detailed signature
+// Detailed API
 pub async fn build_buy_transaction_with_nonce(
     &self,
     candidate: &PremintCandidate,
     config: &TransactionConfig,
     sign: bool,
     enforce_nonce: bool,
-) -> Result<VersionedTransaction, TransactionBuilderError>
+) -> Result<VersionedTransaction, TransactionBuilderError>;
 ```
 
-Apply similar changes to `build_sell_transaction`.
+Apply same to `build_sell_transaction`.
 
-#### 1.2 Default Priority to CriticalSniper
+#### 1.2 Priority defaulting policy (configurable)
+- Prefer configuration-driven default:
+  - Add optional `default_operation_priority` field in `TransactionConfig` (or global config).
+  - If not set and operation is trade-critical and `enforce_nonce == true`, then default to `OperationPriority::CriticalSniper` when caller passed `Utility`.
+- Minimal change version (if config change is not desired now):
 
-In the method body of `build_buy_transaction_with_nonce`:
 ```rust
-// Default to CriticalSniper priority if not explicitly set
-let mut effective_config = config.clone();
-if effective_config.operation_priority == OperationPriority::Utility {
-    effective_config.operation_priority = OperationPriority::CriticalSniper;
+let mut effective = config.clone();
+if enforce_nonce && matches!(effective.operation_priority, OperationPriority::Utility) {
+    effective.operation_priority = OperationPriority::CriticalSniper;
 }
 ```
 
-#### 1.3 Nonce Availability Validation
+Note: Document this behavior; make it explicit and tested.
 
-Add validation before attempting nonce acquisition:
+#### 1.3 Safe nonce acquisition (no TOCTTOU)
+- Do NOT check `available_permits()` prior to acquisition.
+- Perform acquisition atomically in `ExecutionContext` preparation via `try_acquire()` or equivalent, returning `NonceLease` on success:
+
 ```rust
-if enforce_nonce && effective_config.operation_priority.requires_nonce() {
-    let available = self.nonce_manager.available_permits();
-    if available == 0 {
-        return Err(TransactionBuilderError::NonceAcquisition(
-            "No available nonces for durable mode".to_string()
-        ));
-    }
+// Pseudocode inside prepare_execution_context_with_enforcement
+let mut lease: Option<NonceLease> = None;
+if enforce_nonce && effective.operation_priority.requires_nonce() {
+    lease = self.nonce_manager
+        .try_acquire(/* ttl from config */)
+        .ok_or_else(|| TransactionBuilderError::NonceAcquisition("No available nonces".into()))?;
 }
 ```
 
-#### 1.4 ExecutionContext Enhancement
-
-Modify `prepare_execution_context` to accept `enforce_nonce`:
+#### 1.4 Enhance `prepare_execution_context` and return lease
 ```rust
 async fn prepare_execution_context_with_enforcement(
     &self,
     config: &TransactionConfig,
     enforce_nonce: bool,
-) -> Result<ExecutionContext, TransactionBuilderError>
+) -> Result<ExecutionContext, TransactionBuilderError>;
 ```
 
-Logic:
-- If `enforce_nonce == true`: Acquire nonce lease with TTL=30s
-- If `enforce_nonce == false`: Fallback to `get_recent_blockhash_with_quorum`
+- Behavior:
+  - When `enforce_nonce == true`: acquire `NonceLease` with configurable TTL (default 30s; move value to config).
+  - When `enforce_nonce == false`: obtain recent blockhash via `get_recent_blockhash_with_quorum`, no nonce lease.
 
-#### 1.5 BuyEngine Integration
+#### 1.5 BuyEngine integration (defaults to durable nonce for trading)
+File: `src/buy_engine.rs`
 
-**File**: `src/buy_engine.rs`
-
-Update `try_buy` and related methods to use `enforce_nonce=true` by default:
 ```rust
-let tx = builder.build_buy_transaction_with_nonce(&candidate, &config, false, true).await?;
+let tx = builder
+    .build_buy_transaction_with_nonce(&candidate, &config, /*sign=*/false, /*enforce_nonce=*/true)
+    .await?;
 ```
 
-For utility operations (e.g., unwrap WSOL), use `enforce_nonce=false`.
+- For utility flows (e.g., unwrap WSOL), pass `enforce_nonce=false`.
 
-### Testing Requirements
+### Tests (deterministic)
 
-1. **Unit Test**: Default priority enforcement
-   ```rust
-   #[tokio::test]
-   async fn test_default_critical_sniper_priority() {
-       // Create config with Utility priority
-       // Call build_buy_transaction
-       // Assert that CriticalSniper is used
-   }
-   ```
+- Unit: defaulting behavior
+```rust
+#[tokio::test]
+async fn test_default_critical_sniper_priority_when_enforced() {
+    // config with Utility; enforce_nonce=true
+    // expect CriticalSniper effective priority
+}
+```
 
-2. **Integration Test**: Nonce availability check
-   ```rust
-   #[tokio::test]
-   async fn test_nonce_availability_error() {
-       // Exhaust all nonces
-       // Attempt build with enforce_nonce=true
-       // Expect NonceAcquisition error
-   }
-   ```
+- Integration: acquisition error
+```rust
+#[tokio::test]
+async fn test_nonce_acquisition_error_when_pool_empty() {
+    // exhaust pool -> try_acquire returns None -> expect NonceAcquisition error
+}
+```
 
-3. **Integration Test**: Concurrent nonce acquisition
-   ```rust
-   #[tokio::test]
-   async fn test_concurrent_nonce_acquisition_race() {
-       // Spawn multiple concurrent build_buy_transaction calls
-       // Verify no double-acquisition
-       // Verify no invalid nonce hash usage
-   }
-   ```
+- Concurrency: race-safety
+```rust
+#[tokio::test(flavor="current_thread")]
+async fn test_concurrent_acquisition_no_double_alloc() {
+    // spawn multiple builders; ensure unique leases; deterministic seed + paused time
+}
+```
+
+### Definition of Done (Task 1)
+- New signatures compiled and used in BuyEngine.
+- try_acquire (or atomic acquisition) in context; no `available_permits()` pre-check.
+- TTL configurable; metrics hook for TTL/lease age exists (even if stubbed).
+- Tests deterministic; CI green.
 
 ---
 
-## Task 2: Lease Lifetime (RAII) Management
+## Task 2: Lease Lifetime (RAII) with TxBuildOutput
 
 ### Objective
-Introduce `TxBuildOutput` struct to hold nonce lease with RAII semantics, ensuring nonce is held until broadcast completes.
+- Hold nonce until broadcast completes using RAII.
+- Ensure safe release on success and on error paths.
 
 ### Changes Required
 
-#### 2.1 Define `TxBuildOutput` Struct
-
-**File**: `src/tx_builder.rs`
+#### 2.1 Define `TxBuildOutput` + ergonomics
+File: `src/tx_builder.rs`
 
 ```rust
-/// Output from transaction building with nonce lease (Task 2)
-/// 
-/// This struct ensures the nonce lease is held via RAII until the transaction
-/// is successfully broadcasted. The lease is automatically released when dropped.
 pub struct TxBuildOutput {
-    /// The built transaction ready for signing/broadcast
     pub tx: VersionedTransaction,
-    
-    /// Optional nonce lease guard (held until broadcast completes)
-    /// Automatically released on drop via RAII pattern
     pub nonce_guard: Option<NonceLease>,
-    
-    /// List of required signers for this transaction
-    /// Extracted from message.header.num_required_signatures
     pub required_signers: Vec<Pubkey>,
 }
 
 impl TxBuildOutput {
-    /// Create new output with nonce guard
-    pub fn new(
-        tx: VersionedTransaction,
-        nonce_guard: Option<NonceLease>,
-    ) -> Self {
-        // Extract required signers from transaction message
-        let required_signers = Self::extract_required_signers(&tx);
-        
-        Self {
-            tx,
-            nonce_guard,
-            required_signers,
-        }
-    }
-    
-    /// Extract required signers from transaction
-    fn extract_required_signers(tx: &VersionedTransaction) -> Vec<Pubkey> {
-        let num_signers = tx.message.header().num_required_signatures as usize;
-        tx.message.static_account_keys()
-            .iter()
-            .take(num_signers)
-            .copied()
-            .collect()
-    }
-    
-    /// Explicitly release nonce guard (if held)
+    pub fn new(tx: VersionedTransaction, nonce_guard: Option<NonceLease>) -> Self { /* ... */ }
+
+    pub fn tx_ref(&self) -> &VersionedTransaction { &self.tx }
+    pub fn into_tx(self) -> VersionedTransaction { self.tx } // if needed
+    pub fn required_signers(&self) -> &[Pubkey] { &self.required_signers }
+
     pub async fn release_nonce(mut self) -> Result<(), TransactionBuilderError> {
         if let Some(guard) = self.nonce_guard.take() {
-            guard.release().await
-                .map_err(|e| TransactionBuilderError::NonceAcquisition(e.to_string()))?;
+            guard.release().await.map_err(|e| TransactionBuilderError::NonceAcquisition(e.to_string()))?;
         }
         Ok(())
     }
@@ -201,19 +183,34 @@ impl TxBuildOutput {
 impl Drop for TxBuildOutput {
     fn drop(&mut self) {
         if self.nonce_guard.is_some() {
-            warn!("TxBuildOutput dropped with active nonce guard - lease will be released");
+            // Only log here. Actual resource return must happen in NonceLease::drop
+            warn!("TxBuildOutput dropped with active nonce guard");
         }
     }
 }
 ```
 
-#### 2.2 Add New Output Methods
+Ergonomics reduce cloning and make integration straightforward.
 
+#### 2.2 ExecutionContext: extract lease
 ```rust
-/// Build buy transaction with output structure (Task 2)
-/// 
-/// Returns TxBuildOutput which holds the nonce lease until explicitly released
-/// or dropped. This ensures proper RAII semantics for nonce management.
+struct ExecutionContext {
+    blockhash: Hash,
+    nonce_pubkey: Option<Pubkey>,
+    nonce_authority: Option<Pubkey>,
+    _nonce_lease: Option<NonceLease>,
+    // ...
+}
+
+impl ExecutionContext {
+    pub fn extract_lease(mut self) -> Option<NonceLease> {
+        self._nonce_lease.take()
+    }
+}
+```
+
+#### 2.3 Output-builder methods
+```rust
 pub async fn build_buy_transaction_output(
     &self,
     candidate: &PremintCandidate,
@@ -221,406 +218,235 @@ pub async fn build_buy_transaction_output(
     sign: bool,
     enforce_nonce: bool,
 ) -> Result<TxBuildOutput, TransactionBuilderError> {
-    // Similar to build_buy_transaction_with_nonce but:
-    // 1. Keep exec_ctx in scope
-    // 2. Extract nonce_lease from exec_ctx before drop
-    // 3. Return TxBuildOutput with lease
-    
     let exec_ctx = self.prepare_execution_context_with_enforcement(config, enforce_nonce).await?;
-    
-    // Build transaction...
-    let tx = /* ... build transaction logic ... */;
-    
-    // Extract nonce lease from exec_ctx before it drops
-    let nonce_lease = exec_ctx.extract_lease(); // New method needed
-    
+    let tx = /* build */;
+    let nonce_lease = exec_ctx.extract_lease();
     Ok(TxBuildOutput::new(tx, nonce_lease))
 }
 
-/// Legacy wrapper - releases nonce early with warning
-pub async fn build_buy_transaction_with_nonce(
-    &self,
-    candidate: &PremintCandidate,
-    config: &TransactionConfig,
-    sign: bool,
-    enforce_nonce: bool,
-) -> Result<VersionedTransaction, TransactionBuilderError> {
-    let output = self.build_buy_transaction_output(candidate, config, sign, enforce_nonce).await?;
-    
-    warn!("Legacy API: releasing nonce early - migrate to build_buy_transaction_output for safety");
-    
+// Legacy wrapper (kept for compatibility; warn once)
+pub async fn build_buy_transaction_with_nonce(/* ... */) -> Result<VersionedTransaction, TransactionBuilderError> {
+    static WARN_ONCE: std::sync::Once = std::sync::Once::new();
+    let output = self.build_buy_transaction_output(/*...*/).await?;
+    WARN_ONCE.call_once(|| warn!("Legacy API: releasing nonce early - migrate to *_output"));
     Ok(output.tx)
-    // nonce_guard dropped here (early release)
 }
 ```
 
-Apply similar changes to sell transaction methods.
+Apply to `sell` as well.
 
-#### 2.3 Modify ExecutionContext
+#### 2.4 NonceLease Drop responsibility
+- Ensure `NonceLease` returns permit/resources in its own `Drop` (non-async), to cover all error paths safely.
+- If async work is required for release, spawn a background task within `Drop` (fire-and-forget) using a non-blocking channel/handle.
 
-Update `ExecutionContext` to allow extracting the lease:
+#### 2.5 BuyEngine integration
+- Use `*_output` method; hold output until broadcast resolves; call `release_nonce()` on success, `drop(output)` on error.
 
-```rust
-struct ExecutionContext {
-    blockhash: Hash,
-    nonce_pubkey: Option<Pubkey>,
-    nonce_authority: Option<Pubkey>,
-    _nonce_lease: Option<NonceLease>,
-    zk_proof: Option<ZkProofData>,
-}
+### Tests
 
-impl ExecutionContext {
-    /// Extract the nonce lease, consuming it (Task 2)
-    pub fn extract_lease(mut self) -> Option<NonceLease> {
-        self._nonce_lease.take()
-    }
-}
-```
+- Unit: `TxBuildOutput` drop behavior with mocked `NonceLease` counting releases.
+- Concurrency: hold multiple outputs at once; no deadlocks; stable under paused time.
+- Integration: broadcast error leads to immediate release via `Drop` of `NonceLease` (observable in mock metrics/log).
 
-#### 2.4 BuyEngine Integration
-
-**File**: `src/buy_engine.rs`
-
-Update `try_buy` to use output methods:
-
-```rust
-async fn try_buy(&self, candidate: PremintCandidate, ctx: PipelineContext) -> Result<Signature> {
-    // Build transaction with output
-    let output = self.tx_builder.unwrap()
-        .build_buy_transaction_output(&candidate, &config, false, true)
-        .await?;
-    
-    // Hold nonce guard during broadcast
-    let result = self.rpc.send_on_many_rpc(vec![output.tx.clone()], Some(CorrelationId::new())).await;
-    
-    match result {
-        Ok(sig) => {
-            // Success - explicitly release nonce
-            output.release_nonce().await?;
-            Ok(sig)
-        }
-        Err(e) => {
-            // Error - drop output (auto-releases nonce)
-            drop(output);
-            Err(e)
-        }
-    }
-}
-```
-
-### Testing Requirements
-
-1. **Unit Test**: TxBuildOutput drop behavior
-   ```rust
-   #[tokio::test]
-   async fn test_tx_build_output_drop_releases_lease() {
-       // Create TxBuildOutput with mock nonce lease
-       // Drop it
-       // Verify lease release was called
-   }
-   ```
-
-2. **Concurrent Test**: Multiple held leases
-   ```rust
-   #[tokio::test]
-   async fn test_concurrent_lease_holding() {
-       // Build multiple transactions with output
-       // Hold them concurrently
-       // Simulate delays
-       // Verify no nonce race conditions
-   }
-   ```
-
-3. **Integration Test**: Early drop on error
-   ```rust
-   #[tokio::test]
-   async fn test_early_nonce_release_on_error() {
-       // Build transaction
-       // Simulate broadcast failure
-       // Verify nonce is released immediately
-   }
-   ```
+### Definition of Done (Task 2)
+- `*_output` methods available and used in BuyEngine critical paths.
+- `NonceLease::drop` guarantees resource return; no leaks after error paths.
+- Deterministic tests covering drop-on-error and explicit release.
 
 ---
 
-## Task 3: Instruction Ordering for Durable Nonce
+## Task 3: Durable Nonce Instruction Ordering and Simulation
 
 ### Objective
-Ensure correct instruction ordering when using durable nonces: `advance_nonce_ix` must be first, followed by compute budget instructions, then DEX instruction.
+- Ensure `advance_nonce_account` is the FIRST instruction when using durable nonce.
+- Keep compute budget and DEX instructions after it.
+- Keep simulation realistic without consuming nonce.
 
 ### Changes Required
 
-#### 3.1 Update Instruction Building Logic
-
-**File**: `src/tx_builder.rs`
-
-Current code builds instructions in this order in `build_buy_transaction`:
+#### 3.1 Instruction ordering in builders
 ```rust
-// Current (incorrect for durable nonce):
-instructions.push(ComputeBudgetInstruction::set_compute_unit_limit(...));
-instructions.push(ComputeBudgetInstruction::set_compute_unit_price(...));
-instructions.push(advance_nonce_ix); // Wrong position!
-instructions.push(buy_instruction);
-```
-
-Change to:
-```rust
-// Task 3: Correct ordering for durable nonce
+// Pseudocode inside build_*:
 if let (Some(nonce_pub), Some(nonce_auth)) = (exec_ctx.nonce_pubkey, exec_ctx.nonce_authority) {
-    // FIRST: Advance nonce instruction
-    let advance_nonce_ix = solana_sdk::system_instruction::advance_nonce_account(
-        &nonce_pub,
-        &nonce_auth,
-    );
-    instructions.push(advance_nonce_ix);
-    debug!("Added nonce advance instruction as FIRST instruction");
+    let ix_advance = solana_sdk::system_instruction::advance_nonce_account(&nonce_pub, &nonce_auth);
+    instructions.push(ix_advance); // FIRST
 }
-
-// SECOND: Compute budget instructions
 if dynamic_cu_limit > 0 {
     instructions.push(ComputeBudgetInstruction::set_compute_unit_limit(dynamic_cu_limit));
 }
 if adaptive_priority_fee > 0 && !is_placeholder {
     instructions.push(ComputeBudgetInstruction::set_compute_unit_price(adaptive_priority_fee));
 }
-
-// THIRD: DEX instruction
-instructions.push(buy_instruction);
+instructions.push(buy_or_sell_ix);
 ```
 
-Apply same ordering to `build_sell_transaction`.
-
-#### 3.2 Add Sanity Check Function
+#### 3.2 Sanity check (debug/test only)
+- Avoid brittle byte checks.
+- Prefer recognizing instruction type via:
+  - constructing a reference `advance_nonce_account` and comparing `program_id` and account metas shape; or
+  - decoding instruction data to `SystemInstruction` using official helper if available.
+- Gate under `#[cfg(debug_assertions)]` or a feature flag (`nonce_sanity_checks`):
 
 ```rust
-/// Sanity check instruction order for durable nonce transactions (Task 3)
-/// 
-/// Validates that if a transaction uses durable nonce, the advance_nonce
-/// instruction is in the correct position (first instruction).
-/// 
-/// Returns Ok(()) if ordering is correct, Err if invalid.
-fn sanity_check_ix_order(
-    instructions: &[Instruction],
-    is_durable_nonce: bool,
-) -> Result<(), TransactionBuilderError> {
-    if !is_durable_nonce {
-        // No nonce, no ordering requirements
-        return Ok(());
+#[cfg(any(test, debug_assertions))]
+fn sanity_check_ix_order(instructions: &[Instruction], is_durable: bool) -> Result<(), TransactionBuilderError> {
+    if !is_durable { return Ok(()); }
+    let Some(first) = instructions.first() else { /* Err */ };
+    if first.program_id != solana_sdk::system_program::id() {
+        return Err(/* ... */);
     }
-    
-    if instructions.is_empty() {
-        return Err(TransactionBuilderError::InstructionBuild {
-            program: "sanity_check".to_string(),
-            reason: "Empty instruction list for durable nonce transaction".to_string(),
-        });
-    }
-    
-    // First instruction must be advance_nonce_account
-    let first_ix = &instructions[0];
-    let system_program = solana_sdk::system_program::id();
-    
-    if first_ix.program_id != system_program {
-        return Err(TransactionBuilderError::InstructionBuild {
-            program: "sanity_check".to_string(),
-            reason: format!(
-                "Invalid nonce ix order: first instruction program_id is {}, expected {}",
-                first_ix.program_id, system_program
-            ),
-        });
-    }
-    
-    // Check instruction data indicates advance_nonce (discriminator check)
-    // advance_nonce_account has discriminator [4, 0, 0, 0] (instruction index 4)
-    if first_ix.data.len() < 4 || &first_ix.data[0..4] != &[4, 0, 0, 0] {
-        return Err(TransactionBuilderError::InstructionBuild {
-            program: "sanity_check".to_string(),
-            reason: "Invalid nonce ix order: first instruction is not advance_nonce_account".to_string(),
-        });
-    }
-    
-    info!("Nonce instruction order validated successfully");
+    // Option A: compare with a reference advance_nonce built with placeholder accounts’ discriminator
+    // Option B: decode to SystemInstruction::AdvanceNonceAccount if helper available
     Ok(())
 }
 ```
 
-#### 3.3 Integrate Sanity Check
+Call after instruction build in debug/test.
 
-Call after building instructions:
+#### 3.3 Simulation path skips nonce advance
 ```rust
-// Build instructions
-let mut instructions: Vec<Instruction> = Vec::with_capacity(4);
-// ... build instructions ...
-
-// Task 3: Validate instruction order
 let is_durable = exec_ctx.nonce_pubkey.is_some();
-sanity_check_ix_order(&instructions, is_durable)?;
-```
-
-#### 3.4 Update Simulation Logic
-
-Skip advance_nonce instruction during simulation:
-```rust
-// Build simulation instructions (skip nonce advance)
 let sim_instructions: Vec<Instruction> = if is_durable {
-    // Skip first instruction (advance_nonce)
     instructions.iter().skip(1).cloned().collect()
 } else {
     instructions.clone()
 };
-
-// Simulate with modified instruction list
-let sim_tx = VersionedTransaction { /* ... */ };
+// Build a simulation transaction using sim_instructions; do not include advance_nonce
 ```
 
-### Testing Requirements
+### Tests
 
-1. **Unit Test**: Instruction order validation
-   ```rust
-   #[test]
-   fn test_sanity_check_correct_nonce_order() {
-       // Build instruction list with correct order
-       // Call sanity_check_ix_order
-       // Expect Ok(())
-   }
-   
-   #[test]
-   fn test_sanity_check_wrong_nonce_order() {
-       // Build instruction list with wrong order
-       // Call sanity_check_ix_order
-       // Expect Err
-   }
-   ```
+- Unit: sanity check passes/fails with correct/wrong order.
+- Integration (local validator): wrong order => `TransactionError::NonceAdvanceFailed`; correct order => success.
+- Unit: simulation skips nonce advance while preserving compute budget + DEX instructions.
 
-2. **Integration Test**: Local validator submission
-   ```rust
-   #[tokio::test]
-   async fn test_wrong_order_transaction_fails() {
-       // Build transaction with wrong instruction order
-       // Submit to local validator
-       // Expect TransactionError::NonceAdvanceFailed
-   }
-   
-   #[tokio::test]
-   async fn test_correct_order_transaction_succeeds() {
-       // Build transaction with correct order
-       // Submit to local validator
-       // Expect success
-   }
-   ```
-
-3. **Unit Test**: Simulation with nonce skip
-   ```rust
-   #[tokio::test]
-   async fn test_simulation_skips_advance_nonce() {
-       // Build durable nonce transaction
-       // Simulate
-       // Verify advance_nonce not in simulated instructions
-   }
-   ```
+### Definition of Done (Task 3)
+- Correct order enforced in builders.
+- Sanity check active in debug/test builds, disabled in prod by default.
+- Simulation path implemented and used in tests.
+- CI green.
 
 ---
 
-## Implementation Order
+## Implementation Order and Assignment
 
-1. **Phase 1**: Task 1 (enforce_nonce parameter and validation)
-   - Add `enforce_nonce` parameter
-   - Implement default CriticalSniper priority
-   - Add nonce availability validation
-   - Update BuyEngine integration
-   - Write and pass unit tests
+1. Phase 1 (Task 1) — API + acquisition (Owner: Builder Core Team)
+   - Add `enforce_nonce` param + wrappers.
+   - Implement `prepare_execution_context_with_enforcement` with atomic `try_acquire`.
+   - Make TTL configurable; add metric hook (lease age at broadcast).
+   - Update BuyEngine call sites (only buy/sell).
+   - Add/green tests (defaulting, acquisition error, concurrency).
 
-2. **Phase 2**: Task 2 (TxBuildOutput and RAII)
-   - Define `TxBuildOutput` struct
-   - Add `build_*_output` methods
-   - Modify `ExecutionContext` to extract lease
-   - Update BuyEngine to use output methods
-   - Write and pass concurrent tests
+2. Phase 2 (Task 2) — RAII output + engine integration (Owner: Builder Core + Engine Team)
+   - Define `TxBuildOutput` with ergonomics.
+   - Add `build_*_output`; keep legacy wrappers (warn once).
+   - Ensure `NonceLease::drop` returns resources; adjust if async release is needed.
+   - Refactor BuyEngine to use output and hold guard.
+   - Tests for drop/release/concurrency in deterministic runtime.
 
-3. **Phase 3**: Task 3 (instruction ordering)
-   - Reorder instruction building logic
-   - Implement `sanity_check_ix_order`
-   - Update simulation to skip nonce advance
-   - Write and pass integration tests with local validator
+3. Phase 3 (Task 3) — Instruction order + simulation (Owner: Builder Core)
+   - Enforce ordering; implement debug/test `sanity_check_ix_order`.
+   - Implement simulation path to skip nonce advance.
+   - Tests for order, validator behavior, and simulation.
 
-4. **Phase 4**: Integration testing
-   - End-to-end tests combining all three tasks
-   - Performance testing (latency impact)
-   - Stress testing (concurrent operations)
+4. Phase 4 — E2E/Perf/Stress (Owner: QA/Perf)
+   - E2E combining Tasks 1–3 on local validator.
+   - Perf target: added overhead < 5ms; memory stable; no leaks.
+   - Stress tests with concurrent builds; no double-acquire, no stale nonce usage.
+
+Parallelization notes:
+- Phase 1 and 2 can be partially parallel: define types/interfaces first; integration follows.
+- Phase 3 can start once builder returns ordered instruction lists (even behind feature flag).
 
 ---
 
-## Backward Compatibility
+## Backward Compatibility and Migration
 
-### Legacy API Support
-- Keep original `build_buy_transaction` and `build_sell_transaction` signatures
-- Implement as wrappers calling new methods with defaults
-- Add deprecation warnings in logs for legacy usage
+- Legacy `build_*_transaction` signatures retained as wrappers calling new methods.
+- Log deprecation at WARN only once via `Once`/`OnceCell`; subsequent calls at INFO or suppressed.
+- Clear migration guidance in docs and examples.
 
-### Migration Path
+Migration snippet:
 ```rust
-// Old code (still works but suboptimal):
+// Legacy:
 let tx = builder.build_buy_transaction(&candidate, &config, false).await?;
 
-// New code (optimal):
+// Recommended:
 let output = builder.build_buy_transaction_output(&candidate, &config, false, true).await?;
-// ... hold output.nonce_guard until broadcast completes ...
+// keep `output` alive through broadcast
+let sig = rpc.send_transaction(&output.tx).await?;
 output.release_nonce().await?;
 ```
 
 ---
 
-## Potential Issues & Mitigations
+## Risks and Mitigations
 
-### Issue 1: Nonce Lease Timeout
-**Problem**: If transaction building + broadcast takes longer than lease TTL (30s), nonce becomes invalid.
-
-**Mitigation**:
-- Add configurable TTL
-- Implement lease extension mechanism
-- Add telemetry for lease age at broadcast time
-
-### Issue 2: Memory Leaks from Unreleased Leases
-**Problem**: If `TxBuildOutput` is forgotten/leaked, nonce stays locked.
-
-**Mitigation**:
-- RAII Drop implementation ensures release
-- Add watchdog task to reclaim expired leases
-- Add metrics for lease hold duration
-
-### Issue 3: Instruction Order Validation Performance
-**Problem**: `sanity_check_ix_order` adds overhead to every transaction.
-
-**Mitigation**:
-- Make sanity check optional via feature flag in production
-- Only run in debug/test builds by default
-- Cache validation results for repeated patterns
+- Nonce Lease Timeout:
+  - TTL configurable; extension mechanism (future); metric for lease age at broadcast.
+- Memory/resource leaks:
+  - `NonceLease::drop` returns resource; watchdog (future) to reclaim expired; metric for hold duration.
+- Performance cost of sanity checks:
+  - Only in debug/test or feature-guarded; not in prod; O(1) check.
+- Regression risk in BuyEngine paths:
+  - Feature-flag rollout or staged PRs; integration tests with paused time and seeded RNG.
 
 ---
 
 ## Success Criteria
 
-1. **Correctness**: All transactions using durable nonces have correct instruction ordering
-2. **Safety**: No nonce races or double-acquisitions in concurrent scenarios
-3. **Performance**: < 5ms overhead from new validation/RAII logic
-4. **Reliability**: Nonce leases always released, even on errors
-5. **Testability**: 100% test coverage for new code paths
-6. **Maintainability**: Clear documentation and examples
+1. Correct instruction ordering for durable nonce transactions.
+2. No double-acquisition or race issues under concurrency.
+3. Overhead from RAII/validation < 5ms.
+4. Leases always released (success or error).
+5. Deterministic tests; CI green across required jobs.
+6. Clear documentation and maintainable APIs.
 
 ---
 
-## Appendix: Code Locations
+## Appendix: Code Locations and Interfaces
 
-### Files to Modify
-- `src/tx_builder.rs` (primary changes)
-- `src/buy_engine.rs` (integration)
-- `src/types.rs` (if TransactionConfig needs extension)
+- Modify:
+  - `src/tx_builder.rs` (signatures, output types, ordering, simulation)
+  - `src/buy_engine.rs` (integration with `*_output`)
+  - `src/types.rs` (if config gains default priority and TTL fields)
+  - `src/nonce manager/*` (`NonceLease` drop semantics if needed)
+- Tests:
+  - `src/tests/tx_builder_universe_tests.rs`
+  - `src/tests/nonce_lease_tests.rs`
+  - `tests/integration/*` (local validator)
+- Feature flags:
+  - `test_utils`
+  - `nonce_sanity_checks` (optional; enabled in test/debug)
 
-### Dependencies
-- `NonceManager` from `src/nonce manager/mod.rs`
-- `NonceLease` from `src/nonce manager/nonce_lease.rs`
-- `ZkProofData` from `src/nonce manager/nonce_manager_integrated.rs`
+---
 
-### Test Files
-- `src/tests/tx_builder_universe_tests.rs` (unit tests)
-- `src/tests/nonce_lease_tests.rs` (lease RAII tests)
-- Integration tests in `tests/integration/` (local validator tests)
+## Agent-friendly Checklist (per PR)
+
+- PR A (Phase 1 – API & acquisition)
+  - [ ] Add `enforce_nonce` param and wrappers for buy/sell
+  - [ ] Implement `prepare_execution_context_with_enforcement` with `try_acquire`
+  - [ ] TTL from config; add lease-age metric hook
+  - [ ] Update BuyEngine calls
+  - [ ] Add unit/integration tests (defaulting, error, concurrency)
+  - [ ] CI green
+
+- PR B (Phase 2 – RAII & engine)
+  - [ ] Implement `TxBuildOutput` + ergonomics
+  - [ ] Add `build_*_output`; legacy wrappers warn once
+  - [ ] Ensure `NonceLease::drop` returns resources; adjust if async
+  - [ ] Refactor BuyEngine to hold output through broadcast
+  - [ ] Tests for drop/release and concurrency (deterministic)
+  - [ ] CI green
+
+- PR C (Phase 3 – Ordering & simulation)
+  - [ ] Enforce instruction order; add debug/test sanity check
+  - [ ] Implement simulation path (skip advance_nonce)
+  - [ ] Tests: unit for check, integration on validator
+  - [ ] CI green
+
+- PR D (Phase 4 – E2E/Perf)
+  - [ ] E2E tests (local validator)
+  - [ ] Perf/Stress measurements (overhead < 5ms)
+  - [ ] Docs update with migration guidance
+  - [ ] CI green
