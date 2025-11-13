@@ -1,0 +1,143 @@
+name: Build Matrix CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # Job 1: Build checks across different feature combinations
+  check-matrix:
+    name: Check (${{ matrix.features }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        features:
+          - "default"
+          - "mock-mode"
+          - "pumpfun"
+          - "test_utils"
+          - "perf"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: check-${{ matrix.features }}
+          shared-key: "check"
+
+      - name: Check build (${{ matrix.features }})
+        run: |
+          if [ "${{ matrix.features }}" = "default" ]; then
+            cargo check --no-default-features
+          elif [ "${{ matrix.features }}" = "all-features" ]; then
+            cargo check --all-features
+          else
+            cargo check --no-default-features --features ${{ matrix.features }}
+          fi
+
+  # Job 2: Tests with various feature combinations
+  test-matrix:
+    name: Test (${{ matrix.features }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        features:
+          - "default"
+          - "mock-mode"
+          - "test_utils"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: test-${{ matrix.features }}
+          shared-key: "test"
+
+      - name: Run tests (${{ matrix.features }})
+        run: |
+          if [ "${{ matrix.features }}" = "default" ]; then
+            cargo test --no-default-features
+          elif [ "${{ matrix.features }}" = "all-features" ]; then
+            cargo test --all-features
+          else
+            cargo test --no-default-features --features ${{ matrix.features }}
+          fi
+
+  # Job 3: Clippy linting check
+  clippy-check:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: clippy
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: clippy
+          shared-key: "clippy"
+
+      - name: Run clippy
+        run: cargo clippy --no-default-features --all-targets
+
+  # Job 4: Format checking
+  format-check:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+  # Job 5: Cargo deny for dependency license and security checks
+  cargo-deny:
+    name: Cargo Deny
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+
+      - name: Run cargo deny
+        run: |
+          # Skip advisories check as it requires network access to fetch advisory database
+          # Check licenses, bans, and sources which can run offline
+          cargo deny check licenses
+          cargo deny check bans
+          cargo deny check sources
