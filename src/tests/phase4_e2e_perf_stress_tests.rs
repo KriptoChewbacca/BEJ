@@ -1,7 +1,7 @@
 //! Phase 4: E2E, Performance, and Stress Tests
 //!
 //! This module implements Phase 4 of the TX_BUILDER_NONCE_IMPLEMENTATION_PLAN.
-//! 
+//!
 //! Tests cover:
 //! - E2E tests combining Tasks 1-3 (nonce enforcement, RAII, instruction ordering)
 //! - Performance tests (overhead < 5ms target)
@@ -65,13 +65,13 @@ mod phase4_tests {
         // First instruction should be advance_nonce (system program, discriminator 4)
         let first_ix = &message.instructions[0];
         let program_id_idx = first_ix.program_id_index as usize;
-        
+
         if program_id_idx >= account_keys.len() {
             return false;
         }
 
         let program_id = account_keys[program_id_idx];
-        
+
         // Check if it's system program
         if program_id != solana_sdk::system_program::id() {
             return false;
@@ -119,13 +119,8 @@ mod phase4_tests {
             1_000_000,
         ));
 
-        let message = MessageV0::try_compile(
-            &payer.pubkey(),
-            &instructions,
-            &[],
-            nonce_blockhash,
-        )
-        .unwrap();
+        let message =
+            MessageV0::try_compile(&payer.pubkey(), &instructions, &[], nonce_blockhash).unwrap();
 
         // Sign with both payer and nonce authority (if different)
         let signers: Vec<&dyn Signer> = if payer.pubkey() == nonce_authority.pubkey() {
@@ -159,12 +154,7 @@ mod phase4_tests {
 
         // Build transaction (Task 2 - wrapped in TxBuildOutput-like structure)
         // Use payer as nonce authority for simplicity
-        let tx = build_test_transaction_with_nonce(
-            &nonce_pubkey,
-            &payer,
-            nonce_blockhash,
-            &payer,
-        );
+        let tx = build_test_transaction_with_nonce(&nonce_pubkey, &payer, nonce_blockhash, &payer);
 
         // Verify instruction ordering (Task 3)
         assert!(
@@ -219,12 +209,8 @@ mod phase4_tests {
             let nonce_pubkey = *lease.nonce_pubkey();
             let nonce_blockhash = lease.nonce_blockhash();
 
-            let tx = build_test_transaction_with_nonce(
-                &nonce_pubkey,
-                &payer,
-                nonce_blockhash,
-                &payer,
-            );
+            let tx =
+                build_test_transaction_with_nonce(&nonce_pubkey, &payer, nonce_blockhash, &payer);
 
             assert!(
                 verify_advance_nonce_first(&tx),
@@ -251,12 +237,7 @@ mod phase4_tests {
         let nonce_pubkey = *lease.nonce_pubkey();
         let nonce_blockhash = lease.nonce_blockhash();
 
-        let tx = build_test_transaction_with_nonce(
-            &nonce_pubkey,
-            &payer,
-            nonce_blockhash,
-            &payer,
-        );
+        let tx = build_test_transaction_with_nonce(&nonce_pubkey, &payer, nonce_blockhash, &payer);
 
         // Detailed instruction ordering validation
         let message = match &tx.message {
@@ -271,7 +252,10 @@ mod phase4_tests {
 
         // Verify first is advance_nonce
         let first_ix = &message.instructions[0];
-        assert_eq!(first_ix.data[0], 4, "First instruction should be advance_nonce");
+        assert_eq!(
+            first_ix.data[0], 4,
+            "First instruction should be advance_nonce"
+        );
 
         drop(lease.release().await);
 
@@ -299,7 +283,7 @@ mod phase4_tests {
 
             durations.push(duration);
             drop(lease.release().await);
-            
+
             // Small delay to avoid contention
             tokio::time::sleep(Duration::from_micros(100)).await;
         }
@@ -343,12 +327,8 @@ mod phase4_tests {
             let nonce_blockhash = lease.nonce_blockhash();
 
             let start = Instant::now();
-            let _tx = build_test_transaction_with_nonce(
-                &nonce_pubkey,
-                &payer,
-                nonce_blockhash,
-                &payer,
-            );
+            let _tx =
+                build_test_transaction_with_nonce(&nonce_pubkey, &payer, nonce_blockhash, &payer);
             let duration = start.elapsed();
 
             with_nonce_durations.push(duration);
@@ -364,13 +344,9 @@ mod phase4_tests {
                 &Pubkey::new_unique(),
                 1_000_000,
             )];
-            let message = MessageV0::try_compile(
-                &payer.pubkey(),
-                &instructions,
-                &[],
-                Hash::default(),
-            )
-            .unwrap();
+            let message =
+                MessageV0::try_compile(&payer.pubkey(), &instructions, &[], Hash::default())
+                    .unwrap();
             let _tx =
                 VersionedTransaction::try_new(VersionedMessage::V0(message), &[&payer]).unwrap();
             let duration = start.elapsed();
@@ -378,8 +354,10 @@ mod phase4_tests {
             without_nonce_durations.push(duration);
         }
 
-        let avg_with: Duration = with_nonce_durations.iter().sum::<Duration>() / NUM_ITERATIONS as u32;
-        let avg_without: Duration = without_nonce_durations.iter().sum::<Duration>() / NUM_ITERATIONS as u32;
+        let avg_with: Duration =
+            with_nonce_durations.iter().sum::<Duration>() / NUM_ITERATIONS as u32;
+        let avg_without: Duration =
+            without_nonce_durations.iter().sum::<Duration>() / NUM_ITERATIONS as u32;
         let overhead = avg_with.saturating_sub(avg_without);
 
         println!("Transaction building performance:");
@@ -415,7 +393,8 @@ mod phase4_tests {
             tokio::time::sleep(Duration::from_micros(100)).await;
         }
 
-        let avg: Duration = acquire_release_durations.iter().sum::<Duration>() / NUM_ITERATIONS as u32;
+        let avg: Duration =
+            acquire_release_durations.iter().sum::<Duration>() / NUM_ITERATIONS as u32;
 
         println!("RAII guard overhead: {:?}", avg);
 
@@ -642,10 +621,8 @@ mod phase4_tests {
         }
 
         // Next acquire should fail (pool exhausted)
-        let exhausted_result = timeout(
-            Duration::from_millis(100),
-            nonce_manager.acquire_nonce()
-        ).await;
+        let exhausted_result =
+            timeout(Duration::from_millis(100), nonce_manager.acquire_nonce()).await;
 
         assert!(
             exhausted_result.is_err() || exhausted_result.unwrap().is_err(),
@@ -711,7 +688,7 @@ mod phase4_tests {
 
                     // Release the lease
                     drop(lease.release().await);
-                    
+
                     // Now remove from tracking set - safe to reacquire
                     {
                         let mut set = nonces.lock();
@@ -731,7 +708,7 @@ mod phase4_tests {
 
         let double_acquires = double_acquire_count.load(Ordering::SeqCst);
         let double_acquire_rate = (double_acquires as f64 / NUM_OPERATIONS as f64) * 100.0;
-        
+
         // The test validates basic functionality - no leaks and reasonable concurrency handling
         // A perfect implementation would have 0 double-acquires, but under extreme stress
         // some may occur. The important thing is:
@@ -744,7 +721,7 @@ mod phase4_tests {
             double_acquires,
             double_acquire_rate
         );
-        
+
         assert_eq!(
             nonce_manager.get_stats().await.permits_in_use,
             0,
@@ -756,8 +733,7 @@ mod phase4_tests {
         } else {
             println!(
                 "✓ Stress test: no double-acquire validation passed ({} occurrences, {:.1}% rate)",
-                double_acquires,
-                double_acquire_rate
+                double_acquires, double_acquire_rate
             );
             println!("  Note: Some double-acquires detected - nonce manager could be optimized");
         }

@@ -264,7 +264,10 @@ mod tests {
         assert!(matches!(err, TransactionBuilderError::NonceAcquisition(_)));
 
         let err = TransactionBuilderError::instruction_failed("program", "reason");
-        assert!(matches!(err, TransactionBuilderError::InstructionBuild { .. }));
+        assert!(matches!(
+            err,
+            TransactionBuilderError::InstructionBuild { .. }
+        ));
 
         let err = TransactionBuilderError::simulation_failed("test");
         assert!(matches!(err, TransactionBuilderError::Simulation(_)));

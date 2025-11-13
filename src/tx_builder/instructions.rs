@@ -16,9 +16,7 @@
 
 use crate::tx_builder::errors::TransactionBuilderError;
 use solana_sdk::{
-    compute_budget::ComputeBudgetInstruction,
-    instruction::Instruction,
-    pubkey::Pubkey,
+    compute_budget::ComputeBudgetInstruction, instruction::Instruction, pubkey::Pubkey,
     system_instruction, system_program,
 };
 
@@ -34,7 +32,7 @@ use solana_sdk::{
 pub struct InstructionPlan {
     /// The ordered list of instructions for the transaction
     pub instructions: Vec<Instruction>,
-    
+
     /// Whether this plan uses durable nonce
     /// - `true`: First instruction must be advance_nonce_account
     /// - `false`: Standard blockhash-based transaction
@@ -119,7 +117,7 @@ pub fn plan_buy_instructions(
     // Pre-allocate vector with capacity for all instructions
     // Maximum: advance_nonce (1) + compute_budget (2) + buy_ix (1) = 4
     let mut instructions = Vec::with_capacity(4);
-    
+
     let is_durable = exec_durable.is_some();
 
     // 1. Add advance_nonce_account if durable mode
@@ -133,12 +131,12 @@ pub fn plan_buy_instructions(
     // 2. Add compute budget instructions
     // Note: Order within compute budget instructions doesn't matter,
     // but they should come after advance_nonce and before program instructions
-    
+
     // Add CU limit if specified
     if cu_limit > 0 {
         instructions.push(ComputeBudgetInstruction::set_compute_unit_limit(cu_limit));
     }
-    
+
     // Add priority fee if specified
     if prio_fee > 0 {
         instructions.push(ComputeBudgetInstruction::set_compute_unit_price(prio_fee));
@@ -341,8 +339,8 @@ mod tests {
         );
 
         // No CU limit or priority fee
-        let plan = plan_buy_instructions(None, 0, 0, buy_ix)
-            .expect("Should plan without compute budget");
+        let plan =
+            plan_buy_instructions(None, 0, 0, buy_ix).expect("Should plan without compute budget");
 
         assert!(!plan.is_durable);
         assert_eq!(plan.instructions.len(), 1); // Only buy instruction

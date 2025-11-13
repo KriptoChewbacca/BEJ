@@ -69,20 +69,20 @@ use crate::nonce_manager::ZkProofData;
 pub struct ExecutionContext {
     /// The blockhash to use for the transaction
     pub blockhash: Hash,
-    
+
     /// Optional nonce account public key (if using durable transactions)
     pub nonce_pubkey: Option<Pubkey>,
-    
+
     /// Optional nonce authority (if using durable transactions)
     pub nonce_authority: Option<Pubkey>,
-    
+
     /// Optional nonce lease (held for transaction lifetime, auto-released on drop)
     ///
     /// This field enforces RAII semantics: the lease is owned by this context
     /// and will be automatically released on drop. Use `extract_lease()` to
     /// transfer ownership before drop.
     pub nonce_lease: Option<NonceLease>,
-    
+
     /// Optional ZK proof for nonce state validation (upgraded to ZkProofData with Groth16)
     /// Only available when zk_enabled feature is active
     #[cfg(feature = "zk_enabled")]
@@ -107,13 +107,16 @@ impl std::fmt::Debug for ExecutionContext {
                     None => "None".to_string(),
                 },
             );
-        
+
         #[cfg(feature = "zk_enabled")]
         debug_struct.field(
             "zk_proof_status",
-            &self.zk_proof.as_ref().map(|p| format!("confidence={}", p.confidence))
+            &self
+                .zk_proof
+                .as_ref()
+                .map(|p| format!("confidence={}", p.confidence)),
         );
-        
+
         debug_struct.finish()
     }
 }
@@ -144,7 +147,7 @@ impl ExecutionContext {
     pub fn extract_lease(mut self) -> Option<NonceLease> {
         self.nonce_lease.take()
     }
-    
+
     /// Check if this context is using durable nonce
     ///
     /// Returns `true` if a nonce lease is held, `false` for recent blockhash mode.
