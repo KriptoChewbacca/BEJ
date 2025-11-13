@@ -72,13 +72,8 @@ fn build_transaction_with_nonce(
         1_000_000,
     ));
 
-    let message = MessageV0::try_compile(
-        &payer.pubkey(),
-        &instructions,
-        &[],
-        nonce_blockhash,
-    )
-    .unwrap();
+    let message =
+        MessageV0::try_compile(&payer.pubkey(), &instructions, &[], nonce_blockhash).unwrap();
 
     let signers: Vec<&dyn Signer> = if payer.pubkey() == nonce_authority.pubkey() {
         vec![payer]
@@ -112,20 +107,16 @@ fn bench_nonce_acquisition_pool_sizes(c: &mut Criterion) {
     for pool_size in [5, 10, 20, 50].iter() {
         let nonce_manager = create_test_nonce_manager_blocking(*pool_size);
 
-        group.bench_with_input(
-            BenchmarkId::from_parameter(pool_size),
-            pool_size,
-            |b, _| {
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                b.iter(|| {
-                    rt.block_on(async {
-                        let lease = nonce_manager.acquire_nonce().await.unwrap();
-                        black_box(lease.nonce_pubkey());
-                        drop(lease.release().await);
-                    })
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(pool_size), pool_size, |b, _| {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            b.iter(|| {
+                rt.block_on(async {
+                    let lease = nonce_manager.acquire_nonce().await.unwrap();
+                    black_box(lease.nonce_pubkey());
+                    drop(lease.release().await);
+                })
+            });
+        });
     }
 
     group.finish();
@@ -164,12 +155,8 @@ fn bench_transaction_building_with_nonce(c: &mut Criterion) {
                 let nonce_blockhash = lease.nonce_blockhash();
 
                 // Build transaction
-                let tx = build_transaction_with_nonce(
-                    &nonce_pubkey,
-                    &payer,
-                    nonce_blockhash,
-                    &payer,
-                );
+                let tx =
+                    build_transaction_with_nonce(&nonce_pubkey, &payer, nonce_blockhash, &payer);
 
                 black_box(&tx);
                 drop(lease.release().await);
@@ -192,16 +179,12 @@ fn bench_transaction_building_without_nonce(c: &mut Criterion) {
                     1_000_000,
                 )];
 
-                let message = MessageV0::try_compile(
-                    &payer.pubkey(),
-                    &instructions,
-                    &[],
-                    Hash::default(),
-                )
-                .unwrap();
+                let message =
+                    MessageV0::try_compile(&payer.pubkey(), &instructions, &[], Hash::default())
+                        .unwrap();
 
-                let tx =
-                    VersionedTransaction::try_new(VersionedMessage::V0(message), &[&payer]).unwrap();
+                let tx = VersionedTransaction::try_new(VersionedMessage::V0(message), &[&payer])
+                    .unwrap();
 
                 black_box(&tx);
             })
@@ -236,13 +219,9 @@ fn bench_instruction_ordering_overhead(c: &mut Criterion) {
                 1_000_000,
             ));
 
-            let message = MessageV0::try_compile(
-                &payer.pubkey(),
-                &instructions,
-                &[],
-                nonce_blockhash,
-            )
-            .unwrap();
+            let message =
+                MessageV0::try_compile(&payer.pubkey(), &instructions, &[], nonce_blockhash)
+                    .unwrap();
 
             black_box(&message);
         });
@@ -263,13 +242,9 @@ fn bench_instruction_ordering_overhead(c: &mut Criterion) {
                 1_000_000,
             ));
 
-            let message = MessageV0::try_compile(
-                &payer.pubkey(),
-                &instructions,
-                &[],
-                Hash::default(),
-            )
-            .unwrap();
+            let message =
+                MessageV0::try_compile(&payer.pubkey(), &instructions, &[], Hash::default())
+                    .unwrap();
 
             black_box(&message);
         });

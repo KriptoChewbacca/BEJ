@@ -69,13 +69,8 @@ mod production_stress_tests {
             1_000_000,
         ));
 
-        let message = MessageV0::try_compile(
-            &payer.pubkey(),
-            &instructions,
-            &[],
-            nonce_blockhash,
-        )
-        .unwrap();
+        let message =
+            MessageV0::try_compile(&payer.pubkey(), &instructions, &[], nonce_blockhash).unwrap();
 
         let signers: Vec<&dyn Signer> = if payer.pubkey() == nonce_authority.pubkey() {
             vec![payer]
@@ -141,18 +136,18 @@ mod production_stress_tests {
             println!("║ Total Attempts:     {:>30} ║", self.total_attempts);
             println!("║ Successful:         {:>30} ║", self.successful);
             println!("║ Failed:             {:>30} ║", self.failed);
-            
+
             if !self.latencies_us.is_empty() {
                 let avg = self.latencies_us.iter().sum::<u64>() / self.latencies_us.len() as u64;
                 let min = self.latencies_us.iter().min().unwrap();
                 let max = self.latencies_us.iter().max().unwrap();
-                
+
                 println!("╠═══════════════════════════════════════════════════╣");
                 println!("║ Latency Statistics (microseconds):               ║");
                 println!("║   Average:        {:>30} µs ║", avg);
                 println!("║   Min:            {:>30} µs ║", min);
                 println!("║   Max:            {:>30} µs ║", max);
-                
+
                 if let Some(p50) = self.calculate_percentile(50.0) {
                     println!("║   p50:            {:>30} µs ║", p50);
                 }
@@ -163,18 +158,18 @@ mod production_stress_tests {
                     println!("║   p99:            {:>30} µs ║", p99);
                 }
             }
-            
+
             if let Some(end) = self.end_time {
                 let duration = end.duration_since(self.start_time);
                 println!("╠═══════════════════════════════════════════════════╣");
                 println!("║ Total Duration:   {:>30.2?} ║", duration);
-                
+
                 if duration.as_secs() > 0 {
                     let throughput = self.successful as f64 / duration.as_secs_f64();
                     println!("║ Throughput:       {:>28.2} tx/s ║", throughput);
                 }
             }
-            
+
             println!("╚═══════════════════════════════════════════════════╝\n");
         }
     }
@@ -309,7 +304,10 @@ mod production_stress_tests {
         const POOL_SIZE: usize = 20;
 
         println!("\n🔬 Starting production stress test: Sustained load");
-        println!("   Duration: {}s, Target: {} ops/s", DURATION_SECONDS, OPERATIONS_PER_SECOND);
+        println!(
+            "   Duration: {}s, Target: {} ops/s",
+            DURATION_SECONDS, OPERATIONS_PER_SECOND
+        );
 
         let nonce_manager = create_test_nonce_manager(POOL_SIZE).await;
         let stats = Arc::new(parking_lot::Mutex::new(StressTestStats::new()));
@@ -318,7 +316,8 @@ mod production_stress_tests {
         let start = Instant::now();
         let end_time = start + Duration::from_secs(DURATION_SECONDS);
 
-        let mut interval = tokio::time::interval(Duration::from_millis(1000 / OPERATIONS_PER_SECOND as u64));
+        let mut interval =
+            tokio::time::interval(Duration::from_millis(1000 / OPERATIONS_PER_SECOND as u64));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
         let mut operations = 0;
@@ -368,10 +367,7 @@ mod production_stress_tests {
 
         // Verify no leaks
         let final_permits = nonce_manager.get_stats().await.permits_in_use;
-        assert_eq!(
-            final_permits, 0,
-            "No nonce leaks after sustained load"
-        );
+        assert_eq!(final_permits, 0, "No nonce leaks after sustained load");
 
         println!("✅ Production stress test: Sustained load PASSED");
     }
@@ -418,7 +414,12 @@ mod production_stress_tests {
             let wave_success = success_count.load(Ordering::SeqCst);
             wave_stats.push(wave_success);
 
-            println!("    ✓ Wave {} completed: {}/{} successful", wave + 1, wave_success, WAVE_SIZE);
+            println!(
+                "    ✓ Wave {} completed: {}/{} successful",
+                wave + 1,
+                wave_success,
+                WAVE_SIZE
+            );
 
             // Brief recovery period
             tokio::time::sleep(Duration::from_millis(100)).await;
@@ -462,10 +463,18 @@ mod production_stress_tests {
             if let Ok(lease) = nonce_manager.acquire_nonce().await {
                 let nonce_pubkey = *lease.nonce_pubkey();
                 let nonce_blockhash = lease.nonce_blockhash();
-                let _tx = build_test_transaction_with_nonce(&nonce_pubkey, &payer, nonce_blockhash, &payer);
+                let _tx = build_test_transaction_with_nonce(
+                    &nonce_pubkey,
+                    &payer,
+                    nonce_blockhash,
+                    &payer,
+                );
                 drop(lease.release().await);
             }
-            latencies.get_mut("light_load").unwrap().push(start.elapsed().as_micros() as u64);
+            latencies
+                .get_mut("light_load")
+                .unwrap()
+                .push(start.elapsed().as_micros() as u64);
         }
 
         // Medium load (some concurrency)
@@ -522,8 +531,10 @@ mod production_stress_tests {
             if !values.is_empty() {
                 values.sort_unstable();
                 let p50 = values[((values.len() as f64) * 0.50) as usize];
-                let p95 = values[((values.len() as f64) * 0.95).min(values.len() as f64 - 1.0) as usize];
-                let p99 = values[((values.len() as f64) * 0.99).min(values.len() as f64 - 1.0) as usize];
+                let p95 =
+                    values[((values.len() as f64) * 0.95).min(values.len() as f64 - 1.0) as usize];
+                let p99 =
+                    values[((values.len() as f64) * 0.99).min(values.len() as f64 - 1.0) as usize];
                 let max = *values.last().unwrap();
 
                 println!(
@@ -535,7 +546,8 @@ mod production_stress_tests {
                 assert!(
                     p95 < 5000,
                     "{} load: p95 latency should be < 5ms, got {}µs",
-                    load_type, p95
+                    load_type,
+                    p95
                 );
             }
         }
@@ -608,14 +620,17 @@ mod production_stress_tests {
         }
 
         let completed = success_count.load(Ordering::SeqCst);
-        
+
         tokio::time::sleep(Duration::from_millis(500)).await;
         let final_permits = nonce_manager.get_stats().await.permits_in_use;
 
         println!("\n📊 E2E Workflow Results:");
         println!("  Total Workflows: {}", NUM_WORKFLOWS);
         println!("  Completed: {}", completed);
-        println!("  Success Rate: {:.1}%", (completed as f64 / NUM_WORKFLOWS as f64) * 100.0);
+        println!(
+            "  Success Rate: {:.1}%",
+            (completed as f64 / NUM_WORKFLOWS as f64) * 100.0
+        );
 
         assert_eq!(final_permits, 0, "No leaks after E2E workflows");
         assert!(

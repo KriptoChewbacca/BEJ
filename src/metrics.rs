@@ -154,7 +154,9 @@ impl Metrics {
                 "build_to_land_ms",
                 "Total time from build to transaction landing in milliseconds",
             )
-            .buckets(vec![10.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 2000.0, 5000.0]),
+            .buckets(vec![
+                10.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 2000.0, 5000.0,
+            ]),
         )?;
 
         // Task 5: Additional counters for nonce operations
@@ -343,7 +345,7 @@ impl Timer {
 }
 
 /// Task 5: Periodic metrics exporter
-/// 
+///
 /// Exports metrics in JSON format at regular intervals (default: 60s)
 pub struct MetricsExporter {
     interval: Duration,
@@ -372,7 +374,7 @@ impl MetricsExporter {
 
         // Convert to JSON-friendly format
         let text_format = String::from_utf8(buffer)?;
-        
+
         // Create a simple JSON structure with key metrics
         let json = serde_json::json!({
             "timestamp": std::time::SystemTime::now()
@@ -411,19 +413,19 @@ impl MetricsExporter {
             let mut interval = tokio::time::interval(self.interval);
             loop {
                 interval.tick().await;
-                
+
                 match self.export_json() {
                     Ok(json) => {
                         tracing::info!(
                             target: "metrics_export",
-                            "Periodic metrics export:\n{}", 
+                            "Periodic metrics export:\n{}",
                             json
                         );
                     }
                     Err(e) => {
                         tracing::error!(
                             target: "metrics_export",
-                            "Failed to export metrics: {}", 
+                            "Failed to export metrics: {}",
                             e
                         );
                     }
