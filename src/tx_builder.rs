@@ -295,6 +295,32 @@ impl TxBuildOutput {
         }
     }
 
+    /// Get reference to the transaction
+    pub fn tx_ref(&self) -> &VersionedTransaction {
+        &self.tx
+    }
+
+    /// Consume self and extract the transaction (Phase 2, Task 2.3)
+    ///
+    /// This method extracts the transaction and drops the nonce guard.
+    /// Used by legacy wrappers for backward compatibility.
+    ///
+    /// # Warning
+    ///
+    /// This releases the nonce guard early. Prefer holding the TxBuildOutput
+    /// until after broadcast for proper RAII semantics.
+    pub fn into_tx(mut self) -> VersionedTransaction {
+        use std::mem;
+        // Take ownership by replacing with a default value
+        // The nonce_guard will be dropped when self is dropped
+        mem::take(&mut self.tx)
+    }
+
+    /// Get slice of required signers
+    pub fn required_signers(&self) -> &[Pubkey] {
+        &self.required_signers
+    }
+
     /// Explicitly release nonce guard (if held)
     ///
     /// This method should be called after successful transaction broadcast.
@@ -2117,6 +2143,11 @@ impl TransactionBuilder {
     /// * `candidate` - Token candidate to buy
     /// * `config` - Transaction configuration
     /// * `sign` - Whether to sign the transaction
+    ///
+    /// # Note
+    ///
+    /// This method is now a legacy wrapper. Consider using `build_buy_transaction_output`
+    /// for proper RAII nonce management.
     pub async fn build_buy_transaction(
         &self,
         candidate: &PremintCandidate,
@@ -2128,6 +2159,11 @@ impl TransactionBuilder {
     }
 
     /// Build a buy transaction with explicit nonce enforcement control (Phase 1, Task 1.1)
+    ///
+    /// # Legacy API Warning
+    ///
+    /// This method releases nonce guard early. Prefer using `build_buy_transaction_output`
+    /// for proper RAII nonce management that holds the guard through broadcast.
     ///
     /// # Arguments
     ///
@@ -2142,6 +2178,61 @@ impl TransactionBuilder {
         sign: bool,
         enforce_nonce: bool,
     ) -> Result<VersionedTransaction, TransactionBuilderError> {
+        // Phase 2, Task 2.3: Legacy wrapper with deprecation warning
+        use std::sync::Once;
+        static WARN_ONCE: Once = Once::new();
+        
+        WARN_ONCE.call_once(|| {
+            warn!(
+                "Legacy API: build_buy_transaction_with_nonce releases nonce early. \
+                 Migrate to build_buy_transaction_output for proper RAII."
+            );
+        });
+
+        let output = self
+            .build_buy_transaction_output(candidate, config, sign, enforce_nonce)
+            .await?;
+        
+        // Extract transaction, dropping the nonce guard early (legacy behavior)
+        Ok(output.into_tx())
+    }
+
+    /// Build a buy transaction returning TxBuildOutput with RAII nonce guard (Phase 2, Task 2.3)
+    ///
+    /// This is the recommended API that returns `TxBuildOutput` holding the nonce guard
+    /// through the transaction lifetime, ensuring proper RAII cleanup on all paths.
+    ///
+    /// # Arguments
+    ///
+    /// * `candidate` - Token candidate to buy
+    /// * `config` - Transaction configuration
+    /// * `sign` - Whether to sign the transaction
+    /// * `enforce_nonce` - Whether to enforce durable nonce usage (true for trade-critical ops)
+    ///
+    /// # Returns
+    ///
+    /// `TxBuildOutput` containing the transaction and optional nonce guard.
+    /// The guard should be held until broadcast completes, then explicitly released
+    /// via `output.release_nonce().await` or dropped on error.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// let output = builder.build_buy_transaction_output(&candidate, &config, false, true).await?;
+    /// 
+    /// // Hold guard during broadcast
+    /// let sig = rpc.send_transaction(&output.tx).await?;
+    /// 
+    /// // Explicitly release after successful broadcast
+    /// output.release_nonce().await?;
+    /// ```
+    pub async fn build_buy_transaction_output(
+        &self,
+        candidate: &PremintCandidate,
+        config: &TransactionConfig,
+        sign: bool,
+        enforce_nonce: bool,
+    ) -> Result<TxBuildOutput, TransactionBuilderError> {
         config.validate()?;
         info!(
             mint = %candidate.mint,
@@ -2503,7 +2594,12 @@ impl TransactionBuilder {
             priority_fee = adaptive_priority_fee,
             "Buy transaction built successfully"
         );
-        Ok(tx)
+        
+        // Phase 2, Task 2.2: Extract lease from ExecutionContext for RAII transfer
+        let nonce_lease = exec_ctx.extract_lease();
+        
+        // Phase 2, Task 2.1: Create TxBuildOutput with nonce guard
+        Ok(TxBuildOutput::new(tx, nonce_lease))
     }
 
     /// Build a sell transaction (Phase 1, Task 1.1)
@@ -2518,6 +2614,11 @@ impl TransactionBuilder {
     /// * `sell_percent` - Percentage of holdings to sell (0.0-1.0)
     /// * `config` - Transaction configuration
     /// * `sign` - Whether to sign the transaction
+    ///
+    /// # Note
+    ///
+    /// This method is now a legacy wrapper. Consider using `build_sell_transaction_output`
+    /// for proper RAII nonce management.
     pub async fn build_sell_transaction(
         &self,
         mint: &Pubkey,
@@ -2531,6 +2632,11 @@ impl TransactionBuilder {
     }
 
     /// Build a sell transaction with explicit nonce enforcement control (Phase 1, Task 1.1)
+    ///
+    /// # Legacy API Warning
+    ///
+    /// This method releases nonce guard early. Prefer using `build_sell_transaction_output`
+    /// for proper RAII nonce management that holds the guard through broadcast.
     ///
     /// # Arguments
     ///
@@ -2549,6 +2655,65 @@ impl TransactionBuilder {
         sign: bool,
         enforce_nonce: bool,
     ) -> Result<VersionedTransaction, TransactionBuilderError> {
+        // Phase 2, Task 2.3: Legacy wrapper with deprecation warning
+        use std::sync::Once;
+        static WARN_ONCE: Once = Once::new();
+        
+        WARN_ONCE.call_once(|| {
+            warn!(
+                "Legacy API: build_sell_transaction_with_nonce releases nonce early. \
+                 Migrate to build_sell_transaction_output for proper RAII."
+            );
+        });
+
+        let output = self
+            .build_sell_transaction_output(mint, program, sell_percent, config, sign, enforce_nonce)
+            .await?;
+        
+        // Extract transaction, dropping the nonce guard early (legacy behavior)
+        Ok(output.into_tx())
+    }
+
+    /// Build a sell transaction returning TxBuildOutput with RAII nonce guard (Phase 2, Task 2.3)
+    ///
+    /// This is the recommended API that returns `TxBuildOutput` holding the nonce guard
+    /// through the transaction lifetime, ensuring proper RAII cleanup on all paths.
+    ///
+    /// # Arguments
+    ///
+    /// * `mint` - Token mint to sell
+    /// * `program` - DEX program to use
+    /// * `sell_percent` - Percentage of holdings to sell (0.0-1.0)
+    /// * `config` - Transaction configuration
+    /// * `sign` - Whether to sign the transaction
+    /// * `enforce_nonce` - Whether to enforce durable nonce usage (true for trade-critical ops)
+    ///
+    /// # Returns
+    ///
+    /// `TxBuildOutput` containing the transaction and optional nonce guard.
+    /// The guard should be held until broadcast completes, then explicitly released
+    /// via `output.release_nonce().await` or dropped on error.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// let output = builder.build_sell_transaction_output(mint, "pump.fun", 1.0, &config, false, true).await?;
+    /// 
+    /// // Hold guard during broadcast
+    /// let sig = rpc.send_transaction(&output.tx).await?;
+    /// 
+    /// // Explicitly release after successful broadcast
+    /// output.release_nonce().await?;
+    /// ```
+    pub async fn build_sell_transaction_output(
+        &self,
+        mint: &Pubkey,
+        program: &str,
+        sell_percent: f64,
+        config: &TransactionConfig,
+        sign: bool,
+        enforce_nonce: bool,
+    ) -> Result<TxBuildOutput, TransactionBuilderError> {
         config.validate()?;
         let sell_percent = sell_percent.clamp(0.0, 1.0);
         info!(mint = %mint, "Building sell transaction");
@@ -2868,7 +3033,12 @@ impl TransactionBuilder {
         }
 
         debug!(mint = %mint, "Sell transaction built successfully");
-        Ok(tx)
+        
+        // Phase 2, Task 2.2: Extract lease from ExecutionContext for RAII transfer
+        let nonce_lease = exec_ctx.extract_lease();
+        
+        // Phase 2, Task 2.1: Create TxBuildOutput with nonce guard
+        Ok(TxBuildOutput::new(tx, nonce_lease))
     }
 
     /// Prepare Jito bundle with MEV features (Universe Class Enhanced)
