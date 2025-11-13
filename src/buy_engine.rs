@@ -1736,6 +1736,7 @@ impl BuyEngine {
     // =========================================================================
 
     /// Universe-level buy operation with hybrid shotgun+Jito bundles
+    /// Phase 2, Task 6: Integrated with TxBuildOutput RAII nonce management
     #[instrument(skip(self, candidate, ctx), fields(mint = %candidate.mint))]
     async fn try_buy_universe(
         &self,
@@ -1766,83 +1767,52 @@ impl BuyEngine {
             return Err(anyhow!("Buy operations disabled (kill switch or config)"));
         }
 
-        // Acquire nonces and build transactions
-        let mut acquired_leases = Vec::new();
-        let mut txs: Vec<VersionedTransaction> = Vec::new();
-        let recent_blockhash = self.get_recent_blockhash().await;
-
         // Record blockhash age at signing
         self.record_blockhash_age_at_signing().await;
 
-        for _ in 0..self.config.nonce_count {
-            match self.nonce_manager.acquire_nonce().await {
-                Ok(lease) => {
-                    let _nonce_pubkey = lease.nonce_pubkey().clone();
-                    ctx.logger.log_nonce_operation("acquire", None, true);
-                    acquired_leases.push(lease);
+        // Phase 2, Task 6: Use build_buy_transaction_output for RAII nonce management
+        // Build transaction with nonce lease held by TxBuildOutput
+        let acquire_start = Instant::now();
+        let buy_output = self.create_buy_transaction_output(&candidate).await?;
+        let acquire_lease_ms = acquire_start.elapsed().as_millis() as u64;
+        
+        // Task 6: Record acquire_lease metric
+        self.universe_metrics
+            .record_latency("acquire_lease", acquire_lease_ms)
+            .await;
+        
+        ctx.logger.log_nonce_operation("acquire", None, true);
 
-                    let tx = self
-                        .create_buy_transaction_universe(&candidate, recent_blockhash, dynamic_tip)
-                        .await?;
-
-                    // FIX #6: Simulate transaction before sending
-                    let sim_result = self.simulate_transaction(&tx).await;
-                    if !self.should_proceed_after_simulation(&sim_result).await {
-                        warn!("Transaction simulation failed policy check, aborting");
-                        for lease in acquired_leases.drain(..) {
-                            ctx.logger.log_nonce_operation("release", None, true);
-                            let _ = lease.release().await; // Release the nonce lease
-                        }
-                        return Err(anyhow!("Simulation policy blocked transaction"));
-                    }
-
-                    txs.push(tx);
-                }
-                Err(e) => {
-                    ctx.logger
-                        .log_nonce_operation("acquire_failed", None, false);
-                    warn!(error=%e, correlation_id=ctx.correlation_id, "Failed to acquire nonce; proceeding with fewer");
-                    break;
-                }
-            }
-        }
-
-        if txs.is_empty() {
-            for lease in acquired_leases.drain(..) {
-                ctx.logger.log_nonce_operation("release", None, true);
-                let _ = lease.release().await;
-            }
-            return Err(anyhow!("no transactions prepared (no nonces acquired)"));
-        }
-
-        ctx.logger
-            .log_buy_attempt(&candidate.mint.to_string(), txs.len());
-
-        // UNIVERSE: Parallel submission to multi-region Jito endpoints
-        let res = if self.config.nonce_count > 1 {
-            self.submit_jito_bundle_multi_region(txs.clone(), dynamic_tip, &trace_ctx)
-                .await
-        } else {
-            // FIX #3: Use fire-and-forget sending with enhanced retry
-            self.send_transaction_fire_and_forget(
-                txs.into_iter().next().unwrap(),
+        // Hold the output (and nonce guard) through broadcast
+        match self
+            .send_transaction_fire_and_forget(
+                buy_output.tx.clone(),
                 Some(CorrelationId::new()),
             )
             .await
-        };
+        {
+            Ok(sig) => {
+                // Record build-to-land latency (Task 6 requirement)
+                self.universe_metrics
+                    .record_latency("build_to_land", trace_ctx.elapsed_micros() as u64)
+                    .await;
 
-        // Record build-to-land latency
-        self.universe_metrics
-            .record_latency("build_to_land", trace_ctx.elapsed_micros() as u64)
-            .await;
+                // Phase 2, Task 6: Explicitly release nonce after successful broadcast
+                if let Err(e) = buy_output.release_nonce().await {
+                    warn!(mint=%candidate.mint, error=%e, "Failed to release nonce after buy broadcast");
+                } else {
+                    ctx.logger.log_nonce_operation("release", None, true);
+                }
 
-        // Release nonces
-        for lease in acquired_leases {
-            ctx.logger.log_nonce_operation("release", None, true);
-            let _ = lease.release().await;
+                Ok(sig)
+            }
+            Err(e) => {
+                // Phase 2, Task 6: Drop buy_output on error (automatic nonce release via RAII)
+                drop(buy_output);
+                ctx.logger.log_nonce_operation("release_auto", None, true);
+                Err(e).context("broadcast BUY failed")
+            }
         }
-
-        res.context("broadcast BUY failed")
     }
 
     /// Calculate dynamic tip based on median recent fees with congestion escalation
@@ -1919,17 +1889,6 @@ impl BuyEngine {
     }
 
     /// Create buy transaction with Universe-level optimizations
-    async fn create_buy_transaction_universe(
-        &self,
-        candidate: &PremintCandidate,
-        _recent_blockhash: Option<Hash>,
-        _tip_lamports: u64,
-    ) -> Result<VersionedTransaction> {
-        // Delegate to existing transaction builder with enhanced config
-        self.create_buy_transaction(candidate, _recent_blockhash)
-            .await
-    }
-
     pub async fn sell(&self, percent: f64) -> Result<()> {
         let ctx = PipelineContext::new("buy_engine_sell");
 
@@ -2086,77 +2045,54 @@ impl BuyEngine {
         candidate: PremintCandidate,
         ctx: PipelineContext,
     ) -> Result<Signature> {
-        let mut acquired_leases = Vec::new();
-
-        let mut txs: Vec<VersionedTransaction> = Vec::new();
-
-        // Get recent blockhash once for all transactions
-        // Note: ZK proof verification happens in TransactionBuilder's prepare_execution_context()
-        // When nonce is acquired, ZK proof is extracted from lease and verified before transaction building
-        // Transaction is aborted if ZK proof confidence < 0.5 (verification failure)
-        // Nonce is tainted on repeated ZK proof failures for enhanced security
-        let recent_blockhash = self.get_recent_blockhash().await;
-
-        for _ in 0..self.config.nonce_count {
-            match self.nonce_manager.acquire_nonce().await {
-                Ok(lease) => {
-                    let _nonce_pubkey = lease.nonce_pubkey().clone();
-                    ctx.logger.log_nonce_operation("acquire", None, true);
-                    acquired_leases.push(lease);
-
-                    let tx = self
-                        .create_buy_transaction(&candidate, recent_blockhash)
-                        .await?;
-                    txs.push(tx);
-                }
-                Err(e) => {
-                    ctx.logger
-                        .log_nonce_operation("acquire_failed", None, false);
-                    warn!(error=%e, correlation_id=ctx.correlation_id, "Failed to acquire nonce; proceeding with fewer");
-
-                    break;
-                }
-            }
-        }
-
-        if txs.is_empty() {
-            for lease in acquired_leases.drain(..) {
-                ctx.logger.log_nonce_operation("release", None, true);
-                let _ = lease.release().await;
-            }
-
-            return Err(anyhow!("no transactions prepared (no nonces acquired)"));
-        }
-
+        // Phase 2, Task 6: Use build_buy_transaction_output for RAII nonce management
+        let acquire_start = Instant::now();
+        let buy_output = self.create_buy_transaction_output(&candidate).await?;
+        let acquire_lease_ms = acquire_start.elapsed().as_millis() as u64;
+        
+        // Task 6: Record acquire_lease metric
+        self.universe_metrics
+            .record_latency("acquire_lease", acquire_lease_ms)
+            .await;
+        
+        ctx.logger.log_nonce_operation("acquire", None, true);
         ctx.logger
-            .log_buy_attempt(&candidate.mint.to_string(), txs.len());
+            .log_buy_attempt(&candidate.mint.to_string(), 1);
 
-        let res = self
+        // Hold the output (and nonce guard) through broadcast
+        match self
             .rpc
-            .send_on_many_rpc(txs, Some(CorrelationId::new()))
+            .send_on_many_rpc(vec![buy_output.tx.clone()], Some(CorrelationId::new()))
             .await
-            .context("broadcast BUY failed");
-
-        for lease in acquired_leases {
-            ctx.logger.log_nonce_operation("release", None, true);
-            let _ = lease.release().await;
+        {
+            Ok(sig) => {
+                // Phase 2, Task 6: Explicitly release nonce after successful broadcast
+                if let Err(e) = buy_output.release_nonce().await {
+                    warn!(mint=%candidate.mint, error=%e, "Failed to release nonce after buy broadcast");
+                } else {
+                    ctx.logger.log_nonce_operation("release", None, true);
+                }
+                Ok(sig)
+            }
+            Err(e) => {
+                // Phase 2, Task 6: Drop buy_output on error (automatic nonce release via RAII)
+                drop(buy_output);
+                ctx.logger.log_nonce_operation("release_auto", None, true);
+                Err(e).context("broadcast BUY failed")
+            }
         }
-
-        res
     }
 
-    async fn create_buy_transaction(
+    async fn create_buy_transaction_output(
         &self,
         candidate: &PremintCandidate,
-        _recent_blockhash: Option<solana_sdk::hash::Hash>,
-    ) -> Result<VersionedTransaction> {
+    ) -> Result<crate::tx_builder::TxBuildOutput> {
         match &self.tx_builder {
             Some(builder) => {
                 let config = TransactionConfig::default();
-                // Note: This method is used in flows with manual nonce management
-                // Use build_buy_transaction_with_nonce with enforce_nonce=false to avoid double acquisition
+                // Phase 2, Task 6: Use output method for proper RAII nonce management
                 builder
-                    .build_buy_transaction_with_nonce(candidate, &config, false, false)
+                    .build_buy_transaction_output(candidate, &config, false, true)
                     .await
                     .map_err(|e| anyhow!("Transaction build failed: {}", e))
             }
@@ -2164,7 +2100,11 @@ impl BuyEngine {
                 // Fallback to placeholder for testing/mock mode
                 #[cfg(any(test, feature = "mock-mode"))]
                 {
-                    Ok(Self::create_placeholder_tx(&candidate.mint, "buy"))
+                    use crate::tx_builder::TxBuildOutput;
+                    Ok(TxBuildOutput::new(
+                        Self::create_placeholder_tx(&candidate.mint, "buy"),
+                        None,
+                    ))
                 }
                 #[cfg(not(any(test, feature = "mock-mode")))]
                 {
