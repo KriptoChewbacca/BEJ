@@ -1065,11 +1065,7 @@ impl UniverseNonceManager {
     /// * `Some(NonceLease)` - Successfully acquired a nonce
     /// * `None` - No nonce available (pool exhausted or all accounts tainted)
     #[instrument(skip(self))]
-    pub async fn try_acquire_nonce(
-        &self,
-        ttl: Duration,
-        network_tps: u32,
-    ) -> Option<NonceLease> {
+    pub async fn try_acquire_nonce(&self, ttl: Duration, network_tps: u32) -> Option<NonceLease> {
         self.total_acquires.fetch_add(1, Ordering::Relaxed);
 
         // Try to acquire semaphore permit without blocking (TOCTTOU-safe)
