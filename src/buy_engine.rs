@@ -2002,9 +2002,11 @@ impl BuyEngine {
             .log_sell_operation(&mint.to_string(), pct, new_holdings);
         info!(mint=%mint, sell_percent=pct, correlation_id=ctx.correlation_id, "Composing SELL transaction");
 
-        let sell_tx = self.create_sell_transaction(&mint, pct).await?;
+        // Phase 2, Task 2.5: Use output method and hold guard through broadcast
+        let sell_output = self.create_sell_transaction(&mint, pct).await?;
 
-        match self.rpc.send_on_many_rpc(vec![sell_tx], None).await {
+        // Hold the output (and nonce guard) through broadcast
+        match self.rpc.send_on_many_rpc(vec![sell_output.tx.clone()], None).await {
             Ok(sig) => {
                 // Check for duplicate signatures
                 let sig_str = sig.to_string();
@@ -2014,6 +2016,11 @@ impl BuyEngine {
                 }
 
                 info!(mint=%mint, sig=%sig, correlation_id=ctx.correlation_id, "SELL broadcasted");
+
+                // Phase 2, Task 2.5: Explicitly release nonce after successful broadcast
+                if let Err(e) = sell_output.release_nonce().await {
+                    warn!(mint=%mint, error=%e, "Failed to release nonce after sell broadcast");
+                }
 
                 // Update app state
                 let mut st = self.app_state.lock().await;
@@ -2036,6 +2043,8 @@ impl BuyEngine {
                 Ok(())
             }
             Err(e) => {
+                // Phase 2, Task 2.5: Drop sell_output on error (automatic nonce release via RAII)
+                drop(sell_output);
                 error!(mint=%mint, error=%e, correlation_id=ctx.correlation_id, "SELL failed to broadcast");
                 Err(e)
             }
@@ -2140,9 +2149,10 @@ impl BuyEngine {
         match &self.tx_builder {
             Some(builder) => {
                 let config = TransactionConfig::default();
-                // Phase 1, Task 1.5: Uses default method which enforces nonce for trade-critical ops
+                // Note: This method is used in flows with manual nonce management
+                // Use build_buy_transaction_with_nonce with enforce_nonce=false to avoid double acquisition
                 builder
-                    .build_buy_transaction(candidate, &config, false)
+                    .build_buy_transaction_with_nonce(candidate, &config, false, false)
                     .await
                     .map_err(|e| anyhow!("Transaction build failed: {}", e))
             }
@@ -2166,13 +2176,13 @@ impl BuyEngine {
         &self,
         mint: &Pubkey,
         sell_percent: f64,
-    ) -> Result<VersionedTransaction> {
+    ) -> Result<crate::tx_builder::TxBuildOutput> {
         match &self.tx_builder {
             Some(builder) => {
                 let config = TransactionConfig::default();
-                // Phase 1, Task 1.5: Uses default method which enforces nonce for trade-critical ops
+                // Phase 2, Task 2.5: Use output method for proper RAII nonce management
                 builder
-                    .build_sell_transaction(mint, "pump.fun", sell_percent, &config, false)
+                    .build_sell_transaction_output(mint, "pump.fun", sell_percent, &config, false, true)
                     .await
                     .map_err(|e| anyhow!("Transaction build failed: {}", e))
             }
@@ -2180,7 +2190,8 @@ impl BuyEngine {
                 // Fallback to placeholder for testing/mock mode
                 #[cfg(any(test, feature = "mock-mode"))]
                 {
-                    Ok(Self::create_placeholder_tx(mint, "sell"))
+                    use crate::tx_builder::TxBuildOutput;
+                    Ok(TxBuildOutput::new(Self::create_placeholder_tx(mint, "sell"), None))
                 }
                 #[cfg(not(any(test, feature = "mock-mode")))]
                 {
