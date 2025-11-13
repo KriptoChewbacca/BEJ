@@ -1,7 +1,7 @@
 //! Metrics collection and export module
 
 use prometheus::{Histogram, HistogramOpts, IntCounter, IntGauge, Opts, Registry};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 /// Global metrics registry
 pub struct Metrics {
@@ -31,6 +31,17 @@ pub struct Metrics {
     pub rpc_latency: Histogram,
     pub build_latency: Histogram,
     pub nonce_lease_lifetime: Histogram,
+
+    // Task 5: Additional nonce and tx_builder metrics
+    pub acquire_lease_ms: Histogram,
+    pub prepare_bundle_ms: Histogram,
+    pub build_to_land_ms: Histogram,
+
+    // Task 5: Additional counters for nonce operations
+    pub total_acquires: IntCounter,
+    pub total_releases: IntCounter,
+    pub total_refreshes: IntCounter,
+    pub total_failures: IntCounter,
 }
 
 impl Metrics {
@@ -121,6 +132,54 @@ impl Metrics {
             .buckets(vec![0.01, 0.05, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0]),
         )?;
 
+        // Task 5: Additional nonce and tx_builder metrics
+        let acquire_lease_ms = Histogram::with_opts(
+            HistogramOpts::new(
+                "acquire_lease_ms",
+                "Time to acquire nonce lease in milliseconds",
+            )
+            .buckets(vec![0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0]),
+        )?;
+
+        let prepare_bundle_ms = Histogram::with_opts(
+            HistogramOpts::new(
+                "prepare_bundle_ms",
+                "Time to prepare bundle for submission in milliseconds",
+            )
+            .buckets(vec![1.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0]),
+        )?;
+
+        let build_to_land_ms = Histogram::with_opts(
+            HistogramOpts::new(
+                "build_to_land_ms",
+                "Total time from build to transaction landing in milliseconds",
+            )
+            .buckets(vec![
+                10.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 2000.0, 5000.0,
+            ]),
+        )?;
+
+        // Task 5: Additional counters for nonce operations
+        let total_acquires = IntCounter::with_opts(Opts::new(
+            "total_acquires",
+            "Total number of nonce lease acquisitions",
+        ))?;
+
+        let total_releases = IntCounter::with_opts(Opts::new(
+            "total_releases",
+            "Total number of nonce lease releases",
+        ))?;
+
+        let total_refreshes = IntCounter::with_opts(Opts::new(
+            "total_refreshes",
+            "Total number of nonce refreshes",
+        ))?;
+
+        let total_failures = IntCounter::with_opts(Opts::new(
+            "total_failures",
+            "Total number of nonce operation failures",
+        ))?;
+
         // Register all metrics
         registry.register(Box::new(trades_total.clone()))?;
         registry.register(Box::new(trades_success.clone()))?;
@@ -139,6 +198,15 @@ impl Metrics {
         registry.register(Box::new(rpc_latency.clone()))?;
         registry.register(Box::new(build_latency.clone()))?;
         registry.register(Box::new(nonce_lease_lifetime.clone()))?;
+
+        // Task 5: Register additional metrics
+        registry.register(Box::new(acquire_lease_ms.clone()))?;
+        registry.register(Box::new(prepare_bundle_ms.clone()))?;
+        registry.register(Box::new(build_to_land_ms.clone()))?;
+        registry.register(Box::new(total_acquires.clone()))?;
+        registry.register(Box::new(total_releases.clone()))?;
+        registry.register(Box::new(total_refreshes.clone()))?;
+        registry.register(Box::new(total_failures.clone()))?;
 
         Ok(Self {
             registry,
@@ -159,6 +227,13 @@ impl Metrics {
             rpc_latency,
             build_latency,
             nonce_lease_lifetime,
+            acquire_lease_ms,
+            prepare_bundle_ms,
+            build_to_land_ms,
+            total_acquires,
+            total_releases,
+            total_refreshes,
+            total_failures,
         })
     }
 
@@ -251,10 +326,111 @@ impl Timer {
                 "build_latency_seconds" => {
                     metrics().build_latency.observe(duration);
                 }
+                // Task 5: New histogram mappings
+                "acquire_lease_ms" => {
+                    metrics().acquire_lease_ms.observe(duration * 1000.0);
+                }
+                "prepare_bundle_ms" => {
+                    metrics().prepare_bundle_ms.observe(duration * 1000.0);
+                }
+                "build_to_land_ms" => {
+                    metrics().build_to_land_ms.observe(duration * 1000.0);
+                }
                 _ => {
                     tracing::debug!("Unknown histogram name: {}", name);
                 }
             }
         }
+    }
+}
+
+/// Task 5: Periodic metrics exporter
+///
+/// Exports metrics in JSON format at regular intervals (default: 60s)
+pub struct MetricsExporter {
+    interval: Duration,
+}
+
+impl MetricsExporter {
+    /// Create a new metrics exporter with the specified interval
+    pub fn new(interval: Duration) -> Self {
+        Self { interval }
+    }
+
+    /// Create a new metrics exporter with default 60s interval
+    pub fn default_interval() -> Self {
+        Self::new(Duration::from_secs(60))
+    }
+
+    /// Export current metrics as JSON string
+    pub fn export_json(&self) -> anyhow::Result<String> {
+        use prometheus::Encoder;
+
+        let metrics = metrics();
+        let encoder = prometheus::TextEncoder::new();
+        let metric_families = metrics.registry().gather();
+        let mut buffer = Vec::new();
+        encoder.encode(&metric_families, &mut buffer)?;
+
+        // Convert to JSON-friendly format
+        let text_format = String::from_utf8(buffer)?;
+
+        // Create a simple JSON structure with key metrics
+        let json = serde_json::json!({
+            "timestamp": std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            "metrics": {
+                "counters": {
+                    "trades_total": metrics.trades_total.get(),
+                    "trades_success": metrics.trades_success.get(),
+                    "trades_failed": metrics.trades_failed.get(),
+                    "total_acquires": metrics.total_acquires.get(),
+                    "total_releases": metrics.total_releases.get(),
+                    "total_refreshes": metrics.total_refreshes.get(),
+                    "total_failures": metrics.total_failures.get(),
+                    "nonce_leases_dropped_auto": metrics.nonce_leases_dropped_auto.get(),
+                    "nonce_leases_dropped_explicit": metrics.nonce_leases_dropped_explicit.get(),
+                },
+                "gauges": {
+                    "active_trades": metrics.active_trades.get(),
+                    "nonce_pool_size": metrics.nonce_pool_size.get(),
+                    "nonce_active_leases": metrics.nonce_active_leases.get(),
+                    "rpc_connections": metrics.rpc_connections.get(),
+                },
+                "prometheus_format": text_format,
+            }
+        });
+
+        Ok(serde_json::to_string_pretty(&json)?)
+    }
+
+    /// Start periodic export task
+    /// Returns a handle that can be used to stop the task
+    pub fn start_periodic_export(self) -> tokio::task::JoinHandle<()> {
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(self.interval);
+            loop {
+                interval.tick().await;
+
+                match self.export_json() {
+                    Ok(json) => {
+                        tracing::info!(
+                            target: "metrics_export",
+                            "Periodic metrics export:\n{}",
+                            json
+                        );
+                    }
+                    Err(e) => {
+                        tracing::error!(
+                            target: "metrics_export",
+                            "Failed to export metrics: {}",
+                            e
+                        );
+                    }
+                }
+            }
+        })
     }
 }
