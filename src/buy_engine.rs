@@ -2006,7 +2006,11 @@ impl BuyEngine {
         let sell_output = self.create_sell_transaction(&mint, pct).await?;
 
         // Hold the output (and nonce guard) through broadcast
-        match self.rpc.send_on_many_rpc(vec![sell_output.tx.clone()], None).await {
+        match self
+            .rpc
+            .send_on_many_rpc(vec![sell_output.tx.clone()], None)
+            .await
+        {
             Ok(sig) => {
                 // Check for duplicate signatures
                 let sig_str = sig.to_string();
@@ -2182,7 +2186,14 @@ impl BuyEngine {
                 let config = TransactionConfig::default();
                 // Phase 2, Task 2.5: Use output method for proper RAII nonce management
                 builder
-                    .build_sell_transaction_output(mint, "pump.fun", sell_percent, &config, false, true)
+                    .build_sell_transaction_output(
+                        mint,
+                        "pump.fun",
+                        sell_percent,
+                        &config,
+                        false,
+                        true,
+                    )
                     .await
                     .map_err(|e| anyhow!("Transaction build failed: {}", e))
             }
@@ -2191,7 +2202,10 @@ impl BuyEngine {
                 #[cfg(any(test, feature = "mock-mode"))]
                 {
                     use crate::tx_builder::TxBuildOutput;
-                    Ok(TxBuildOutput::new(Self::create_placeholder_tx(mint, "sell"), None))
+                    Ok(TxBuildOutput::new(
+                        Self::create_placeholder_tx(mint, "sell"),
+                        None,
+                    ))
                 }
                 #[cfg(not(any(test, feature = "mock-mode")))]
                 {
