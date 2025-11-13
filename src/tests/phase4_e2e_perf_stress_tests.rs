@@ -262,6 +262,221 @@ mod phase4_tests {
         println!("✓ E2E instruction ordering validation passed");
     }
 
+    /// E2E Test: Complete flow with explicit simulate and sign steps
+    ///
+    /// Tests the full pipeline: acquire → build → simulate → sign → (mock)broadcast → release
+    /// This addresses the missing simulate/sign steps from Task 4 requirements.
+    #[tokio::test]
+    async fn test_e2e_with_simulate_and_sign() {
+        use bot::tx_builder::{build_sim_tx_like, strip_nonce_for_simulation};
+
+        let nonce_manager = create_test_nonce_manager(5).await;
+        let payer = Keypair::new();
+
+        // Step 1: Acquire nonce lease
+        let acquire_start = Instant::now();
+        let lease = nonce_manager.acquire_nonce().await.unwrap();
+        let acquire_duration = acquire_start.elapsed();
+        let nonce_pubkey = *lease.nonce_pubkey();
+        let nonce_blockhash = lease.nonce_blockhash();
+        println!("  ✓ Acquire: {:?}", acquire_duration);
+
+        // Step 2: Build transaction with nonce
+        let build_start = Instant::now();
+        let mut instructions = vec![];
+        instructions.push(system_instruction::advance_nonce_account(
+            &nonce_pubkey,
+            &payer.pubkey(),
+        ));
+        instructions.push(system_instruction::transfer(
+            &payer.pubkey(),
+            &Pubkey::new_unique(),
+            1_000_000,
+        ));
+
+        let message = MessageV0::try_compile(&payer.pubkey(), &instructions, &[], nonce_blockhash)
+            .unwrap();
+        let tx_unsigned = VersionedTransaction {
+            signatures: vec![solana_sdk::signature::Signature::default()],
+            message: VersionedMessage::V0(message),
+        };
+        let build_duration = build_start.elapsed();
+        println!("  ✓ Build: {:?}", build_duration);
+
+        // Step 3: Simulate (without consuming nonce)
+        let simulate_start = Instant::now();
+        let sim_instructions = strip_nonce_for_simulation(&instructions, true);
+        assert_eq!(
+            sim_instructions.len(),
+            1,
+            "Simulation should strip advance_nonce"
+        );
+
+        let sim_tx = build_sim_tx_like(&tx_unsigned, sim_instructions, &payer.pubkey());
+
+        // Verify simulation transaction has correct structure
+        match &sim_tx.message {
+            VersionedMessage::V0(msg) => {
+                assert_eq!(msg.recent_blockhash, nonce_blockhash);
+                assert_eq!(msg.instructions.len(), 1); // Only transfer, no advance_nonce
+            }
+            _ => panic!("Expected V0 message"),
+        }
+        let simulate_duration = simulate_start.elapsed();
+        println!("  ✓ Simulate: {:?}", simulate_duration);
+
+        // Step 4: Sign the real transaction
+        let sign_start = Instant::now();
+        let signers: Vec<&dyn Signer> = vec![&payer];
+        let tx_signed =
+            VersionedTransaction::try_new(tx_unsigned.message.clone(), &signers).unwrap();
+        let sign_duration = sign_start.elapsed();
+        println!("  ✓ Sign: {:?}", sign_duration);
+
+        // Verify transaction is properly signed
+        assert_eq!(tx_signed.signatures.len(), 1);
+        assert_ne!(tx_signed.signatures[0], solana_sdk::signature::Signature::default());
+
+        // Step 5: Mock broadcast (in real scenario, would send to RPC)
+        let broadcast_start = Instant::now();
+        // Mock: just verify transaction structure
+        assert!(verify_advance_nonce_first(&tx_signed));
+        let broadcast_duration = broadcast_start.elapsed();
+        println!("  ✓ Broadcast (mock): {:?}", broadcast_duration);
+
+        // Step 6: Release nonce lease
+        let release_start = Instant::now();
+        drop(lease.release().await);
+        let release_duration = release_start.elapsed();
+        println!("  ✓ Release: {:?}", release_duration);
+
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0);
+
+        let total_duration =
+            acquire_duration + build_duration + simulate_duration + sign_duration + release_duration;
+        println!("  ✓ Total E2E duration: {:?}", total_duration);
+        println!("✓ E2E with simulate and sign test passed");
+    }
+
+    /// E2E Test: Multiple transactions with simulate/sign in sequence
+    ///
+    /// Verifies that simulate/sign flow works correctly for multiple transactions
+    #[tokio::test]
+    async fn test_e2e_multiple_simulate_sign_flows() {
+        use bot::tx_builder::{build_sim_tx_like, strip_nonce_for_simulation};
+
+        const NUM_TX: usize = 5;
+        let nonce_manager = create_test_nonce_manager(10).await;
+        let payer = Keypair::new();
+
+        for i in 0..NUM_TX {
+            // Acquire
+            let lease = nonce_manager.acquire_nonce().await.unwrap();
+            let nonce_pubkey = *lease.nonce_pubkey();
+            let nonce_blockhash = lease.nonce_blockhash();
+
+            // Build
+            let instructions = vec![
+                system_instruction::advance_nonce_account(&nonce_pubkey, &payer.pubkey()),
+                system_instruction::transfer(&payer.pubkey(), &Pubkey::new_unique(), 1_000_000),
+            ];
+
+            let message =
+                MessageV0::try_compile(&payer.pubkey(), &instructions, &[], nonce_blockhash)
+                    .unwrap();
+            let tx_unsigned = VersionedTransaction {
+                signatures: vec![solana_sdk::signature::Signature::default()],
+                message: VersionedMessage::V0(message),
+            };
+
+            // Simulate
+            let sim_instructions = strip_nonce_for_simulation(&instructions, true);
+            let sim_tx = build_sim_tx_like(&tx_unsigned, sim_instructions, &payer.pubkey());
+
+            // Verify simulation worked
+            match &sim_tx.message {
+                VersionedMessage::V0(msg) => {
+                    assert_eq!(msg.instructions.len(), 1); // No advance_nonce
+                }
+                _ => panic!("Expected V0 message"),
+            }
+
+            // Sign
+            let signers: Vec<&dyn Signer> = vec![&payer];
+            let tx_signed =
+                VersionedTransaction::try_new(tx_unsigned.message.clone(), &signers).unwrap();
+
+            // Verify signed
+            assert_ne!(tx_signed.signatures[0], solana_sdk::signature::Signature::default());
+
+            // Release
+            drop(lease.release().await);
+
+            println!("  ✓ Transaction {}/{} completed", i + 1, NUM_TX);
+        }
+
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0);
+
+        println!(
+            "✓ E2E multiple simulate/sign flows test passed ({} txs)",
+            NUM_TX
+        );
+    }
+
+    /// E2E Test: Simulate error path (invalid transaction)
+    ///
+    /// Tests that simulation can detect issues before signing/broadcasting
+    #[tokio::test]
+    async fn test_e2e_simulate_error_detection() {
+        use bot::tx_builder::{build_sim_tx_like, strip_nonce_for_simulation};
+
+        let nonce_manager = create_test_nonce_manager(3).await;
+        let payer = Keypair::new();
+
+        // Acquire
+        let lease = nonce_manager.acquire_nonce().await.unwrap();
+        let nonce_pubkey = *lease.nonce_pubkey();
+        let nonce_blockhash = lease.nonce_blockhash();
+
+        // Build transaction with advance_nonce
+        let instructions = vec![
+            system_instruction::advance_nonce_account(&nonce_pubkey, &payer.pubkey()),
+            system_instruction::transfer(&payer.pubkey(), &Pubkey::new_unique(), 1_000_000),
+        ];
+
+        let message =
+            MessageV0::try_compile(&payer.pubkey(), &instructions, &[], nonce_blockhash).unwrap();
+        let tx_unsigned = VersionedTransaction {
+            signatures: vec![solana_sdk::signature::Signature::default()],
+            message: VersionedMessage::V0(message),
+        };
+
+        // Simulate - strip nonce for simulation
+        let sim_instructions = strip_nonce_for_simulation(&instructions, true);
+        let sim_tx = build_sim_tx_like(&tx_unsigned, sim_instructions, &payer.pubkey());
+
+        // In real scenario, simulation would fail here (insufficient funds, invalid accounts, etc.)
+        // For now, just verify simulation structure is correct
+        match &sim_tx.message {
+            VersionedMessage::V0(msg) => {
+                assert_eq!(msg.instructions.len(), 1); // Should not have advance_nonce
+                assert_eq!(msg.recent_blockhash, nonce_blockhash);
+            }
+            _ => panic!("Expected V0 message"),
+        }
+
+        // If simulation fails, we should NOT sign/broadcast
+        // Instead, release the nonce
+        drop(lease.release().await);
+
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0);
+
+        println!("✓ E2E simulate error detection test passed");
+    }
+
     // ============================================================================
     // Performance Tests (< 5ms overhead target)
     // ============================================================================

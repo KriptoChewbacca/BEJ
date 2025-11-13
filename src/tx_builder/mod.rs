@@ -94,9 +94,11 @@ pub use instructions::{plan_buy_instructions, sanity_check_ix_order, Instruction
 // Task 7: Export bundler types
 pub use bundle::{BundleConfig, BundleEndpoint, Bundler, JitoBundler, MockBundler};
 
+// Task 4: Export simulation utilities
+pub use simulate::{build_sim_tx_like, strip_nonce_for_simulation};
+
 // Future exports (will be populated in later tasks)
 // pub use builder::TxBuilder;
-// pub use simulate::{strip_nonce_for_simulation, build_sim_tx_like};
 // pub use legacy::*;
 
 // Type aliases for backward compatibility
