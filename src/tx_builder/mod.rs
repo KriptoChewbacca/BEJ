@@ -88,9 +88,11 @@ mod simulate;
 pub use context::ExecutionContext;
 pub use output::TxBuildOutput;
 
+// Task 3: Export instruction planning types and functions
+pub use instructions::{plan_buy_instructions, sanity_check_ix_order, InstructionPlan};
+
 // Future exports (will be populated in later tasks)
 // pub use builder::TxBuilder;
-// pub use instructions::{InstructionPlan, plan_buy_instructions, sanity_check_ix_order};
 // pub use simulate::{strip_nonce_for_simulation, build_sim_tx_like};
 // pub use bundle::{Bundler, BundleCandidate, JitoBundler};
 // pub use legacy::*;
