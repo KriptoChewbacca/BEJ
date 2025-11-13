@@ -283,6 +283,7 @@ mod tests {
     mod nonce_raii_comprehensive_tests;
     mod phase1_nonce_enforcement_tests;
     mod phase2_raii_output_tests; // Phase 2 RAII output integration tests
+    mod phase4_e2e_perf_stress_tests; // Phase 4 E2E, Performance, and Stress tests
     mod simulation_nonce_tests;
     mod test_helpers;
     mod tx_builder_fee_strategy_test;
