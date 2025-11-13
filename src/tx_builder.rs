@@ -959,6 +959,11 @@ pub struct TransactionConfig {
     /// After this many transactions, a rotation checkpoint is logged
     pub signer_rotation_interval: u64,
 
+    /// Nonce lease TTL in seconds (Phase 1, Task 1.4)
+    /// Time-to-live for nonce leases, after which they expire
+    /// Default: 30 seconds
+    pub nonce_lease_ttl_secs: u64,
+
     /// Cluster configuration for pumpfun SDK
     #[cfg(feature = "pumpfun")]
     pub cluster: Cluster,
@@ -1001,6 +1006,7 @@ impl Default for TransactionConfig {
             max_concurrent_builds: 50,
             operation_priority: OperationPriority::default(),
             signer_rotation_interval: 100,
+            nonce_lease_ttl_secs: 30,
             #[cfg(feature = "pumpfun")]
             cluster: Cluster::mainnet(Default::default(), Default::default()),
         }
@@ -1713,8 +1719,10 @@ impl TransactionBuilder {
         }
 
         // enforce_nonce = true: Always acquire nonce lease or fail
-        match self.nonce_manager.acquire_nonce().await {
-            Ok(lease) => {
+        // Phase 1, Task 1.3: Use try_acquire for atomic, TOCTTOU-safe acquisition
+        let ttl = Duration::from_secs(config.nonce_lease_ttl_secs);
+        match self.nonce_manager.try_acquire_nonce(ttl, 2000).await {
+            Some(lease) => {
                 // Record successful nonce acquisition
                 self.nonce_acquire_count.fetch_add(1, Ordering::Relaxed);
 
@@ -1783,7 +1791,7 @@ impl TransactionBuilder {
                     zk_proof,
                 })
             }
-            Err(_e) => {
+            None => {
                 // Record exhaustion event
                 self.nonce_exhausted_count.fetch_add(1, Ordering::Relaxed);
 
@@ -2099,11 +2107,40 @@ impl TransactionBuilder {
         instructions
     }
 
+    /// Build a buy transaction (Phase 1, Task 1.1)
+    ///
+    /// This is a convenience wrapper that calls `build_buy_transaction_with_nonce`
+    /// with `enforce_nonce = true` by default for trade-critical operations.
+    ///
+    /// # Arguments
+    ///
+    /// * `candidate` - Token candidate to buy
+    /// * `config` - Transaction configuration
+    /// * `sign` - Whether to sign the transaction
     pub async fn build_buy_transaction(
         &self,
         candidate: &PremintCandidate,
         config: &TransactionConfig,
         sign: bool,
+    ) -> Result<VersionedTransaction, TransactionBuilderError> {
+        self.build_buy_transaction_with_nonce(candidate, config, sign, true)
+            .await
+    }
+
+    /// Build a buy transaction with explicit nonce enforcement control (Phase 1, Task 1.1)
+    ///
+    /// # Arguments
+    ///
+    /// * `candidate` - Token candidate to buy
+    /// * `config` - Transaction configuration
+    /// * `sign` - Whether to sign the transaction
+    /// * `enforce_nonce` - Whether to enforce durable nonce usage (true for trade-critical ops)
+    pub async fn build_buy_transaction_with_nonce(
+        &self,
+        candidate: &PremintCandidate,
+        config: &TransactionConfig,
+        sign: bool,
+        enforce_nonce: bool,
     ) -> Result<VersionedTransaction, TransactionBuilderError> {
         config.validate()?;
         info!(
@@ -2132,8 +2169,22 @@ impl TransactionBuilder {
             // 4. Update of signer_keypair_index in config
         }
 
-        // Task 1: Use shared helper for nonce/blockhash decision
-        let exec_ctx = self.prepare_execution_context(config).await?;
+        // Phase 1, Task 1.2: Priority defaulting policy
+        // If enforce_nonce is true and priority is Utility, upgrade to CriticalSniper
+        let mut effective_config = config.clone();
+        if enforce_nonce && matches!(config.operation_priority, OperationPriority::Utility) {
+            debug!(
+                original_priority = ?config.operation_priority,
+                new_priority = ?OperationPriority::CriticalSniper,
+                "Upgrading operation priority for nonce enforcement"
+            );
+            effective_config.operation_priority = OperationPriority::CriticalSniper;
+        }
+
+        // Phase 1, Task 1.4: Use prepare_execution_context_with_enforcement
+        let exec_ctx = self
+            .prepare_execution_context_with_enforcement(&effective_config, enforce_nonce)
+            .await?;
         let recent_blockhash = exec_ctx.blockhash;
 
         // Universe Class: ML-based slippage optimization
@@ -2455,6 +2506,18 @@ impl TransactionBuilder {
         Ok(tx)
     }
 
+    /// Build a sell transaction (Phase 1, Task 1.1)
+    ///
+    /// This is a convenience wrapper that calls `build_sell_transaction_with_nonce`
+    /// with `enforce_nonce = true` by default for trade-critical operations.
+    ///
+    /// # Arguments
+    ///
+    /// * `mint` - Token mint to sell
+    /// * `program` - DEX program to use
+    /// * `sell_percent` - Percentage of holdings to sell (0.0-1.0)
+    /// * `config` - Transaction configuration
+    /// * `sign` - Whether to sign the transaction
     pub async fn build_sell_transaction(
         &self,
         mint: &Pubkey,
@@ -2463,12 +2526,49 @@ impl TransactionBuilder {
         config: &TransactionConfig,
         sign: bool,
     ) -> Result<VersionedTransaction, TransactionBuilderError> {
+        self.build_sell_transaction_with_nonce(mint, program, sell_percent, config, sign, true)
+            .await
+    }
+
+    /// Build a sell transaction with explicit nonce enforcement control (Phase 1, Task 1.1)
+    ///
+    /// # Arguments
+    ///
+    /// * `mint` - Token mint to sell
+    /// * `program` - DEX program to use
+    /// * `sell_percent` - Percentage of holdings to sell (0.0-1.0)
+    /// * `config` - Transaction configuration
+    /// * `sign` - Whether to sign the transaction
+    /// * `enforce_nonce` - Whether to enforce durable nonce usage (true for trade-critical ops)
+    pub async fn build_sell_transaction_with_nonce(
+        &self,
+        mint: &Pubkey,
+        program: &str,
+        sell_percent: f64,
+        config: &TransactionConfig,
+        sign: bool,
+        enforce_nonce: bool,
+    ) -> Result<VersionedTransaction, TransactionBuilderError> {
         config.validate()?;
         let sell_percent = sell_percent.clamp(0.0, 1.0);
         info!(mint = %mint, "Building sell transaction");
 
-        // Task 1: Use shared helper for nonce/blockhash decision
-        let exec_ctx = self.prepare_execution_context(config).await?;
+        // Phase 1, Task 1.2: Priority defaulting policy
+        // If enforce_nonce is true and priority is Utility, upgrade to CriticalSniper
+        let mut effective_config = config.clone();
+        if enforce_nonce && matches!(config.operation_priority, OperationPriority::Utility) {
+            debug!(
+                original_priority = ?config.operation_priority,
+                new_priority = ?OperationPriority::CriticalSniper,
+                "Upgrading operation priority for nonce enforcement"
+            );
+            effective_config.operation_priority = OperationPriority::CriticalSniper;
+        }
+
+        // Phase 1, Task 1.4: Use prepare_execution_context_with_enforcement
+        let exec_ctx = self
+            .prepare_execution_context_with_enforcement(&effective_config, enforce_nonce)
+            .await?;
         let recent_blockhash = exec_ctx.blockhash;
 
         // Pre-allocate instruction vector for hot-path performance

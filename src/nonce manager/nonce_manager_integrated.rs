@@ -1050,6 +1050,149 @@ impl UniverseNonceManager {
         .await
     }
 
+    /// Try to acquire a nonce without blocking (Phase 1, Task 1.3)
+    ///
+    /// This method attempts to acquire a nonce lease immediately without waiting.
+    /// Returns None if no nonce is available, avoiding TOCTTOU issues.
+    ///
+    /// # Arguments
+    ///
+    /// * `ttl` - Time-to-live for the lease
+    /// * `network_tps` - Current network TPS for predictive validation
+    ///
+    /// # Returns
+    ///
+    /// * `Some(NonceLease)` - Successfully acquired a nonce
+    /// * `None` - No nonce available (pool exhausted or all accounts tainted)
+    #[instrument(skip(self))]
+    pub async fn try_acquire_nonce(&self, ttl: Duration, network_tps: u32) -> Option<NonceLease> {
+        self.total_acquires.fetch_add(1, Ordering::Relaxed);
+
+        // Try to acquire semaphore permit without blocking (TOCTTOU-safe)
+        let permit = match self.available_permits.try_acquire() {
+            Ok(permit) => permit,
+            Err(_) => {
+                debug!("No available nonce permits (pool exhausted)");
+                return None;
+            }
+        };
+
+        // Atomically track permit usage
+        self.permits_in_use.fetch_add(1, Ordering::SeqCst);
+
+        // Find best nonce account
+        let accounts = self.accounts.read().await;
+        let mut best_account: Option<Arc<ImprovedNonceAccount>> = None;
+        let mut best_score = f64::NEG_INFINITY;
+
+        // Get current slot for validation
+        let current_slot = match self.get_current_slot().await {
+            Ok(slot) => slot,
+            Err(e) => {
+                warn!(error = ?e, "Failed to get current slot for nonce validation");
+                // Release permit back since we're failing
+                drop(permit);
+                self.permits_in_use.fetch_sub(1, Ordering::SeqCst);
+                return None;
+            }
+        };
+
+        for account in accounts.iter() {
+            // Skip tainted accounts
+            if account.is_tainted.load(Ordering::Relaxed) {
+                continue;
+            }
+
+            // Validate not expired with predictive model
+            if account
+                .validate_not_expired(
+                    current_slot,
+                    Some(self.predictive_model.clone()),
+                    network_tps,
+                )
+                .await
+                .is_err()
+            {
+                continue;
+            }
+
+            // Score based on age (LRU)
+            let age_score = account.created_at.elapsed().as_secs_f64();
+
+            if age_score > best_score {
+                best_score = age_score;
+                best_account = Some(account.clone());
+            }
+        }
+
+        drop(accounts);
+
+        let account = match best_account {
+            Some(acc) => acc,
+            None => {
+                debug!("No suitable nonce accounts available (all tainted or expired)");
+                // Release permit back since we're failing
+                drop(permit);
+                self.permits_in_use.fetch_sub(1, Ordering::SeqCst);
+                return None;
+            }
+        };
+
+        // Update last_used timestamp
+        account.touch();
+
+        // Check predictive model
+        let mut model = self.predictive_model.lock().await;
+        if let Some(failure_prob) = model.predict_failure_probability(network_tps) {
+            if failure_prob > 0.7 {
+                warn!(
+                    account = %account.pubkey,
+                    probability = failure_prob,
+                    "High failure probability, consider refreshing"
+                );
+            }
+        }
+        drop(model);
+
+        // Create lease with automatic release
+        let account_pubkey = account.pubkey;
+        let last_valid_slot = account.last_valid_slot.load(Ordering::SeqCst);
+        let nonce_blockhash = *account.last_blockhash.read().await;
+        let permits = self.available_permits.clone();
+        let permits_in_use = self.permits_in_use.clone();
+        let released_flag = Arc::new(RwLock::new(false));
+        let released_for_watchdog = released_flag.clone();
+
+        // Register with watchdog
+        self.watchdog
+            .register_lease(account_pubkey, Instant::now(), released_for_watchdog)
+            .await;
+
+        let lease = NonceLease::new(
+            account_pubkey,
+            last_valid_slot,
+            nonce_blockhash,
+            ttl,
+            move || {
+                // Release permit back to pool and decrement atomic counter
+                permits.add_permits(1);
+                permits_in_use.fetch_sub(1, Ordering::SeqCst);
+            },
+        );
+
+        // Forget the permit (lease now owns it)
+        permit.forget();
+
+        debug!(
+            account = %account_pubkey,
+            last_valid_slot = last_valid_slot,
+            nonce_blockhash = %nonce_blockhash,
+            "Nonce lease acquired (try_acquire)"
+        );
+
+        Some(lease)
+    }
+
     /// Refresh nonce with non-blocking monitoring (Step 4)
     #[instrument(skip(self))]
     pub async fn refresh_nonce_async(&self, nonce_pubkey: Pubkey) -> NonceResult<Signature> {
