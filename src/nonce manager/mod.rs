@@ -2,18 +2,18 @@
 //!
 //! Universe Class Grade Nonce Manager with enterprise features
 
-#![allow(unused_imports)]  // Allow unused imports for re-exports that may not be used in all contexts
+#![allow(unused_imports)] // Allow unused imports for re-exports that may not be used in all contexts
 
 // Submodules
-pub mod nonce_errors;
-pub mod nonce_retry;
-pub mod nonce_circuit_breaker;
 pub mod nonce_authority;
+pub mod nonce_circuit_breaker;
+pub mod nonce_errors;
 pub mod nonce_integration;
 pub mod nonce_lease;
 pub mod nonce_manager_integrated;
 pub mod nonce_predictive;
 pub mod nonce_refresh;
+pub mod nonce_retry;
 pub mod nonce_security;
 pub mod nonce_signer;
 pub mod nonce_telemetry;

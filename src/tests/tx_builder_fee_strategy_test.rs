@@ -9,30 +9,31 @@
 #[cfg(test)]
 mod tx_builder_fee_strategy_tests {
     use crate::nonce_manager::NonceManager;
-    use crate::tx_builder::{TransactionBuilder, TransactionConfig, DexProgram};
+    use crate::tx_builder::{DexProgram, TransactionBuilder, TransactionConfig};
     use crate::types::PremintCandidate;
     use crate::wallet::WalletManager;
     use solana_sdk::{
-        compute_budget::ComputeBudgetInstruction,
-        instruction::Instruction,
+        compute_budget::ComputeBudgetInstruction, hash::Hash, instruction::Instruction,
         pubkey::Pubkey,
-        hash::Hash,
     };
-    use std::sync::Arc;
     use std::str::FromStr;
+    use std::sync::Arc;
 
     /// Helper function to count compute unit price instructions in a transaction
     fn count_compute_unit_price_instructions(instructions: &[Instruction]) -> usize {
-        instructions.iter().filter(|ix| {
-            // Check if this is a compute budget program instruction
-            if ix.program_id != solana_sdk::compute_budget::id() {
-                return false;
-            }
-            
-            // Check if it's specifically a set_compute_unit_price instruction
-            // The instruction data for set_compute_unit_price starts with discriminator 3
-            !ix.data.is_empty() && ix.data[0] == 3
-        }).count()
+        instructions
+            .iter()
+            .filter(|ix| {
+                // Check if this is a compute budget program instruction
+                if ix.program_id != solana_sdk::compute_budget::id() {
+                    return false;
+                }
+
+                // Check if it's specifically a set_compute_unit_price instruction
+                // The instruction data for set_compute_unit_price starts with discriminator 3
+                !ix.data.is_empty() && ix.data[0] == 3
+            })
+            .count()
     }
 
     #[test]
@@ -67,16 +68,16 @@ mod tx_builder_fee_strategy_tests {
     async fn test_placeholder_has_no_fee_instruction() {
         // This test verifies that placeholder transactions don't include
         // compute unit price instructions
-        
+
         // Note: This is a conceptual test. In a real scenario, you'd need to:
         // 1. Set up a mock wallet and nonce manager
         // 2. Build a transaction with Unknown DEX program
         // 3. Inspect the resulting transaction's instructions
         // 4. Verify no compute unit price instruction is present
-        
+
         // Since this requires significant setup, we mark it as pending
         // and document the expected behavior
-        
+
         let config = TransactionConfig {
             adaptive_priority_fee_base: 10_000,
             adaptive_priority_fee_multiplier: 1.5,
@@ -90,11 +91,17 @@ mod tx_builder_fee_strategy_tests {
         // should NOT be added (implemented by the condition: adaptive_priority_fee > 0 && !is_placeholder)
         let is_placeholder = true;
         let should_add_fee = adaptive_fee > 0 && !is_placeholder;
-        assert!(!should_add_fee, "Fee instruction should not be added for placeholders");
+        assert!(
+            !should_add_fee,
+            "Fee instruction should not be added for placeholders"
+        );
 
         let is_real_dex = false;
         let should_add_fee_real = adaptive_fee > 0 && !is_real_dex;
-        assert!(should_add_fee_real, "Fee instruction should be added for real DEX instructions");
+        assert!(
+            should_add_fee_real,
+            "Fee instruction should be added for real DEX instructions"
+        );
     }
 
     #[test]
@@ -105,11 +112,11 @@ mod tx_builder_fee_strategy_tests {
 
         // Should be compute budget program
         assert_eq!(instruction.program_id, solana_sdk::compute_budget::id());
-        
+
         // Should have correct discriminator (3 for set_compute_unit_price)
         assert!(!instruction.data.is_empty());
         assert_eq!(instruction.data[0], 3);
-        
+
         // Count should be 1 for a single instruction
         let count = count_compute_unit_price_instructions(&[instruction]);
         assert_eq!(count, 1);
@@ -127,7 +134,10 @@ mod tx_builder_fee_strategy_tests {
 
         // This would be a bug - two fee instructions
         let instructions_with_duplicate = vec![cu_limit, fee1, fee2];
-        assert_eq!(count_compute_unit_price_instructions(&instructions_with_duplicate), 2);
+        assert_eq!(
+            count_compute_unit_price_instructions(&instructions_with_duplicate),
+            2
+        );
     }
 
     #[test]

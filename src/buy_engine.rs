@@ -75,31 +75,31 @@
 //! - **Memory Efficiency**: Bounded queues, automatic cache pruning
 
 use std::{
-    sync::{Arc, atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering}}, 
-    time::{Duration, Instant, SystemTime},
     collections::{HashMap, VecDeque},
+    sync::{
+        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
+        Arc,
+    },
+    time::{Duration, Instant, SystemTime},
 };
 
+use crate::config::Config;
 use anyhow::{anyhow, Context, Result};
+use dashmap::DashMap;
 use solana_sdk::{
-    pubkey::Pubkey,
-    signature::Signature,
-    transaction::VersionedTransaction,
-    hash::Hash,
+    hash::Hash, pubkey::Pubkey, signature::Signature, transaction::VersionedTransaction,
 };
 use tokio::sync::{Mutex, RwLock};
 use tokio::time::{sleep, timeout};
-use tracing::{debug, error, info, warn, instrument, Span};
-use dashmap::DashMap;
-use crate::config::Config;
+use tracing::{debug, error, info, instrument, warn, Span};
 
 use crate::metrics::{metrics, Timer};
 use crate::nonce_manager::NonceManager;
 
+use crate::observability::CorrelationId;
 use crate::rpc_manager::RpcBroadcaster;
 use crate::security::validator;
 use crate::structured_logging::PipelineContext;
-use crate::observability::CorrelationId;
 use crate::tx_builder::{TransactionBuilder, TransactionConfig};
 use crate::types::{AppState, CandidateReceiver, Mode, PremintCandidate};
 
@@ -112,11 +112,11 @@ use crate::types::{AppState, CandidateReceiver, Mode, PremintCandidate};
 pub struct BuyConfig {
     pub enabled: bool,
     pub kill_switch: bool,
-    pub slippage_bps: u16,  // Basis points (0-10000)
+    pub slippage_bps: u16, // Basis points (0-10000)
     pub max_slippage_bps: u16,
     pub taker_fee_bps: u16,
     pub max_tx_count_per_window: u32,
-    pub max_total_spend_per_window: u64,  // in lamports
+    pub max_total_spend_per_window: u64, // in lamports
     pub window_duration_secs: u64,
     pub priority_fee_lamports: u64,
     pub max_compute_units: u32,
@@ -125,21 +125,35 @@ pub struct BuyConfig {
 impl BuyConfig {
     pub fn validate(&self) -> Result<()> {
         if self.slippage_bps > 10000 {
-            return Err(anyhow!("slippage_bps {} exceeds maximum 10000", self.slippage_bps));
+            return Err(anyhow!(
+                "slippage_bps {} exceeds maximum 10000",
+                self.slippage_bps
+            ));
         }
         if self.max_slippage_bps > 10000 {
-            return Err(anyhow!("max_slippage_bps {} exceeds maximum 10000", self.max_slippage_bps));
+            return Err(anyhow!(
+                "max_slippage_bps {} exceeds maximum 10000",
+                self.max_slippage_bps
+            ));
         }
         if self.slippage_bps > self.max_slippage_bps {
-            return Err(anyhow!("slippage_bps {} exceeds max_slippage_bps {}", 
-                self.slippage_bps, self.max_slippage_bps));
+            return Err(anyhow!(
+                "slippage_bps {} exceeds max_slippage_bps {}",
+                self.slippage_bps,
+                self.max_slippage_bps
+            ));
         }
         if self.taker_fee_bps > 10000 {
-            return Err(anyhow!("taker_fee_bps {} exceeds maximum 10000", self.taker_fee_bps));
+            return Err(anyhow!(
+                "taker_fee_bps {} exceeds maximum 10000",
+                self.taker_fee_bps
+            ));
         }
         if self.max_compute_units == 0 || self.max_compute_units > 1_400_000 {
-            return Err(anyhow!("max_compute_units {} out of valid range (1-1400000)", 
-                self.max_compute_units));
+            return Err(anyhow!(
+                "max_compute_units {} out of valid range (1-1400000)",
+                self.max_compute_units
+            ));
         }
         if !self.enabled {
             return Err(anyhow!("BuyConfig is disabled"));
@@ -156,11 +170,11 @@ impl Default for BuyConfig {
         Self {
             enabled: true,
             kill_switch: false,
-            slippage_bps: 100,  // 1%
-            max_slippage_bps: 500,  // 5%
-            taker_fee_bps: 25,  // 0.25%
+            slippage_bps: 100,     // 1%
+            max_slippage_bps: 500, // 5%
+            taker_fee_bps: 25,     // 0.25%
             max_tx_count_per_window: 10,
-            max_total_spend_per_window: 1_000_000_000,  // 1 SOL
+            max_total_spend_per_window: 1_000_000_000, // 1 SOL
             window_duration_secs: 60,
             priority_fee_lamports: 10_000,
             max_compute_units: 200_000,
@@ -172,8 +186,8 @@ impl Default for BuyConfig {
 #[derive(Debug)]
 pub struct TokenBucketRateLimiter {
     capacity: u64,
-    tokens: AtomicU64,  // Fixed-point: actual_tokens * 1000
-    refill_rate: u64,   // tokens per second * 1000
+    tokens: AtomicU64, // Fixed-point: actual_tokens * 1000
+    refill_rate: u64,  // tokens per second * 1000
     last_refill: Mutex<Instant>,
 }
 
@@ -189,20 +203,20 @@ impl TokenBucketRateLimiter {
 
     pub async fn try_acquire(&self, tokens: u64) -> bool {
         self.refill().await;
-        
+
         let tokens_fp = tokens * 1000;
         let mut current = self.tokens.load(Ordering::Acquire);
-        
+
         loop {
             if current < tokens_fp {
                 return false;
             }
-            
+
             match self.tokens.compare_exchange_weak(
                 current,
                 current - tokens_fp,
                 Ordering::Release,
-                Ordering::Acquire
+                Ordering::Acquire,
             ) {
                 Ok(_) => return true,
                 Err(new_current) => current = new_current,
@@ -214,10 +228,11 @@ impl TokenBucketRateLimiter {
         let mut last_refill = self.last_refill.lock().await;
         let now = Instant::now();
         let elapsed_millis = now.duration_since(*last_refill).as_millis();
-        
+
         if elapsed_millis > 0 {
             // Integer arithmetic: tokens_to_add = (elapsed_ms * refill_rate_per_sec) / 1000
-            let tokens_to_add = ((elapsed_millis as u64 * self.refill_rate) / 1000).min(self.capacity);
+            let tokens_to_add =
+                ((elapsed_millis as u64 * self.refill_rate) / 1000).min(self.capacity);
             let current = self.tokens.load(Ordering::Acquire);
             let new_tokens = (current + tokens_to_add).min(self.capacity);
             self.tokens.store(new_tokens, Ordering::Release);
@@ -234,28 +249,35 @@ impl TokenBucketRateLimiter {
 /// Enhanced RPC error classification and handling
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RpcErrorClass {
-    Transient,      // Retry immediately
-    RateLimit,      // Backoff required
-    BadBlockhash,   // Need fresh blockhash
-    AccountInUse,   // Nonce collision
+    Transient,    // Retry immediately
+    RateLimit,    // Backoff required
+    BadBlockhash, // Need fresh blockhash
+    AccountInUse, // Nonce collision
     InsufficientFunds,
-    Permanent,      // Don't retry
-    NetworkError,   // Try different endpoint
+    Permanent,    // Don't retry
+    NetworkError, // Try different endpoint
 }
 
 impl RpcErrorClass {
     pub fn classify(error: &anyhow::Error) -> Self {
         let error_str = error.to_string().to_lowercase();
-        
+
         if error_str.contains("rate limit") || error_str.contains("too many requests") {
             Self::RateLimit
-        } else if error_str.contains("blockhash not found") || error_str.contains("block height exceeded") {
+        } else if error_str.contains("blockhash not found")
+            || error_str.contains("block height exceeded")
+        {
             Self::BadBlockhash
         } else if error_str.contains("account in use") || error_str.contains("nonce") {
             Self::AccountInUse
-        } else if error_str.contains("insufficient funds") || error_str.contains("insufficient lamports") {
+        } else if error_str.contains("insufficient funds")
+            || error_str.contains("insufficient lamports")
+        {
             Self::InsufficientFunds
-        } else if error_str.contains("connection") || error_str.contains("timeout") || error_str.contains("network") {
+        } else if error_str.contains("connection")
+            || error_str.contains("timeout")
+            || error_str.contains("network")
+        {
             Self::NetworkError
         } else if error_str.contains("invalid") || error_str.contains("malformed") {
             Self::Permanent
@@ -265,7 +287,10 @@ impl RpcErrorClass {
     }
 
     pub fn is_retryable(&self) -> bool {
-        matches!(self, Self::Transient | Self::RateLimit | Self::BadBlockhash | Self::NetworkError)
+        matches!(
+            self,
+            Self::Transient | Self::RateLimit | Self::BadBlockhash | Self::NetworkError
+        )
     }
 }
 
@@ -295,16 +320,16 @@ impl ExponentialBackoff {
 
         let exp_delay = self.base_delay_ms * 2_u64.pow(attempt);
         let clamped = exp_delay.min(self.max_delay_ms);
-        
+
         // Add jitter: ±10% using timestamp-based pseudo-random
         let jitter_seed = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap_or_default()  // Graceful fallback to zero duration
+            .unwrap_or_default() // Graceful fallback to zero duration
             .as_nanos() as f64;
-        let jitter_ratio = (jitter_seed % 1000.0) / 1000.0;  // 0.0-1.0
+        let jitter_ratio = (jitter_seed % 1000.0) / 1000.0; // 0.0-1.0
         let jitter = (clamped as f64 * self.jitter_factor * (jitter_ratio - 0.5) * 2.0) as i64;
         let with_jitter = (clamped as i64 + jitter).max(0) as u64;
-        
+
         Duration::from_millis(with_jitter)
     }
 
@@ -322,7 +347,7 @@ impl Default for ExponentialBackoff {
 /// Blockhash manager with freshness tracking
 #[derive(Debug)]
 pub struct BlockhashManager {
-    current_blockhash: RwLock<Option<(Hash, Instant, u64)>>,  // (hash, timestamp, last_valid_block_height)
+    current_blockhash: RwLock<Option<(Hash, Instant, u64)>>, // (hash, timestamp, last_valid_block_height)
     max_age_ms: u64,
 }
 
@@ -361,7 +386,9 @@ impl BlockhashManager {
 
     pub async fn get_age_ms(&self) -> Option<u128> {
         let guard = self.current_blockhash.read().await;
-        guard.as_ref().map(|(_, timestamp, _)| timestamp.elapsed().as_millis())
+        guard
+            .as_ref()
+            .map(|(_, timestamp, _)| timestamp.elapsed().as_millis())
     }
 }
 
@@ -428,7 +455,7 @@ impl PredictiveAnalytics {
     pub async fn record_volume(&self, volume: u64) {
         let mut history = self.volume_history.write().await;
         let now = Instant::now();
-        
+
         // Remove old entries outside the window
         while let Some((timestamp, _)) = history.front() {
             if now.duration_since(*timestamp) > self.window_size {
@@ -437,35 +464,45 @@ impl PredictiveAnalytics {
                 break;
             }
         }
-        
+
         history.push_back((now, volume));
     }
 
     pub async fn predict_surge(&self) -> Option<u8> {
         let history = self.volume_history.read().await;
-        
+
         if history.len() < 10 {
             return None; // Insufficient data
         }
 
         // Simple ML: calculate volume acceleration
-        let recent_avg: u64 = history.iter().rev().take(5)
+        let recent_avg: u64 = history
+            .iter()
+            .rev()
+            .take(5)
             .map(|(_, vol)| vol)
-            .sum::<u64>() / 5;
-        
-        let older_avg: u64 = history.iter().rev().skip(5).take(5)
+            .sum::<u64>()
+            / 5;
+
+        let older_avg: u64 = history
+            .iter()
+            .rev()
+            .skip(5)
+            .take(5)
             .map(|(_, vol)| vol)
-            .sum::<u64>() / 5;
+            .sum::<u64>()
+            / 5;
 
         if older_avg == 0 {
             return None;
         }
 
         let acceleration = (recent_avg as f64 / older_avg as f64) - 1.0;
-        
+
         if acceleration > self.surge_threshold {
             let confidence = ((acceleration / self.surge_threshold * 50.0).min(100.0)) as u8;
-            self.prediction_confidence.store(confidence as u32, Ordering::Relaxed);
+            self.prediction_confidence
+                .store(confidence as u32, Ordering::Relaxed);
             Some(confidence)
         } else {
             self.prediction_confidence.store(0, Ordering::Relaxed);
@@ -583,10 +620,10 @@ impl UniverseCircuitBreaker {
 
     pub fn check_mint_rate_limit(&self, mint: &str, window_secs: u64, max_ops: u64) -> bool {
         let now = Instant::now();
-        
+
         if let Some(mut entry) = self.mint_rate_limits.get_mut(mint) {
             let (counter, timestamp) = &mut *entry;
-            
+
             if now.duration_since(*timestamp).as_secs() > window_secs {
                 // Reset window
                 counter.store(1, Ordering::Relaxed);
@@ -597,17 +634,18 @@ impl UniverseCircuitBreaker {
                 count <= max_ops
             }
         } else {
-            self.mint_rate_limits.insert(mint.to_string(), (AtomicU64::new(1), now));
+            self.mint_rate_limits
+                .insert(mint.to_string(), (AtomicU64::new(1), now));
             true
         }
     }
 
     pub fn check_program_rate_limit(&self, program: &str, window_secs: u64, max_ops: u64) -> bool {
         let now = Instant::now();
-        
+
         if let Some(mut entry) = self.program_rate_limits.get_mut(program) {
             let (counter, timestamp) = &mut *entry;
-            
+
             if now.duration_since(*timestamp).as_secs() > window_secs {
                 counter.store(1, Ordering::Relaxed);
                 *timestamp = now;
@@ -617,7 +655,8 @@ impl UniverseCircuitBreaker {
                 count <= max_ops
             }
         } else {
-            self.program_rate_limits.insert(program.to_string(), (AtomicU64::new(1), now));
+            self.program_rate_limits
+                .insert(program.to_string(), (AtomicU64::new(1), now));
             true
         }
     }
@@ -645,14 +684,25 @@ impl AIBackoffStrategy {
 
     pub async fn calculate_optimal_delay(&self, failure_count: u32) -> Duration {
         let history = self.success_history.read().await;
-        
+
         // Find the delay with the highest success rate
-        let optimal_delay = history.iter()
+        let optimal_delay = history
+            .iter()
             .filter(|(delay, _)| **delay <= self.max_delay_ms)
             .max_by(|(_, (succ1, total1)), (_, (succ2, total2))| {
-                let rate1 = if *total1 > 0 { *succ1 as f64 / *total1 as f64 } else { 0.0 };
-                let rate2 = if *total2 > 0 { *succ2 as f64 / *total2 as f64 } else { 0.0 };
-                rate1.partial_cmp(&rate2).unwrap_or(std::cmp::Ordering::Equal)
+                let rate1 = if *total1 > 0 {
+                    *succ1 as f64 / *total1 as f64
+                } else {
+                    0.0
+                };
+                let rate2 = if *total2 > 0 {
+                    *succ2 as f64 / *total2 as f64
+                } else {
+                    0.0
+                };
+                rate1
+                    .partial_cmp(&rate2)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             })
             .map(|(delay, _)| *delay);
 
@@ -660,8 +710,7 @@ impl AIBackoffStrategy {
             optimal.max(self.base_delay_ms * failure_count as u64)
         } else {
             // Fibonacci-like progression for exploration
-            (self.base_delay_ms * 2_u64.pow(failure_count.min(10)))
-                .min(self.max_delay_ms)
+            (self.base_delay_ms * 2_u64.pow(failure_count.min(10))).min(self.max_delay_ms)
         };
 
         Duration::from_millis(delay_ms)
@@ -670,7 +719,7 @@ impl AIBackoffStrategy {
     pub async fn record_outcome(&self, delay_ms: u64, success: bool) {
         let mut history = self.success_history.write().await;
         let entry = history.entry(delay_ms).or_insert((0, 0));
-        
+
         if success {
             entry.0 += 1;
         }
@@ -698,7 +747,7 @@ impl TraceContext {
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        
+
         Self {
             span_id: format!("{}_{}", operation, timestamp),
             trace_id: format!("trace_{}", timestamp),
@@ -717,24 +766,24 @@ pub struct UniverseMetrics {
     // Latency histograms
     pub sniff_to_buy_latency: RwLock<VecDeque<u64>>,
     pub build_to_land_latency: RwLock<VecDeque<u64>>,
-    
+
     // Per-program counters
     pub program_success_counts: DashMap<String, AtomicU64>,
     pub program_failure_counts: DashMap<String, AtomicU64>,
-    
+
     // Anomaly detection
     pub holdings_change_history: RwLock<VecDeque<(Instant, f64)>>,
     pub unusual_activity_threshold: f64,
-    
+
     // Enhanced metrics from problem statement
-    pub rpc_error_counts: DashMap<String, AtomicU64>,  // error_class -> count
+    pub rpc_error_counts: DashMap<String, AtomicU64>, // error_class -> count
     pub simulate_failures: AtomicU64,
     pub simulate_critical_failures: AtomicU64,
     pub retries_per_tx: RwLock<VecDeque<u32>>,
-    pub blockhash_age_at_signing: RwLock<VecDeque<u128>>,  // in milliseconds
+    pub blockhash_age_at_signing: RwLock<VecDeque<u128>>, // in milliseconds
     pub inflight_queue_depth: AtomicU64,
     pub mempool_rejections: AtomicU64,
-    pub realized_slippage: RwLock<VecDeque<f64>>,  // in basis points
+    pub realized_slippage: RwLock<VecDeque<f64>>, // in basis points
 }
 
 impl UniverseMetrics {
@@ -793,10 +842,10 @@ impl UniverseMetrics {
 
     pub async fn check_holdings_anomaly(&self, new_holdings: f64) -> bool {
         let mut history = self.holdings_change_history.write().await;
-        
+
         if let Some((_, last_holdings)) = history.back() {
             let change = (new_holdings - last_holdings).abs() / last_holdings.max(0.001);
-            
+
             if change > self.unusual_activity_threshold {
                 warn!("Unusual holdings change detected: {:.2}%", change * 100.0);
                 return true;
@@ -808,7 +857,7 @@ impl UniverseMetrics {
             history.pop_front();
         }
         history.push_back((now, new_holdings));
-        
+
         false
     }
 
@@ -825,7 +874,7 @@ impl UniverseMetrics {
 
         let mut sorted: Vec<u64> = hist.iter().copied().collect();
         sorted.sort_unstable();
-        
+
         let idx = (sorted.len() as f64 * 0.99) as usize;
         Some(sorted[idx.min(sorted.len() - 1)])
     }
@@ -841,7 +890,8 @@ impl UniverseMetrics {
     pub fn record_simulation_failure(&self, is_critical: bool) {
         self.simulate_failures.fetch_add(1, Ordering::Relaxed);
         if is_critical {
-            self.simulate_critical_failures.fetch_add(1, Ordering::Relaxed);
+            self.simulate_critical_failures
+                .fetch_add(1, Ordering::Relaxed);
         }
     }
 
@@ -898,7 +948,7 @@ impl UniverseMetrics {
 
         let mut sorted: Vec<u64> = hist.iter().copied().collect();
         sorted.sort_unstable();
-        
+
         let idx = (sorted.len() as f64 * percentile) as usize;
         Some(sorted[idx.min(sorted.len() - 1)])
     }
@@ -926,7 +976,7 @@ impl HardwareAcceleratedValidator {
     /// Batch signature verification with hardware acceleration hooks
     pub fn verify_signatures_batch(&self, signatures: &[String]) -> Vec<bool> {
         let mut results = Vec::with_capacity(signatures.len());
-        
+
         for sig in signatures {
             // Check cache first
             if let Some(cached) = self.verification_cache.get(sig) {
@@ -974,12 +1024,12 @@ impl TaintTracker {
         // Check if source is in allowed list
         if !self.allowed_sources.iter().any(|s| s == source) {
             warn!("Untrusted source detected: {}", source);
-            
+
             self.tainted_sources
                 .entry(source.to_string())
                 .or_insert_with(Vec::new)
                 .push(data.to_string());
-            
+
             return false;
         }
         true
@@ -1017,7 +1067,7 @@ impl ZKProofValidator {
         // In production: implement actual ZK-SNARK/ZK-STARK verification
         // For now, placeholder validation
         let is_valid = true;
-        
+
         self.proof_cache.insert(candidate_id.to_string(), is_valid);
         is_valid
     }
@@ -1091,7 +1141,8 @@ impl MultiProgramSniffer {
 
     pub async fn route_candidate(&self, candidate: PremintCandidate) -> Result<()> {
         if let Some(tx) = self.program_channels.get(&candidate.program) {
-            tx.send(candidate).await
+            tx.send(candidate)
+                .await
                 .map_err(|e| anyhow!("Failed to route candidate: {}", e))?;
         } else {
             debug!("No channel registered for program: {}", candidate.program);
@@ -1107,7 +1158,6 @@ impl MultiProgramSniffer {
 // ============================================================================
 // UNIVERSE CLASS GRADE: Enhanced Backoff State (already implemented above)
 // ============================================================================
-
 
 // ============================================================================
 // UNIVERSE CLASS GRADE: Enhanced Backoff State
@@ -1146,7 +1196,10 @@ impl BackoffState {
     async fn record_success(&self) {
         let prev_failures = self.consecutive_failures.swap(0, Ordering::Relaxed);
         if prev_failures > 0 {
-            info!("BackoffState: success after {} failures, resetting backoff", prev_failures);
+            info!(
+                "BackoffState: success after {} failures, resetting backoff",
+                prev_failures
+            );
         }
         let mut last_failure = self.last_failure.lock().await;
         *last_failure = None;
@@ -1160,18 +1213,21 @@ impl BackoffState {
 
         // Use AI-driven delay calculation
         let ai_delay = self.ai_strategy.calculate_optimal_delay(failures).await;
-        
+
         // Fallback to traditional exponential backoff
-        let exp_delay_ms = (self.base_delay_ms as f64 * self.backoff_multiplier.powi((failures - 1) as i32))
-            .min(self.max_delay_ms as f64) as u64;
+        let exp_delay_ms = (self.base_delay_ms as f64
+            * self.backoff_multiplier.powi((failures - 1) as i32))
+        .min(self.max_delay_ms as f64) as u64;
         let exp_delay = Duration::from_millis(exp_delay_ms);
-        
+
         // Use the more conservative (longer) delay
         Some(ai_delay.max(exp_delay))
     }
 
     async fn record_backoff_outcome(&self, delay: Duration, success: bool) {
-        self.ai_strategy.record_outcome(delay.as_millis() as u64, success).await;
+        self.ai_strategy
+            .record_outcome(delay.as_millis() as u64, success)
+            .await;
     }
 
     fn get_failure_count(&self) -> u32 {
@@ -1236,9 +1292,9 @@ impl TransactionQueue {
         let mut queue = self.queue.write().await;
         let now = Instant::now();
         let original_len = queue.len();
-        
+
         queue.retain(|item| now.duration_since(item.created_at) < max_age);
-        
+
         original_len - queue.len()
     }
 }
@@ -1255,7 +1311,7 @@ pub struct BuyEngine {
     pub app_state: Arc<Mutex<AppState>>,
     pub config: Config,
     pub tx_builder: Option<TransactionBuilder>,
-    
+
     // Universe Class components - Performance & Reliability
     backoff_state: BackoffState,
     pending_buy: Arc<AtomicBool>,
@@ -1263,31 +1319,31 @@ pub struct BuyEngine {
     predictive_analytics: Arc<PredictiveAnalytics>,
     jito_config: JitoConfig,
     universe_metrics: Arc<UniverseMetrics>,
-    
+
     // Universe Class components - Security
     hw_validator: Arc<HardwareAcceleratedValidator>,
     taint_tracker: Arc<TaintTracker>,
     zk_proof_validator: Arc<ZKProofValidator>,
-    
+
     // Universe Class components - Cross-Chain & Multi-Protocol
     cross_chain_config: CrossChainConfig,
     multi_program_sniffer: Arc<MultiProgramSniffer>,
-    
+
     // Multi-token portfolio support
     portfolio: Arc<RwLock<HashMap<Pubkey, f64>>>, // mint -> holdings percentage
-    
+
     // Recent fee tracker for dynamic tip calculation
     recent_fees: Arc<RwLock<VecDeque<u64>>>,
-    
+
     // NEW: Enhanced components from problem statement
     buy_config: Arc<RwLock<BuyConfig>>,
     token_bucket: Arc<TokenBucketRateLimiter>,
     exponential_backoff: ExponentialBackoff,
     blockhash_manager: Arc<BlockhashManager>,
     simulation_policy: SimulationPolicy,
-    rpc_endpoints: Arc<RwLock<Vec<String>>>,  // For rotation
+    rpc_endpoints: Arc<RwLock<Vec<String>>>, // For rotation
     current_endpoint_idx: AtomicU64,
-    
+
     // FIX #5: Transaction queue for pump loop
     tx_queue: Arc<TransactionQueue>,
 }
@@ -1321,38 +1377,38 @@ impl BuyEngine {
             predictive_analytics: Arc::new(PredictiveAnalytics::new(0.5, Duration::from_secs(300))),
             jito_config: JitoConfig::default(),
             universe_metrics: Arc::new(UniverseMetrics::new()),
-            
+
             // Security components
             hw_validator: Arc::new(HardwareAcceleratedValidator::new(100)),
             taint_tracker: Arc::new(TaintTracker::new(allowed_sources)),
             zk_proof_validator: Arc::new(ZKProofValidator::new()),
-            
+
             // Cross-chain and multi-protocol
             cross_chain_config: CrossChainConfig::default(),
             multi_program_sniffer: Arc::new(MultiProgramSniffer::new(vec![
                 "pump.fun".to_string(),
                 "letsbonk.fun".to_string(),
             ])),
-            
+
             portfolio: Arc::new(RwLock::new(HashMap::new())),
             recent_fees: Arc::new(RwLock::new(VecDeque::with_capacity(100))),
-            
+
             // NEW: Initialize enhanced components
             buy_config: Arc::new(RwLock::new(BuyConfig::default())),
-            token_bucket: Arc::new(TokenBucketRateLimiter::new(10, 10)),  // 10 TPS capacity and refill
+            token_bucket: Arc::new(TokenBucketRateLimiter::new(10, 10)), // 10 TPS capacity and refill
             exponential_backoff: ExponentialBackoff::default(),
-            blockhash_manager: Arc::new(BlockhashManager::new(2000)),  // 2s max age
+            blockhash_manager: Arc::new(BlockhashManager::new(2000)), // 2s max age
             simulation_policy: SimulationPolicy::BlockOnCritical,
-            rpc_endpoints: Arc::new(RwLock::new(vec![])),  // Initialize with empty, to be configured
+            rpc_endpoints: Arc::new(RwLock::new(vec![])), // Initialize with empty, to be configured
             current_endpoint_idx: AtomicU64::new(0),
-            tx_queue: Arc::new(TransactionQueue::new(1000)),  // Queue up to 1000 txs
+            tx_queue: Arc::new(TransactionQueue::new(1000)), // Queue up to 1000 txs
         }
     }
 
     /// FIX #5: Pump loop - continuously process transaction queue
     async fn pump_transaction_queue(&self) {
         info!("Starting transaction pump loop");
-        
+
         loop {
             // Pop from queue with minimal lock time
             let queued_tx = match self.tx_queue.pop().await {
@@ -1365,13 +1421,14 @@ impl BuyEngine {
             };
 
             // Check if blockhash is still fresh
-            const BLOCKHASH_AGE_UNKNOWN: u128 = 0;  // When blockhash_fetch_time is None
-            const MAX_BLOCKHASH_AGE_MS: u128 = 2000;  // 2 seconds
-            
-            let age_ms = queued_tx.blockhash_fetch_time
+            const BLOCKHASH_AGE_UNKNOWN: u128 = 0; // When blockhash_fetch_time is None
+            const MAX_BLOCKHASH_AGE_MS: u128 = 2000; // 2 seconds
+
+            let age_ms = queued_tx
+                .blockhash_fetch_time
                 .map(|t| t.elapsed().as_millis())
-                .unwrap_or(BLOCKHASH_AGE_UNKNOWN);  // Treat unknown age as fresh (0)
-            
+                .unwrap_or(BLOCKHASH_AGE_UNKNOWN); // Treat unknown age as fresh (0)
+
             if age_ms > MAX_BLOCKHASH_AGE_MS {
                 // Blockhash too old, would need to refresh and re-sign
                 warn!(
@@ -1384,10 +1441,10 @@ impl BuyEngine {
             }
 
             // Send transaction with retry logic
-            match self.send_transaction_fire_and_forget(
-                queued_tx.tx.clone(),
-                Some(CorrelationId::new())
-            ).await {
+            match self
+                .send_transaction_fire_and_forget(queued_tx.tx.clone(), Some(CorrelationId::new()))
+                .await
+            {
                 Ok(sig) => {
                     info!(
                         sig = %sig,
@@ -1425,11 +1482,13 @@ impl BuyEngine {
         };
 
         self.tx_queue.push(queued).await?;
-        
+
         // Update inflight metric
         let queue_depth = self.tx_queue.len().await;
-        self.universe_metrics.inflight_queue_depth.store(queue_depth as u64, Ordering::Relaxed);
-        
+        self.universe_metrics
+            .inflight_queue_depth
+            .store(queue_depth as u64, Ordering::Relaxed);
+
         Ok(())
     }
 
@@ -1437,7 +1496,7 @@ impl BuyEngine {
     async fn cleanup_stale_transactions(&self) {
         loop {
             sleep(Duration::from_secs(5)).await;
-            
+
             let removed = self.tx_queue.clear_stale(Duration::from_secs(10)).await;
             if removed > 0 {
                 warn!("Removed {} stale transactions from queue", removed);
@@ -1472,12 +1531,14 @@ impl BuyEngine {
                 // Check if we should backoff due to recent failures
                 if let Some(backoff_duration) = self.backoff_state.should_backoff().await {
                     let failure_count = self.backoff_state.get_failure_count();
-                    warn!("BuyEngine: backing off for {:?} after {} consecutive failures", 
-                          backoff_duration, failure_count);
-                    
+                    warn!(
+                        "BuyEngine: backing off for {:?} after {} consecutive failures",
+                        backoff_duration, failure_count
+                    );
+
                     // Record metrics
                     metrics().increment_counter("buy_engine_backoff");
-                    
+
                     sleep(backoff_duration).await;
                     continue;
                 }
@@ -1485,16 +1546,24 @@ impl BuyEngine {
                 match timeout(Duration::from_millis(1000), self.candidate_rx.recv()).await {
                     Ok(Some(candidate)) => {
                         let trace_ctx = TraceContext::new("buy_candidate");
-                        
+
                         // UNIVERSE: Circuit breaker per-mint rate limiting
-                        if !self.circuit_breaker.check_mint_rate_limit(&candidate.mint.to_string(), 60, 3) {
+                        if !self.circuit_breaker.check_mint_rate_limit(
+                            &candidate.mint.to_string(),
+                            60,
+                            3,
+                        ) {
                             metrics().increment_counter("buy_attempts_mint_rate_limited");
                             debug!(mint=%candidate.mint, "Mint rate limited by circuit breaker");
                             continue;
                         }
 
                         // UNIVERSE: Circuit breaker per-program rate limiting
-                        if !self.circuit_breaker.check_program_rate_limit(&candidate.program, 60, 10) {
+                        if !self.circuit_breaker.check_program_rate_limit(
+                            &candidate.program,
+                            60,
+                            10,
+                        ) {
                             metrics().increment_counter("buy_attempts_program_rate_limited");
                             debug!(program=%candidate.program, "Program rate limited by circuit breaker");
                             continue;
@@ -1524,36 +1593,49 @@ impl BuyEngine {
                             debug!(mint=%candidate.mint, program=%candidate.program, "Candidate filtered out");
                             continue;
                         }
-                        
 
                         // Create pipeline context for correlation tracking
                         let ctx = PipelineContext::new("buy_engine");
-                        ctx.logger.log_candidate_processed(&candidate.mint.to_string(), &candidate.program, true);
-                        
+                        ctx.logger.log_candidate_processed(
+                            &candidate.mint.to_string(),
+                            &candidate.program,
+                            true,
+                        );
+
                         info!(mint=%candidate.mint, program=%candidate.program, correlation_id=ctx.correlation_id, trace_id=%trace_ctx.trace_id, "Attempting BUY for candidate");
                         metrics().increment_counter("buy_attempts_total");
 
                         let buy_timer = Timer::with_name("buy_latency_seconds");
-                        match self.try_buy_universe(candidate.clone(), ctx.clone(), trace_ctx.clone()).await {
+                        match self
+                            .try_buy_universe(candidate.clone(), ctx.clone(), trace_ctx.clone())
+                            .await
+                        {
                             Ok(sig) => {
                                 buy_timer.finish();
                                 let latency_micros = trace_ctx.elapsed_micros();
                                 let latency_ms = (latency_micros / 1000) as u64;
-                                
+
                                 // Record Universe metrics
-                                self.universe_metrics.record_latency("sniff_to_buy", latency_micros as u64).await;
-                                self.universe_metrics.record_program_result(&candidate.program, true);
-                                
+                                self.universe_metrics
+                                    .record_latency("sniff_to_buy", latency_micros as u64)
+                                    .await;
+                                self.universe_metrics
+                                    .record_program_result(&candidate.program, true);
+
                                 metrics().increment_counter("buy_success_total");
-                                ctx.logger.log_buy_success(&candidate.mint.to_string(), &sig.to_string(), latency_ms);
-                                
+                                ctx.logger.log_buy_success(
+                                    &candidate.mint.to_string(),
+                                    &sig.to_string(),
+                                    latency_ms,
+                                );
+
                                 // TODO: Update scoreboard
                                 // endpoint_server().update_scoreboard(&candidate.mint.to_string(), &candidate.program, true, latency_ms).await;
-                                
+
                                 info!(mint=%candidate.mint, sig=%sig, correlation_id=ctx.correlation_id, latency_us=%latency_micros, "BUY success, entering PassiveToken mode");
 
                                 let exec_price = self.get_execution_price_mock(&candidate).await;
-                                
+
                                 // Record success in backoff and circuit breaker
                                 self.backoff_state.record_success().await;
                                 self.circuit_breaker.record_success();
@@ -1573,7 +1655,7 @@ impl BuyEngine {
                                 }
 
                                 info!(mint=%candidate.mint, price=%exec_price, "Recorded buy price and entered PassiveToken");
-                                
+
                                 // TODO: SCALABILITY: Check for surge and trigger nonce pool expansion
                                 // if let Some(surge_confidence) = self.predictive_analytics.detect_surge().await {
                                 //     if surge_confidence > 0.6 {
@@ -1581,7 +1663,7 @@ impl BuyEngine {
                                 //             surge_confidence = surge_confidence,
                                 //             "High-volume surge detected, expanding nonce pool"
                                 //         );
-                                //         
+                                //
                                 //         // Trigger pool expansion (add 2 nonces on surge)
                                 //         let nonce_mgr = self.nonce_manager.clone();
                                 //         tokio::spawn(async move {
@@ -1598,20 +1680,27 @@ impl BuyEngine {
                                 buy_timer.finish();
                                 let latency_micros = trace_ctx.elapsed_micros();
                                 let latency_ms = (latency_micros / 1000) as u64;
-                                
+
                                 // Record Universe metrics
-                                self.universe_metrics.record_latency("sniff_to_buy", latency_micros as u64).await;
-                                self.universe_metrics.record_program_result(&candidate.program, false);
-                                
+                                self.universe_metrics
+                                    .record_latency("sniff_to_buy", latency_micros as u64)
+                                    .await;
+                                self.universe_metrics
+                                    .record_program_result(&candidate.program, false);
+
                                 metrics().increment_counter("buy_failure_total");
-                                ctx.logger.log_buy_failure(&candidate.mint.to_string(), &e.to_string(), latency_ms);
-                                
+                                ctx.logger.log_buy_failure(
+                                    &candidate.mint.to_string(),
+                                    &e.to_string(),
+                                    latency_ms,
+                                );
+
                                 // TODO: Update scoreboard with failure
                                 // endpoint_server().update_scoreboard(&candidate.mint.to_string(), &candidate.program, false, latency_ms).await;
-                                
+
                                 // Record failure in circuit breaker
                                 self.circuit_breaker.record_failure();
-                                
+
                                 warn!(error=%e, correlation_id=ctx.correlation_id, "BUY attempt failed; staying in Sniffing");
                             }
                         }
@@ -1645,22 +1734,25 @@ impl BuyEngine {
     // =========================================================================
     // UNIVERSE CLASS GRADE: Advanced Buy with Jito Bundles & MEV Protection
     // =========================================================================
-    
+
     /// Universe-level buy operation with hybrid shotgun+Jito bundles
     #[instrument(skip(self, candidate, ctx), fields(mint = %candidate.mint))]
     async fn try_buy_universe(
-        &self, 
-        candidate: PremintCandidate, 
+        &self,
+        candidate: PremintCandidate,
         ctx: PipelineContext,
         trace_ctx: TraceContext,
     ) -> Result<Signature> {
         let span = Span::current();
         span.record("trace_id", &trace_ctx.trace_id.as_str());
-        
+
         // Calculate dynamic tip based on recent fees
         let dynamic_tip = self.calculate_dynamic_tip().await;
-        debug!(tip_lamports = dynamic_tip, "Calculated dynamic tip for Jito bundle");
-        
+        debug!(
+            tip_lamports = dynamic_tip,
+            "Calculated dynamic tip for Jito bundle"
+        );
+
         // Sandwich simulation (if enabled)
         if self.jito_config.enable_sandwich_simulation {
             if let Err(e) = self.simulate_sandwich_attack(&candidate).await {
@@ -1668,7 +1760,7 @@ impl BuyEngine {
                 metrics().increment_counter("sandwich_risk_detected");
             }
         }
-        
+
         // FIX #8: Check if buying is enabled
         if !self.is_buy_enabled().await {
             return Err(anyhow!("Buy operations disabled (kill switch or config)"));
@@ -1689,8 +1781,10 @@ impl BuyEngine {
                     ctx.logger.log_nonce_operation("acquire", None, true);
                     acquired_leases.push(lease);
 
-                    let tx = self.create_buy_transaction_universe(&candidate, recent_blockhash, dynamic_tip).await?;
-                    
+                    let tx = self
+                        .create_buy_transaction_universe(&candidate, recent_blockhash, dynamic_tip)
+                        .await?;
+
                     // FIX #6: Simulate transaction before sending
                     let sim_result = self.simulate_transaction(&tx).await;
                     if !self.should_proceed_after_simulation(&sim_result).await {
@@ -1701,11 +1795,12 @@ impl BuyEngine {
                         }
                         return Err(anyhow!("Simulation policy blocked transaction"));
                     }
-                    
+
                     txs.push(tx);
                 }
                 Err(e) => {
-                    ctx.logger.log_nonce_operation("acquire_failed", None, false);
+                    ctx.logger
+                        .log_nonce_operation("acquire_failed", None, false);
                     warn!(error=%e, correlation_id=ctx.correlation_id, "Failed to acquire nonce; proceeding with fewer");
                     break;
                 }
@@ -1720,18 +1815,26 @@ impl BuyEngine {
             return Err(anyhow!("no transactions prepared (no nonces acquired)"));
         }
 
-        ctx.logger.log_buy_attempt(&candidate.mint.to_string(), txs.len());
-        
+        ctx.logger
+            .log_buy_attempt(&candidate.mint.to_string(), txs.len());
+
         // UNIVERSE: Parallel submission to multi-region Jito endpoints
         let res = if self.config.nonce_count > 1 {
-            self.submit_jito_bundle_multi_region(txs.clone(), dynamic_tip, &trace_ctx).await
+            self.submit_jito_bundle_multi_region(txs.clone(), dynamic_tip, &trace_ctx)
+                .await
         } else {
             // FIX #3: Use fire-and-forget sending with enhanced retry
-            self.send_transaction_fire_and_forget(txs.into_iter().next().unwrap(), Some(CorrelationId::new())).await
+            self.send_transaction_fire_and_forget(
+                txs.into_iter().next().unwrap(),
+                Some(CorrelationId::new()),
+            )
+            .await
         };
-        
+
         // Record build-to-land latency
-        self.universe_metrics.record_latency("build_to_land", trace_ctx.elapsed_micros() as u64).await;
+        self.universe_metrics
+            .record_latency("build_to_land", trace_ctx.elapsed_micros() as u64)
+            .await;
 
         // Release nonces
         for lease in acquired_leases {
@@ -1745,18 +1848,21 @@ impl BuyEngine {
     /// Calculate dynamic tip based on median recent fees with congestion escalation
     async fn calculate_dynamic_tip(&self) -> u64 {
         let recent = self.recent_fees.read().await;
-        
+
         if recent.is_empty() {
             return self.jito_config.base_tip_lamports;
         }
 
         let mut sorted: Vec<u64> = recent.iter().copied().collect();
         sorted.sort_unstable();
-        
+
         let median = sorted[sorted.len() / 2];
         let tip = (median as f64 * self.jito_config.tip_multiplier_on_congestion) as u64;
-        
-        tip.clamp(self.jito_config.base_tip_lamports, self.jito_config.max_tip_lamports)
+
+        tip.clamp(
+            self.jito_config.base_tip_lamports,
+            self.jito_config.max_tip_lamports,
+        )
     }
 
     /// Simulate sandwich attack detection
@@ -1788,10 +1894,14 @@ impl BuyEngine {
         // Try each endpoint in priority order (fallback pattern)
         for endpoint in endpoints.iter() {
             debug!(region = %endpoint.region, url = %endpoint.url, "Attempting Jito submission");
-            
+
             // In production, this would use actual Jito SDK
             // For now, fallback to regular RPC
-            match self.rpc.send_on_many_rpc(txs.clone(), Some(CorrelationId::new())).await {
+            match self
+                .rpc
+                .send_on_many_rpc(txs.clone(), Some(CorrelationId::new()))
+                .await
+            {
                 Ok(sig) => {
                     info!(region = %endpoint.region, sig = %sig, "Jito bundle submitted successfully");
                     metrics().increment_counter(&format!("jito_success_{}", endpoint.region));
@@ -1816,7 +1926,8 @@ impl BuyEngine {
         _tip_lamports: u64,
     ) -> Result<VersionedTransaction> {
         // Delegate to existing transaction builder with enhanced config
-        self.create_buy_transaction(candidate, _recent_blockhash).await
+        self.create_buy_transaction(candidate, _recent_blockhash)
+            .await
     }
 
     pub async fn sell(&self, percent: f64) -> Result<()> {
@@ -1826,7 +1937,10 @@ impl BuyEngine {
         let pct = match validator::validate_holdings_percent(percent.clamp(0.0, 1.0)) {
             Ok(validated_pct) => validated_pct,
             Err(e) => {
-                ctx.logger.error(&format!("Invalid sell percentage: {} (percent: {})", e, percent));
+                ctx.logger.error(&format!(
+                    "Invalid sell percentage: {} (percent: {})",
+                    e, percent
+                ));
                 return Err(anyhow!("Invalid sell percentage: {}", e));
             }
         };
@@ -1839,36 +1953,53 @@ impl BuyEngine {
 
         let (mode, candidate_opt, current_pct) = {
             let st = self.app_state.lock().await;
-            (st.mode.clone(), st.active_token.clone(), st.holdings_percent)
+            (
+                st.mode.clone(),
+                st.active_token.clone(),
+                st.holdings_percent,
+            )
         };
 
         let mint = match &*mode.read().await {
             Mode::PassiveToken(m) => *m,
             Mode::Sniffing | Mode::QuantumManual | Mode::Simulation | Mode::Production => {
-                ctx.logger.warn("Sell requested in non-PassiveToken mode; ignoring");
-                warn!(correlation_id=ctx.correlation_id, "Sell requested in non-PassiveToken mode; ignoring");
+                ctx.logger
+                    .warn("Sell requested in non-PassiveToken mode; ignoring");
+                warn!(
+                    correlation_id = ctx.correlation_id,
+                    "Sell requested in non-PassiveToken mode; ignoring"
+                );
                 return Err(anyhow!("not in PassiveToken mode"));
             }
         };
 
         let _candidate = candidate_opt.ok_or_else(|| anyhow!("no active token in AppState"))?;
-        
+
         // UNIVERSE: Check for anomalous holdings changes
-        if self.universe_metrics.check_holdings_anomaly(current_pct * (1.0 - pct)).await {
+        if self
+            .universe_metrics
+            .check_holdings_anomaly(current_pct * (1.0 - pct))
+            .await
+        {
             warn!(mint = %mint, "Anomalous holdings change detected during sell");
             metrics().increment_counter("sell_anomaly_detected");
         }
-        
-        // Validate the new holdings calculation
-        let new_holdings = match validator::validate_holdings_percent((current_pct * (1.0 - pct)).max(0.0)) {
-            Ok(validated_holdings) => validated_holdings,
-            Err(e) => {
-                ctx.logger.error(&format!("Holdings calculation overflow: {} (current: {}, sell: {})", e, current_pct, pct));
-                return Err(anyhow!("Holdings calculation error: {}", e));
-            }
-        };
 
-        ctx.logger.log_sell_operation(&mint.to_string(), pct, new_holdings);
+        // Validate the new holdings calculation
+        let new_holdings =
+            match validator::validate_holdings_percent((current_pct * (1.0 - pct)).max(0.0)) {
+                Ok(validated_holdings) => validated_holdings,
+                Err(e) => {
+                    ctx.logger.error(&format!(
+                        "Holdings calculation overflow: {} (current: {}, sell: {})",
+                        e, current_pct, pct
+                    ));
+                    return Err(anyhow!("Holdings calculation error: {}", e));
+                }
+            };
+
+        ctx.logger
+            .log_sell_operation(&mint.to_string(), pct, new_holdings);
         info!(mint=%mint, sell_percent=pct, correlation_id=ctx.correlation_id, "Composing SELL transaction");
 
         let sell_tx = self.create_sell_transaction(&mint, pct).await?;
@@ -1881,9 +2012,9 @@ impl BuyEngine {
                     warn!(mint=%mint, sig=%sig, correlation_id=ctx.correlation_id, "Duplicate signature detected for SELL");
                     metrics().increment_counter("duplicate_signatures_detected");
                 }
-                
+
                 info!(mint=%mint, sig=%sig, correlation_id=ctx.correlation_id, "SELL broadcasted");
-                
+
                 // Update app state
                 let mut st = self.app_state.lock().await;
                 st.holdings_percent = new_holdings;
@@ -1892,7 +2023,7 @@ impl BuyEngine {
                     *st.mode.write().await = Mode::Sniffing;
                     st.active_token = None;
                     st.last_buy_price = None;
-                    
+
                     // UNIVERSE: Update portfolio - remove fully sold token
                     let mut portfolio = self.portfolio.write().await;
                     portfolio.remove(&mint);
@@ -1901,7 +2032,7 @@ impl BuyEngine {
                     let mut portfolio = self.portfolio.write().await;
                     portfolio.insert(mint, new_holdings);
                 }
-                
+
                 Ok(())
             }
             Err(e) => {
@@ -1913,9 +2044,17 @@ impl BuyEngine {
 
     /// Protected buy operation with atomic guards and proper lease management
     #[allow(dead_code)]
-    async fn try_buy_with_guards(&self, candidate: PremintCandidate, _correlation_id: CorrelationId) -> Result<Signature> {
+    async fn try_buy_with_guards(
+        &self,
+        candidate: PremintCandidate,
+        _correlation_id: CorrelationId,
+    ) -> Result<Signature> {
         // Set pending flag atomically
-        if self.pending_buy.compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed).is_err() {
+        if self
+            .pending_buy
+            .compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed)
+            .is_err()
+        {
             return Err(anyhow!("buy operation already in progress"));
         }
 
@@ -1925,10 +2064,15 @@ impl BuyEngine {
         });
 
         // Call the actual buy logic
-        self.try_buy(candidate, PipelineContext::new("buy_engine_guard")).await
+        self.try_buy(candidate, PipelineContext::new("buy_engine_guard"))
+            .await
     }
 
-    async fn try_buy(&self, candidate: PremintCandidate, ctx: PipelineContext) -> Result<Signature> {
+    async fn try_buy(
+        &self,
+        candidate: PremintCandidate,
+        ctx: PipelineContext,
+    ) -> Result<Signature> {
         let mut acquired_leases = Vec::new();
 
         let mut txs: Vec<VersionedTransaction> = Vec::new();
@@ -1942,18 +2086,19 @@ impl BuyEngine {
 
         for _ in 0..self.config.nonce_count {
             match self.nonce_manager.acquire_nonce().await {
-
                 Ok(lease) => {
                     let _nonce_pubkey = lease.nonce_pubkey().clone();
                     ctx.logger.log_nonce_operation("acquire", None, true);
                     acquired_leases.push(lease);
 
-                    let tx = self.create_buy_transaction(&candidate, recent_blockhash).await?;
+                    let tx = self
+                        .create_buy_transaction(&candidate, recent_blockhash)
+                        .await?;
                     txs.push(tx);
                 }
                 Err(e) => {
-
-                    ctx.logger.log_nonce_operation("acquire_failed", None, false);
+                    ctx.logger
+                        .log_nonce_operation("acquire_failed", None, false);
                     warn!(error=%e, correlation_id=ctx.correlation_id, "Failed to acquire nonce; proceeding with fewer");
 
                     break;
@@ -1962,22 +2107,17 @@ impl BuyEngine {
         }
 
         if txs.is_empty() {
-
-
             for lease in acquired_leases.drain(..) {
-
                 ctx.logger.log_nonce_operation("release", None, true);
                 let _ = lease.release().await;
-
             }
-
 
             return Err(anyhow!("no transactions prepared (no nonces acquired)"));
         }
 
+        ctx.logger
+            .log_buy_attempt(&candidate.mint.to_string(), txs.len());
 
-        ctx.logger.log_buy_attempt(&candidate.mint.to_string(), txs.len());
-        
         let res = self
             .rpc
             .send_on_many_rpc(txs, Some(CorrelationId::new()))
@@ -1990,7 +2130,6 @@ impl BuyEngine {
         }
 
         res
-
     }
 
     async fn create_buy_transaction(
@@ -2001,7 +2140,9 @@ impl BuyEngine {
         match &self.tx_builder {
             Some(builder) => {
                 let config = TransactionConfig::default();
-                builder.build_buy_transaction(candidate, &config, false).await
+                builder
+                    .build_buy_transaction(candidate, &config, false)
+                    .await
                     .map_err(|e| anyhow!("Transaction build failed: {}", e))
             }
             None => {
@@ -2012,7 +2153,9 @@ impl BuyEngine {
                 }
                 #[cfg(not(any(test, feature = "mock-mode")))]
                 {
-                    Err(anyhow!("No transaction builder available in production mode"))
+                    Err(anyhow!(
+                        "No transaction builder available in production mode"
+                    ))
                 }
             }
         }
@@ -2026,7 +2169,9 @@ impl BuyEngine {
         match &self.tx_builder {
             Some(builder) => {
                 let config = TransactionConfig::default();
-                builder.build_sell_transaction(mint, "pump.fun", sell_percent, &config, false).await
+                builder
+                    .build_sell_transaction(mint, "pump.fun", sell_percent, &config, false)
+                    .await
                     .map_err(|e| anyhow!("Transaction build failed: {}", e))
             }
             None => {
@@ -2037,7 +2182,9 @@ impl BuyEngine {
                 }
                 #[cfg(not(any(test, feature = "mock-mode")))]
                 {
-                    Err(anyhow!("No transaction builder available in production mode"))
+                    Err(anyhow!(
+                        "No transaction builder available in production mode"
+                    ))
                 }
             }
         }
@@ -2049,7 +2196,7 @@ impl BuyEngine {
         // TODO(migrate-system-instruction): temporary allow, full migration post-profit
         #[allow(deprecated)]
         use solana_sdk::system_instruction;
-        
+
         let from = Pubkey::new_unique();
         let to = Pubkey::new_unique();
         let ix = system_instruction::transfer(&from, &to, 1);
@@ -2062,10 +2209,12 @@ impl BuyEngine {
     fn is_candidate_interesting(&self, candidate: &PremintCandidate) -> bool {
         // Support multiple programs for multi-protocol sniping
         const INTERESTING_PROGRAMS: &[&str] = &["pump.fun", "pumpfun", "letsbonk.fun", "letsbonk"];
-        
+
         // Zero-copy string matching
-        let program_match = INTERESTING_PROGRAMS.iter().any(|&prog| candidate.program == prog);
-        
+        let program_match = INTERESTING_PROGRAMS
+            .iter()
+            .any(|&prog| candidate.program == prog);
+
         if !program_match {
             return false;
         }
@@ -2115,11 +2264,11 @@ impl BuyEngine {
     ) -> Result<Signature> {
         // Record inflight metric
         self.universe_metrics.increment_inflight();
-        
+
         // FIX #4: Implement retry with exponential backoff and endpoint rotation
         let mut attempt = 0;
         let _max_attempts = self.exponential_backoff.max_retries;
-        
+
         loop {
             // Try to acquire token bucket permit
             if !self.token_bucket.try_acquire(1).await {
@@ -2130,9 +2279,13 @@ impl BuyEngine {
 
             // FIX #4: Rotate RPC endpoint on network errors
             let endpoint_idx = self.current_endpoint_idx.load(Ordering::Relaxed);
-            
+
             // Send transaction (fire-and-forget style)
-            match self.rpc.send_on_many_rpc(vec![tx.clone()], correlation_id.clone()).await {
+            match self
+                .rpc
+                .send_on_many_rpc(vec![tx.clone()], correlation_id.clone())
+                .await
+            {
                 Ok(sig) => {
                     self.universe_metrics.decrement_inflight();
                     self.universe_metrics.record_retry_count(attempt).await;
@@ -2140,8 +2293,9 @@ impl BuyEngine {
                 }
                 Err(e) => {
                     let error_class = RpcErrorClass::classify(&e);
-                    self.universe_metrics.record_rpc_error(&format!("{:?}", error_class));
-                    
+                    self.universe_metrics
+                        .record_rpc_error(&format!("{:?}", error_class));
+
                     if !self.exponential_backoff.should_retry(attempt, &e) {
                         self.universe_metrics.decrement_inflight();
                         return Err(e);
@@ -2186,28 +2340,22 @@ impl BuyEngine {
     }
 
     /// FIX #6: Transaction simulation with policy-based handling
-    async fn simulate_transaction(
-        &self,
-        _tx: &VersionedTransaction,
-    ) -> SimulationResult {
+    async fn simulate_transaction(&self, _tx: &VersionedTransaction) -> SimulationResult {
         // In production, this would call RPC simulate_transaction
         // For now, placeholder implementation
-        
+
         // Simulated checks for critical vs advisory failures
         // Critical: insufficient funds, invalid instruction
         // Advisory: high compute units, potential slippage warning
-        
+
         // Placeholder: always succeed for now
         SimulationResult::Success
     }
 
     /// Apply simulation policy and decide whether to proceed
-    async fn should_proceed_after_simulation(
-        &self,
-        result: &SimulationResult,
-    ) -> bool {
+    async fn should_proceed_after_simulation(&self, result: &SimulationResult) -> bool {
         let should_proceed = result.should_proceed(self.simulation_policy);
-        
+
         match result {
             SimulationResult::Success => {
                 debug!("Simulation passed");
@@ -2230,10 +2378,10 @@ impl BuyEngine {
     pub async fn set_buy_config(&self, config: BuyConfig) -> Result<()> {
         // Validate configuration
         config.validate()?;
-        
+
         let mut current_config = self.buy_config.write().await;
         *current_config = config;
-        
+
         info!("Buy configuration updated and validated");
         Ok(())
     }
@@ -2278,39 +2426,69 @@ impl BuyEngine {
     /// FIX #7: Export enhanced metrics for Prometheus
     pub async fn export_prometheus_metrics(&self) -> String {
         let mut output = String::new();
-        
+
         // Latency metrics
-        if let Some(p50) = self.universe_metrics.get_percentile_latency("sniff_to_buy", 0.50).await {
+        if let Some(p50) = self
+            .universe_metrics
+            .get_percentile_latency("sniff_to_buy", 0.50)
+            .await
+        {
             output.push_str(&format!("buy_engine_sniff_to_buy_p50_us {}\n", p50));
         }
-        if let Some(p90) = self.universe_metrics.get_percentile_latency("sniff_to_buy", 0.90).await {
+        if let Some(p90) = self
+            .universe_metrics
+            .get_percentile_latency("sniff_to_buy", 0.90)
+            .await
+        {
             output.push_str(&format!("buy_engine_sniff_to_buy_p90_us {}\n", p90));
         }
-        if let Some(p99) = self.universe_metrics.get_percentile_latency("sniff_to_buy", 0.99).await {
+        if let Some(p99) = self
+            .universe_metrics
+            .get_percentile_latency("sniff_to_buy", 0.99)
+            .await
+        {
             output.push_str(&format!("buy_engine_sniff_to_buy_p99_us {}\n", p99));
         }
-        
+
         // RPC error counts
         for entry in self.universe_metrics.rpc_error_counts.iter() {
             let class = entry.key();
             let count = entry.value().load(Ordering::Relaxed);
-            output.push_str(&format!("buy_engine_rpc_errors{{class=\"{}\"}} {}\n", class, count));
+            output.push_str(&format!(
+                "buy_engine_rpc_errors{{class=\"{}\"}} {}\n",
+                class, count
+            ));
         }
-        
+
         // Simulation failures
-        let sim_failures = self.universe_metrics.simulate_failures.load(Ordering::Relaxed);
-        let sim_critical = self.universe_metrics.simulate_critical_failures.load(Ordering::Relaxed);
-        output.push_str(&format!("buy_engine_simulation_failures {}\n", sim_failures));
-        output.push_str(&format!("buy_engine_simulation_critical_failures {}\n", sim_critical));
-        
+        let sim_failures = self
+            .universe_metrics
+            .simulate_failures
+            .load(Ordering::Relaxed);
+        let sim_critical = self
+            .universe_metrics
+            .simulate_critical_failures
+            .load(Ordering::Relaxed);
+        output.push_str(&format!(
+            "buy_engine_simulation_failures {}\n",
+            sim_failures
+        ));
+        output.push_str(&format!(
+            "buy_engine_simulation_critical_failures {}\n",
+            sim_critical
+        ));
+
         // Inflight queue depth
         let inflight = self.universe_metrics.get_inflight_depth();
         output.push_str(&format!("buy_engine_inflight_queue_depth {}\n", inflight));
-        
+
         // Mempool rejections
-        let rejections = self.universe_metrics.mempool_rejections.load(Ordering::Relaxed);
+        let rejections = self
+            .universe_metrics
+            .mempool_rejections
+            .load(Ordering::Relaxed);
         output.push_str(&format!("buy_engine_mempool_rejections {}\n", rejections));
-        
+
         output
     }
 
@@ -2331,7 +2509,10 @@ impl BuyEngine {
     }
 
     /// Rebalance portfolio based on target allocations
-    pub async fn rebalance_portfolio(&self, _target_allocations: HashMap<Pubkey, f64>) -> Result<()> {
+    pub async fn rebalance_portfolio(
+        &self,
+        _target_allocations: HashMap<Pubkey, f64>,
+    ) -> Result<()> {
         // Placeholder for portfolio rebalancing logic
         info!("Portfolio rebalancing initiated");
         Ok(())
@@ -2340,31 +2521,39 @@ impl BuyEngine {
     /// Get Universe-level metrics summary
     pub async fn get_metrics_summary(&self) -> HashMap<String, serde_json::Value> {
         let mut summary = HashMap::new();
-        
+
         if let Some(p99_sniff) = self.universe_metrics.get_p99_latency("sniff_to_buy").await {
-            summary.insert("p99_sniff_to_buy_us".to_string(), serde_json::json!(p99_sniff));
+            summary.insert(
+                "p99_sniff_to_buy_us".to_string(),
+                serde_json::json!(p99_sniff),
+            );
         }
-        
+
         if let Some(p99_build) = self.universe_metrics.get_p99_latency("build_to_land").await {
-            summary.insert("p99_build_to_land_us".to_string(), serde_json::json!(p99_build));
+            summary.insert(
+                "p99_build_to_land_us".to_string(),
+                serde_json::json!(p99_build),
+            );
         }
 
         // Add program success rates
         for entry in self.universe_metrics.program_success_counts.iter() {
             let program = entry.key();
             let successes = entry.value().load(Ordering::Relaxed);
-            let failures = self.universe_metrics.program_failure_counts
+            let failures = self
+                .universe_metrics
+                .program_failure_counts
                 .get(program)
                 .map(|v| v.load(Ordering::Relaxed))
                 .unwrap_or(0);
-            
+
             let total = successes + failures;
             let success_rate = if total > 0 {
                 (successes as f64 / total as f64) * 100.0
             } else {
                 0.0
             };
-            
+
             summary.insert(
                 format!("program_{}_success_rate", program),
                 serde_json::json!(success_rate),
@@ -2400,10 +2589,13 @@ impl BuyEngine {
     /// Validate candidate with hardware-accelerated signature verification
     pub async fn validate_candidate_universe(&self, candidate: &PremintCandidate) -> Result<bool> {
         let trace_ctx = TraceContext::new("validate_candidate");
-        
+
         // Step 1: Runtime taint tracking
         let source = "candidate_stream";
-        if !self.taint_tracker.track_input(source, &candidate.mint.to_string()) {
+        if !self
+            .taint_tracker
+            .track_input(source, &candidate.mint.to_string())
+        {
             warn!(trace_id = %trace_ctx.trace_id, "Candidate from untrusted source");
             metrics().increment_counter("security_tainted_input");
             return Ok(false);
@@ -2412,7 +2604,10 @@ impl BuyEngine {
         // Step 2: ZK proof validation (placeholder)
         let candidate_id = candidate.mint.to_string();
         let zk_proof = vec![]; // In production: extract actual proof from candidate
-        if !self.zk_proof_validator.validate_candidate_zk(&candidate_id, &zk_proof) {
+        if !self
+            .zk_proof_validator
+            .validate_candidate_zk(&candidate_id, &zk_proof)
+        {
             warn!(trace_id = %trace_ctx.trace_id, "ZK proof validation failed");
             metrics().increment_counter("security_zk_failed");
             return Ok(false);
@@ -2421,7 +2616,7 @@ impl BuyEngine {
         // Step 3: Hardware-accelerated signature batch verification
         let signatures = vec![candidate.mint.to_string()];
         let verification_results = self.hw_validator.verify_signatures_batch(&signatures);
-        
+
         if verification_results.iter().any(|&r| !r) {
             warn!(trace_id = %trace_ctx.trace_id, "Signature verification failed");
             metrics().increment_counter("security_sig_failed");
@@ -2433,7 +2628,7 @@ impl BuyEngine {
             latency_us = %trace_ctx.elapsed_micros(),
             "Universe security validation passed"
         );
-        
+
         Ok(true)
     }
 
@@ -2450,10 +2645,14 @@ impl BuyEngine {
     /// Enable cross-chain operations via Wormhole
     pub fn enable_cross_chain(&mut self, chain_ids: Vec<u16>) {
         self.cross_chain_config.wormhole_enabled = true;
-        
+
         for chain_id in chain_ids {
-            if let Some(chain) = self.cross_chain_config.supported_chains.iter_mut()
-                .find(|c| c.chain_id == chain_id) {
+            if let Some(chain) = self
+                .cross_chain_config
+                .supported_chains
+                .iter_mut()
+                .find(|c| c.chain_id == chain_id)
+            {
                 chain.enabled = true;
                 info!(chain_id = chain_id, chain_name = %chain.name, "Cross-chain enabled");
             }
@@ -2463,12 +2662,15 @@ impl BuyEngine {
     /// Get cross-chain status
     pub fn get_cross_chain_status(&self) -> HashMap<String, bool> {
         let mut status = HashMap::new();
-        status.insert("wormhole_enabled".to_string(), self.cross_chain_config.wormhole_enabled);
-        
+        status.insert(
+            "wormhole_enabled".to_string(),
+            self.cross_chain_config.wormhole_enabled,
+        );
+
         for chain in &self.cross_chain_config.supported_chains {
             status.insert(format!("chain_{}", chain.name), chain.enabled);
         }
-        
+
         status
     }
 
@@ -2488,7 +2690,8 @@ impl BuyEngine {
         program: String,
         tx: tokio::sync::mpsc::Sender<PremintCandidate>,
     ) {
-        self.multi_program_sniffer.register_program_channel(program.clone(), tx);
+        self.multi_program_sniffer
+            .register_program_channel(program.clone(), tx);
         info!(program = %program, "Registered program-specific sniffer");
     }
 
@@ -2499,34 +2702,52 @@ impl BuyEngine {
     /// Get comprehensive Universe diagnostics
     pub async fn get_universe_diagnostics(&self) -> HashMap<String, serde_json::Value> {
         let mut diag = HashMap::new();
-        
+
         // Circuit breaker status
-        diag.insert("circuit_breaker_closed".to_string(), serde_json::json!(self.get_circuit_breaker_status()));
-        
+        diag.insert(
+            "circuit_breaker_closed".to_string(),
+            serde_json::json!(self.get_circuit_breaker_status()),
+        );
+
         // Predictive confidence
-        diag.insert("prediction_confidence".to_string(), serde_json::json!(self.get_prediction_confidence()));
-        
+        diag.insert(
+            "prediction_confidence".to_string(),
+            serde_json::json!(self.get_prediction_confidence()),
+        );
+
         // Portfolio size
         let portfolio_size = self.portfolio.read().await.len();
-        diag.insert("portfolio_tokens".to_string(), serde_json::json!(portfolio_size));
-        
+        diag.insert(
+            "portfolio_tokens".to_string(),
+            serde_json::json!(portfolio_size),
+        );
+
         // Backoff state
         let failure_count = self.backoff_state.get_failure_count();
-        diag.insert("consecutive_failures".to_string(), serde_json::json!(failure_count));
-        
+        diag.insert(
+            "consecutive_failures".to_string(),
+            serde_json::json!(failure_count),
+        );
+
         // Cross-chain status
-        diag.insert("cross_chain_enabled".to_string(), serde_json::json!(self.cross_chain_config.wormhole_enabled));
-        
+        diag.insert(
+            "cross_chain_enabled".to_string(),
+            serde_json::json!(self.cross_chain_config.wormhole_enabled),
+        );
+
         // Active programs
         let active_programs = self.get_active_programs();
-        diag.insert("active_programs".to_string(), serde_json::json!(active_programs));
-        
+        diag.insert(
+            "active_programs".to_string(),
+            serde_json::json!(active_programs),
+        );
+
         // Metrics summary
         let metrics_summary = self.get_metrics_summary().await;
         for (key, value) in metrics_summary {
             diag.insert(key, value);
         }
-        
+
         diag
     }
 
@@ -2545,11 +2766,11 @@ mod test_utils;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::nonce_manager::UniverseNonceManager;
+    use crate::types::PriorityLevel;
     use std::future::Future;
     use std::pin::Pin;
     use tokio::sync::mpsc;
-    use crate::nonce_manager::UniverseNonceManager;
-    use crate::types::PriorityLevel;
 
     #[derive(Debug)]
     struct AlwaysOkBroadcaster;
@@ -2568,34 +2789,32 @@ mod tests {
     async fn create_test_nonce_manager() -> Arc<UniverseNonceManager> {
         use crate::nonce_manager::LocalSigner;
         use solana_sdk::signature::Keypair;
-        
+
         // Create a test signer
         let keypair = Keypair::new();
         let signer = Arc::new(LocalSigner::new(keypair));
-        
+
         // Create test nonce pubkeys
-        let nonce_pubkeys = vec![
-            Pubkey::new_unique(),
-            Pubkey::new_unique(),
-        ];
-        
+        let nonce_pubkeys = vec![Pubkey::new_unique(), Pubkey::new_unique()];
+
         // Use new_for_testing which doesn't require RPC
         // Use a very long lease timeout to avoid refresh attempts during tests
         UniverseNonceManager::new_for_testing(
             signer,
             nonce_pubkeys,
             Duration::from_secs(3600), // 1 hour to avoid refresh attempts
-        ).await
+        )
+        .await
     }
 
     /// Test: Buy enters passive mode, then sell returns to sniffing
-    /// 
+    ///
     /// This test validates the complete buy-sell cycle with deterministic behavior:
     /// 1. Start in Sniffing mode
     /// 2. Receive a candidate
     /// 3. Execute buy (mock) - transition to PassiveToken
     /// 4. Execute sell (mock) - transition back to Sniffing
-    /// 
+    ///
     /// All operations are deterministic with no network calls.
     /// Note: Uses real time instead of paused time to allow async tasks to execute properly.
     #[tokio::test]
@@ -2605,14 +2824,14 @@ mod tests {
             .with_max_level(tracing::Level::DEBUG)
             .with_test_writer()
             .try_init();
-            
+
         // Seed RNG for determinism
         fastrand::seed(42);
-        
+
         // NOTE: Not using tokio::time::pause() because it prevents spawned tasks from running.
         // The engine.run() loop needs to process candidates asynchronously, which requires
         // real time progression for the tokio scheduler to work properly.
-        
+
         // Create unbounded channel as expected by BuyEngine
         let (tx, rx) = mpsc::unbounded_channel();
 
@@ -2648,7 +2867,7 @@ mod tests {
             price_hint: None,
             signature: None,
         };
-        
+
         // Spawn the engine run in a background task
         let engine_handle = tokio::spawn(async move {
             // Run the engine with a timeout to prevent infinite wait
@@ -2658,32 +2877,36 @@ mod tests {
             }
             engine
         });
-        
+
         // Give the engine a moment to start and enter its listening loop
         tokio::time::sleep(Duration::from_millis(200)).await;
-        
+
         // Send candidate to trigger buy
         println!("Sending candidate...");
         tx.send(candidate.clone()).unwrap();
         println!("Candidate sent!");
-        
+
         // Poll for state transition with real time sleeps
         let mut state_found = false;
         for i in 0..50 {
             // Sleep for 100ms between checks (real time)
             tokio::time::sleep(Duration::from_millis(100)).await;
-            
+
             // Check if state has transitioned
             {
                 let st = app_state.lock().await;
                 let mode = st.mode.read().await;
                 if matches!(*mode, Mode::PassiveToken(_)) {
                     state_found = true;
-                    println!("✓ State transitioned to PassiveToken after {} iterations (~{}ms)", i + 1, (i + 1) * 100);
+                    println!(
+                        "✓ State transitioned to PassiveToken after {} iterations (~{}ms)",
+                        i + 1,
+                        (i + 1) * 100
+                    );
                     break;
                 }
             }
-            
+
             // Add debug info for first 10 iterations
             if i < 10 {
                 let st = app_state.lock().await;
@@ -2691,10 +2914,13 @@ mod tests {
                 println!("Iteration {}: Current mode: {:?}", i, *mode);
             }
         }
-        
+
         // Verify we found the PassiveToken state
-        assert!(state_found, "State did not transition to PassiveToken after 5 seconds");
-        
+        assert!(
+            state_found,
+            "State did not transition to PassiveToken after 5 seconds"
+        );
+
         // Additional assertions to verify the buy succeeded
         {
             let st = app_state.lock().await;
@@ -2705,23 +2931,26 @@ mod tests {
                 }
                 _ => panic!("Expected PassiveToken mode after buy, got: {:?}", *mode),
             }
-            assert_eq!(st.holdings_percent, 1.0, "Holdings should be 100% after buy");
+            assert_eq!(
+                st.holdings_percent, 1.0,
+                "Holdings should be 100% after buy"
+            );
             assert!(st.last_buy_price.is_some(), "Should have buy price");
             assert!(st.active_token.is_some(), "Should have active token");
         }
-        
+
         // Now test sell operation
         // Signal completion and retrieve the engine
         drop(tx);
         tokio::time::sleep(Duration::from_millis(100)).await; // Give engine time to finish
         let engine = engine_handle.await.expect("Engine task should complete");
-        
+
         // Execute sell
         engine.sell(1.0).await.expect("sell should succeed");
-        
+
         // Allow async operations to complete
         tokio::time::sleep(Duration::from_millis(100)).await;
-        
+
         // Verify state after sell
         let st = app_state.lock().await;
         let mode = st.mode.read().await;
@@ -2729,9 +2958,18 @@ mod tests {
             matches!(*mode, Mode::Sniffing),
             "Should return to Sniffing mode after 100% sell"
         );
-        assert!(st.active_token.is_none(), "Active token should be None after sell");
-        assert!(st.last_buy_price.is_none(), "Buy price should be None after sell");
-        assert_eq!(st.holdings_percent, 0.0, "Holdings should be 0% after 100% sell");
+        assert!(
+            st.active_token.is_none(),
+            "Active token should be None after sell"
+        );
+        assert!(
+            st.last_buy_price.is_none(),
+            "Buy price should be None after sell"
+        );
+        assert_eq!(
+            st.holdings_percent, 0.0,
+            "Holdings should be 0% after 100% sell"
+        );
     }
 
     // Test backoff behavior with failing broadcaster
@@ -2739,7 +2977,7 @@ mod tests {
     async fn test_backoff_behavior() {
         // Seed RNG for determinism
         fastrand::seed(43);
-        
+
         let (_tx, rx) = mpsc::unbounded_channel::<PremintCandidate>();
 
         let app_state = Arc::new(Mutex::new(AppState::new(Mode::Sniffing)));
@@ -2772,17 +3010,17 @@ mod tests {
 
         // Test backoff state
         assert_eq!(engine.backoff_state.get_failure_count(), 0);
-        
+
         engine.backoff_state.record_failure().await;
         assert_eq!(engine.backoff_state.get_failure_count(), 1);
-        
+
         let backoff_duration = engine.backoff_state.should_backoff().await;
         assert!(backoff_duration.is_some());
         assert!(backoff_duration.unwrap().as_millis() >= 100);
-        
+
         engine.backoff_state.record_success().await;
         assert_eq!(engine.backoff_state.get_failure_count(), 0);
-        
+
         let no_backoff = engine.backoff_state.should_backoff().await;
         assert!(no_backoff.is_none());
     }
@@ -2792,7 +3030,7 @@ mod tests {
     async fn test_atomic_buy_protection() {
         // Seed RNG for determinism
         fastrand::seed(44);
-        
+
         let (_tx, rx) = mpsc::unbounded_channel::<PremintCandidate>();
 
         let app_state = Arc::new(Mutex::new(AppState::new(Mode::Sniffing)));
@@ -2813,27 +3051,33 @@ mod tests {
         // Test the guard mechanism directly
         // First attempt should set the flag and succeed
         assert!(!engine.pending_buy.load(Ordering::Relaxed));
-        
+
         // Simulate a buy operation starting
-        let success = engine.pending_buy.compare_exchange(
-            false, true, Ordering::Relaxed, Ordering::Relaxed
-        ).is_ok();
+        let success = engine
+            .pending_buy
+            .compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed)
+            .is_ok();
         assert!(success, "First pending_buy flag should be settable");
-        
+
         // Second attempt should fail because flag is already set
-        let result2 = engine.pending_buy.compare_exchange(
-            false, true, Ordering::Relaxed, Ordering::Relaxed
-        );
+        let result2 =
+            engine
+                .pending_buy
+                .compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed);
         assert!(result2.is_err(), "Second pending_buy flag should fail");
-        
+
         // Clear the flag
         engine.pending_buy.store(false, Ordering::Relaxed);
-        
+
         // Now it should succeed again
-        let success3 = engine.pending_buy.compare_exchange(
-            false, true, Ordering::Relaxed, Ordering::Relaxed
-        ).is_ok();
-        assert!(success3, "After clearing, pending_buy flag should be settable again");
+        let success3 = engine
+            .pending_buy
+            .compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed)
+            .is_ok();
+        assert!(
+            success3,
+            "After clearing, pending_buy flag should be settable again"
+        );
     }
 
     // Test sell/buy race protection
@@ -2841,7 +3085,7 @@ mod tests {
     async fn test_sell_buy_race_protection() {
         // Seed RNG for determinism
         fastrand::seed(45);
-        
+
         let (_tx, rx) = mpsc::unbounded_channel::<PremintCandidate>();
 
         let app_state = Arc::new(Mutex::new({
@@ -2877,7 +3121,10 @@ mod tests {
         // Sell should fail due to pending buy
         let result = engine.sell(0.5).await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("buy operation in progress"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("buy operation in progress"));
     }
 
     // Test nonce lease RAII behavior
@@ -2885,7 +3132,7 @@ mod tests {
     async fn test_nonce_lease_raii_behavior() {
         // Seed RNG for determinism
         fastrand::seed(46);
-        
+
         let (_tx, rx) = mpsc::unbounded_channel::<PremintCandidate>();
 
         let app_state = Arc::new(Mutex::new(AppState::new(Mode::Sniffing)));
@@ -2908,12 +3155,12 @@ mod tests {
         let initial_stats = nonce_manager.get_stats().await;
         assert_eq!(initial_stats.available_permits, 2);
         assert_eq!(initial_stats.permits_in_use, 0);
-        
+
         // This test verifies that the RAII pattern is set up correctly
         // The actual nonce acquisition would require a real RPC connection
         // which we cannot mock easily without modifying the nonce manager
         // The test validates the initial state and structure
-        
+
         // Verify total accounts match our setup
         assert_eq!(initial_stats.total_accounts, 2);
         assert_eq!(initial_stats.tainted_count, 0);

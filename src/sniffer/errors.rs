@@ -32,7 +32,9 @@ impl fmt::Display for SnifferError {
             Self::ConfigValidation(msg) => write!(f, "Configuration validation error: {}", msg),
             Self::StreamConnection(msg) => write!(f, "Stream connection error: {}", msg),
             Self::StreamDisconnected => write!(f, "Stream disconnected"),
-            Self::RetryLimitExceeded(attempts) => write!(f, "Retry limit exceeded after {} attempts", attempts),
+            Self::RetryLimitExceeded(attempts) => {
+                write!(f, "Retry limit exceeded after {} attempts", attempts)
+            }
             Self::ChannelSend(msg) => write!(f, "Channel send error: {}", msg),
             Self::ShutdownRequested => write!(f, "Shutdown requested"),
             Self::InvalidTransaction(msg) => write!(f, "Invalid transaction: {}", msg),
@@ -116,9 +118,9 @@ impl ExponentialBackoff {
 
     /// Get the next backoff duration with jitter
     pub fn next_backoff(&mut self) -> Duration {
-        let backoff_ms = (self.initial_backoff_ms * 2_u64.pow(self.current_attempt))
-            .min(self.max_backoff_ms);
-        
+        let backoff_ms =
+            (self.initial_backoff_ms * 2_u64.pow(self.current_attempt)).min(self.max_backoff_ms);
+
         self.current_attempt += 1;
 
         // Add jitter (±20%)
@@ -147,15 +149,15 @@ mod tests {
     #[test]
     fn test_exponential_backoff() {
         let mut backoff = ExponentialBackoff::new(100, 5000);
-        
+
         // First attempt
         let delay1 = backoff.next_backoff();
         assert!(delay1.as_millis() >= 80 && delay1.as_millis() <= 120); // 100ms ± 20%
-        
+
         // Second attempt should be roughly 2x
         let delay2 = backoff.next_backoff();
         assert!(delay2.as_millis() >= 160 && delay2.as_millis() <= 240); // 200ms ± 20%
-        
+
         // Reset should go back to initial
         backoff.reset();
         let delay3 = backoff.next_backoff();
@@ -165,7 +167,7 @@ mod tests {
     #[test]
     fn test_backoff_max_limit() {
         let mut backoff = ExponentialBackoff::new(1000, 5000);
-        
+
         // After many attempts, should not exceed max
         for _ in 0..10 {
             let delay = backoff.next_backoff();

@@ -1,6 +1,6 @@
 //! Zero-copy hot-path prefilter for transaction filtering
 
-use super::errors::{MintExtractError, AccountExtractError};
+use super::errors::{AccountExtractError, MintExtractError};
 use smallvec::SmallVec;
 use solana_sdk::pubkey::Pubkey;
 use tracing::debug;
@@ -10,18 +10,14 @@ use solana_sdk::transaction::VersionedTransaction;
 
 /// Pump.fun program ID bytes (hardcoded for fast matching)
 const PUMP_FUN_PROGRAM_ID: [u8; 32] = [
-    0x6f, 0x1d, 0x8a, 0x9c, 0x2e, 0xf4, 0xa3, 0x5b,
-    0x7c, 0x4d, 0x9e, 0x1f, 0x6a, 0x8b, 0x3c, 0x2d,
-    0x5e, 0x9f, 0x4a, 0x7b, 0x1c, 0x8d, 0x3e, 0x6f,
-    0x2a, 0x9b, 0x5c, 0x1d, 0x7e, 0x4f, 0x8a, 0x3b,
+    0x6f, 0x1d, 0x8a, 0x9c, 0x2e, 0xf4, 0xa3, 0x5b, 0x7c, 0x4d, 0x9e, 0x1f, 0x6a, 0x8b, 0x3c, 0x2d,
+    0x5e, 0x9f, 0x4a, 0x7b, 0x1c, 0x8d, 0x3e, 0x6f, 0x2a, 0x9b, 0x5c, 0x1d, 0x7e, 0x4f, 0x8a, 0x3b,
 ];
 
 /// SPL Token program ID bytes
 const SPL_TOKEN_PROGRAM_ID: [u8; 32] = [
-    0x06, 0xdd, 0xf6, 0xe1, 0xd7, 0x65, 0xa1, 0x93,
-    0xd9, 0xcb, 0xe1, 0x46, 0xce, 0xeb, 0x79, 0xac,
-    0x1c, 0xb4, 0x85, 0xed, 0x5f, 0x5b, 0x37, 0x91,
-    0x3a, 0x8c, 0xf5, 0x85, 0x7e, 0xff, 0x00, 0xa9,
+    0x06, 0xdd, 0xf6, 0xe1, 0xd7, 0x65, 0xa1, 0x93, 0xd9, 0xcb, 0xe1, 0x46, 0xce, 0xeb, 0x79, 0xac,
+    0x1c, 0xb4, 0x85, 0xed, 0x5f, 0x5b, 0x37, 0x91, 0x3a, 0x8c, 0xf5, 0x85, 0x7e, 0xff, 0x00, 0xa9,
 ];
 
 /// Account keys region offsets for regional scanning
@@ -36,12 +32,12 @@ const ACCOUNT_KEYS_END: usize = 512;
 const PERF_WARN_THRESHOLD_MICROS: u128 = 100;
 
 /// Optimized program ID search using regional scanning
-/// 
+///
 /// Strategy:
 /// 1. Primary scan: Search account keys region (bytes 67-512) where 90%+ of program IDs are found
 /// 2. Fallback scan: Only search other regions if not found in primary region
 /// 3. Early exit: Return immediately when program ID is found
-/// 
+///
 /// Performance: Reduces average iterations by 70-85% compared to full-buffer scan
 #[inline]
 fn find_program_id_regional(tx_bytes: &[u8], program_id: &[u8; 32]) -> bool {
@@ -53,7 +49,7 @@ fn find_program_id_regional(tx_bytes: &[u8], program_id: &[u8; 32]) -> bool {
     if tx_bytes.len() >= ACCOUNT_KEYS_START + 32 {
         let end = ACCOUNT_KEYS_END.min(tx_bytes.len());
         let region = &tx_bytes[ACCOUNT_KEYS_START..end];
-        
+
         if region.len() >= 32 && region.windows(32).any(|w| w == program_id) {
             return true;
         }
@@ -70,7 +66,7 @@ fn find_program_id_regional(tx_bytes: &[u8], program_id: &[u8; 32]) -> bool {
             }
         }
     }
-    
+
     // Scan end (after ACCOUNT_KEYS_END)
     if tx_bytes.len() > ACCOUNT_KEYS_END + 32 {
         let end_region = &tx_bytes[ACCOUNT_KEYS_END..];
@@ -78,7 +74,7 @@ fn find_program_id_regional(tx_bytes: &[u8], program_id: &[u8; 32]) -> bool {
             return true;
         }
     }
-    
+
     false
 }
 
@@ -95,7 +91,7 @@ macro_rules! check_program_id_with_perf {
             }
             result
         }
-        
+
         #[cfg(not(feature = "perf"))]
         {
             find_program_id_regional($tx_bytes, $program_id)
@@ -148,9 +144,11 @@ pub fn small_signature_match(tx_bytes: &[u8], pattern: &[u8]) -> bool {
     if tx_bytes.len() < pattern.len() {
         return false;
     }
-    
+
     // Search for pattern in transaction
-    tx_bytes.windows(pattern.len()).any(|window| window == pattern)
+    tx_bytes
+        .windows(pattern.len())
+        .any(|window| window == pattern)
 }
 
 /// Main hot-path filter - returns true if transaction should be processed
@@ -172,7 +170,7 @@ pub fn should_process(tx_bytes: &[u8]) -> bool {
 }
 
 /// Extract mint pubkey from transaction bytes with safe parsing
-/// 
+///
 /// Two modes:
 /// - prod_parse feature: Uses solana-sdk VersionedTransaction deserialization
 /// - default: Uses optimized offset-based extraction with validation
@@ -181,56 +179,58 @@ pub fn extract_mint(tx_bytes: &[u8], safe_offsets: bool) -> Result<Pubkey, MintE
     {
         let tx = VersionedTransaction::deserialize(tx_bytes)
             .map_err(|_| MintExtractError::DeserializationFailed)?;
-        
+
         // Use compat layer for unified message access
         let account_keys = crate::compat::get_static_account_keys(&tx.message);
         if account_keys.is_empty() {
             return Err(MintExtractError::TooSmall);
         }
-        
+
         for key in account_keys.iter() {
             if *key != Pubkey::default() {
                 return Ok(*key);
             }
         }
-        
+
         Err(MintExtractError::InvalidMint)
     }
-    
+
     #[cfg(not(feature = "prod_parse"))]
     {
         if tx_bytes.len() < 96 {
             return Err(MintExtractError::TooSmall);
         }
 
-        let mint_bytes = tx_bytes.get(64..96)
-            .ok_or(MintExtractError::OutOfBounds)?;
-        
-        let mint = Pubkey::try_from(mint_bytes)
-            .map_err(|_| MintExtractError::DeserializationFailed)?;
-        
+        let mint_bytes = tx_bytes.get(64..96).ok_or(MintExtractError::OutOfBounds)?;
+
+        let mint =
+            Pubkey::try_from(mint_bytes).map_err(|_| MintExtractError::DeserializationFailed)?;
+
         if safe_offsets && mint == Pubkey::default() {
             debug!("Extracted default pubkey (all zeros) - likely invalid");
             return Err(MintExtractError::InvalidMint);
         }
-        
+
         Ok(mint)
     }
 }
 
 /// Extract account pubkeys from transaction bytes with safe parsing
-pub fn extract_accounts(tx_bytes: &[u8], safe_offsets: bool) -> Result<SmallVec<[Pubkey; 8]>, AccountExtractError> {
+pub fn extract_accounts(
+    tx_bytes: &[u8],
+    safe_offsets: bool,
+) -> Result<SmallVec<[Pubkey; 8]>, AccountExtractError> {
     #[cfg(feature = "prod_parse")]
     {
         let tx = VersionedTransaction::deserialize(tx_bytes)
             .map_err(|_| AccountExtractError::DeserializationFailed)?;
-        
+
         // Use compat layer for unified message access
         let account_keys = crate::compat::get_static_account_keys(&tx.message);
         if account_keys.is_empty() {
             return Err(AccountExtractError::TooSmall);
         }
-        
+
         let mut accounts = SmallVec::new();
         for key in account_keys.iter() {
             if accounts.len() >= 8 {
@@ -240,14 +240,14 @@ pub fn extract_accounts(tx_bytes: &[u8], safe_offsets: bool) -> Result<SmallVec<
                 accounts.push(*key);
             }
         }
-        
+
         Ok(accounts)
     }
-    
+
     #[cfg(not(feature = "prod_parse"))]
     {
         let mut accounts = SmallVec::new();
-        
+
         if tx_bytes.len() < 128 {
             return Err(AccountExtractError::TooSmall);
         }
@@ -264,11 +264,11 @@ pub fn extract_accounts(tx_bytes: &[u8], safe_offsets: bool) -> Result<SmallVec<
             }
             offset += 32;
         }
-        
+
         if accounts.is_empty() {
             return Err(AccountExtractError::InvalidAccount);
         }
-        
+
         Ok(accounts)
     }
 }
@@ -281,7 +281,7 @@ mod tests {
     fn test_is_vote_tx() {
         let vote_tx = vec![0x00; 100];
         assert!(is_vote_tx(&vote_tx));
-        
+
         let normal_tx = vec![0x01; 200];
         assert!(!is_vote_tx(&normal_tx));
     }
@@ -298,7 +298,7 @@ mod tests {
         let tx = vec![0x01, 0x02, 0x03, 0x04, 0x05];
         let pattern = vec![0x03, 0x04];
         assert!(small_signature_match(&tx, &pattern));
-        
+
         let no_match = vec![0x06, 0x07];
         assert!(!small_signature_match(&tx, &no_match));
     }

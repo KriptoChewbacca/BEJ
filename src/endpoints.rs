@@ -7,16 +7,16 @@ use tokio::net::TcpListener;
 pub async fn endpoint_server(port: u16) -> Result<()> {
     let addr = format!("0.0.0.0:{}", port);
     let listener = TcpListener::bind(&addr).await?;
-    
+
     tracing::info!("Metrics endpoint listening on {}", addr);
-    
+
     // Simple HTTP server for metrics
     loop {
         match listener.accept().await {
             Ok((mut socket, _addr)) => {
                 tokio::spawn(async move {
                     use tokio::io::{AsyncReadExt, AsyncWriteExt};
-                    
+
                     let mut buf = [0; 1024];
                     match socket.read(&mut buf).await {
                         Ok(_) => {

@@ -1,9 +1,9 @@
 //! PremintCandidate extraction with fixed-size fields for hot-path performance
 
+use super::errors::{AccountExtractError, MintExtractError};
+use super::prefilter;
 use smallvec::SmallVec;
 use solana_sdk::pubkey::Pubkey;
-use super::errors::{MintExtractError, AccountExtractError};
-use super::prefilter;
 
 /// Priority level for candidates
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -48,10 +48,10 @@ impl PremintCandidate {
             priority,
         }
     }
-    
+
     /// Try to extract a candidate from transaction bytes
     /// This is the main hot-path extraction function
-    /// 
+    ///
     /// Returns Ok(candidate) if extraction succeeds, Err otherwise
     /// Errors are logged but not propagated to avoid disrupting the hot path
     #[inline]
@@ -63,16 +63,16 @@ impl PremintCandidate {
         safe_offsets: bool,
     ) -> Result<Self, ExtractError> {
         // Extract mint
-        let mint = prefilter::extract_mint(tx_bytes, safe_offsets)
-            .map_err(ExtractError::MintExtract)?;
-        
+        let mint =
+            prefilter::extract_mint(tx_bytes, safe_offsets).map_err(ExtractError::MintExtract)?;
+
         // Extract accounts
         let accounts = prefilter::extract_accounts(tx_bytes, safe_offsets)
             .map_err(ExtractError::AccountExtract)?;
-        
+
         Ok(Self::new(mint, accounts, price_hint, trace_id, priority))
     }
-    
+
     /// Check if this is a high priority candidate
     #[inline(always)]
     pub fn is_high_priority(&self) -> bool {
@@ -110,43 +110,27 @@ mod tests {
         let mut accounts = SmallVec::new();
         accounts.push(Pubkey::new_unique());
         accounts.push(Pubkey::new_unique());
-        
-        let candidate = PremintCandidate::new(
-            mint,
-            accounts.clone(),
-            1.5,
-            123,
-            PriorityLevel::High,
-        );
-        
+
+        let candidate =
+            PremintCandidate::new(mint, accounts.clone(), 1.5, 123, PriorityLevel::High);
+
         assert_eq!(candidate.mint, mint);
         assert_eq!(candidate.accounts.len(), 2);
         assert_eq!(candidate.price_hint, 1.5);
         assert_eq!(candidate.trace_id, 123);
         assert!(candidate.is_high_priority());
     }
-    
+
     #[test]
     fn test_priority_level() {
         let mint = Pubkey::new_unique();
         let accounts = SmallVec::new();
-        
-        let high_candidate = PremintCandidate::new(
-            mint,
-            accounts.clone(),
-            1.0,
-            1,
-            PriorityLevel::High,
-        );
+
+        let high_candidate =
+            PremintCandidate::new(mint, accounts.clone(), 1.0, 1, PriorityLevel::High);
         assert!(high_candidate.is_high_priority());
-        
-        let low_candidate = PremintCandidate::new(
-            mint,
-            accounts,
-            1.0,
-            2,
-            PriorityLevel::Low,
-        );
+
+        let low_candidate = PremintCandidate::new(mint, accounts, 1.0, 2, PriorityLevel::Low);
         assert!(!low_candidate.is_high_priority());
     }
 }

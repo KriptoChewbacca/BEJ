@@ -6,8 +6,4 @@
 pub mod compat;
 
 // Re-export commonly used types
-pub use solana_sdk::{
-    pubkey::Pubkey,
-    signature::Signature,
-    message::VersionedMessage,
-};
+pub use solana_sdk::{message::VersionedMessage, pubkey::Pubkey, signature::Signature};

@@ -1,13 +1,13 @@
 //! Bounded mpsc channel with backpressure and priority logic
 
+use super::config::DropPolicy;
+use super::extractor::PremintCandidate;
+use super::telemetry::{HandoffDiagnostics, SnifferMetrics};
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::time::{Duration, Instant};
 use tracing::{debug, warn};
-use super::extractor::PremintCandidate;
-use super::telemetry::{SnifferMetrics, HandoffDiagnostics};
-use super::config::DropPolicy;
-use std::sync::Arc;
-use std::sync::atomic::Ordering;
 
 /// Handoff result
 pub enum HandoffResult {
@@ -33,31 +33,33 @@ pub fn try_send_candidate(
         Ok(_) => {
             // Successfully sent
             metrics.candidates_sent.fetch_add(1, Ordering::Relaxed);
-            
+
             if candidate.is_high_priority() {
                 metrics.high_priority_sent.fetch_add(1, Ordering::Relaxed);
             } else {
                 metrics.low_priority_sent.fetch_add(1, Ordering::Relaxed);
             }
-            
+
             HandoffResult::Sent
         }
         Err(mpsc::error::TrySendError::Full(dropped_candidate)) => {
             // Channel is full - apply backpressure
             metrics.dropped_full_buffer.fetch_add(1, Ordering::Relaxed);
             metrics.backpressure_events.fetch_add(1, Ordering::Relaxed);
-            
+
             let is_high_priority = dropped_candidate.is_high_priority();
             if is_high_priority {
-                metrics.high_priority_dropped.fetch_add(1, Ordering::Relaxed);
+                metrics
+                    .high_priority_dropped
+                    .fetch_add(1, Ordering::Relaxed);
                 warn!("Dropped HIGH priority candidate due to full buffer");
             }
-            
+
             // Track drop in diagnostics
             if let Some(diag) = diagnostics {
                 diag.record_drop(is_high_priority);
             }
-            
+
             HandoffResult::Dropped
         }
         Err(mpsc::error::TrySendError::Closed(_)) => {
@@ -97,7 +99,7 @@ impl BatchSender {
             diagnostics: None,
         }
     }
-    
+
     /// Create a new batch sender with diagnostics
     pub fn with_diagnostics(
         tx: mpsc::Sender<PremintCandidate>,
@@ -116,17 +118,17 @@ impl BatchSender {
             diagnostics: Some(diagnostics),
         }
     }
-    
+
     /// Add a candidate to the batch
     /// Returns true if batch was flushed
     #[inline]
     pub fn add(&mut self, candidate: PremintCandidate) -> bool {
         self.batch.push(candidate);
-        
+
         // Check if we should flush
-        let should_flush = self.batch.len() >= self.batch_size
-            || self.last_send.elapsed() >= self.batch_timeout;
-        
+        let should_flush =
+            self.batch.len() >= self.batch_size || self.last_send.elapsed() >= self.batch_timeout;
+
         if should_flush {
             self.flush_sync();
             true
@@ -134,7 +136,7 @@ impl BatchSender {
             false
         }
     }
-    
+
     /// Flush the batch synchronously (HOT-PATH)
     /// Uses try_send to avoid blocking
     #[inline]
@@ -142,7 +144,7 @@ impl BatchSender {
         if self.batch.is_empty() {
             return;
         }
-        
+
         // Send each candidate in batch and track send time
         for candidate in self.batch.drain(..) {
             let send_start = Instant::now();
@@ -158,22 +160,22 @@ impl BatchSender {
                 diag.record_queue_wait(send_latency_us);
             }
         }
-        
+
         self.last_send = Instant::now();
     }
-    
+
     /// Check if batch should be flushed due to timeout
     #[inline]
     pub fn should_flush_timeout(&self) -> bool {
         !self.batch.is_empty() && self.last_send.elapsed() >= self.batch_timeout
     }
-    
+
     /// Get current batch size
     #[inline]
     pub fn len(&self) -> usize {
         self.batch.len()
     }
-    
+
     /// Check if batch is empty
     #[inline]
     pub fn is_empty(&self) -> bool {
@@ -201,7 +203,7 @@ impl PriorityHandler {
             metrics,
         }
     }
-    
+
     /// Send candidate to appropriate priority queue
     #[inline]
     pub fn send(&self, candidate: PremintCandidate) -> HandoffResult {
@@ -241,7 +243,7 @@ impl BackpressurePolicy {
             low_threshold_us: 100.0,
         }
     }
-    
+
     /// Create a new backpressure policy with diagnostics for adaptive behavior
     pub fn with_diagnostics(
         drop_policy: DropPolicy,
@@ -260,7 +262,7 @@ impl BackpressurePolicy {
             low_threshold_us,
         }
     }
-    
+
     /// Determine adaptive drop policy based on diagnostics
     /// Returns the policy to use, potentially adjusted based on current conditions
     pub fn adaptive_policy(&self) -> DropPolicy {
@@ -269,10 +271,13 @@ impl BackpressurePolicy {
             if let Some(avg_wait) = diag.avg_queue_wait() {
                 // If queue wait is very high (>high_threshold), switch to more aggressive dropping
                 if avg_wait > self.high_threshold_us {
-                    debug!("High queue wait detected ({:.2}μs), using DropNewest", avg_wait);
+                    debug!(
+                        "High queue wait detected ({:.2}μs), using DropNewest",
+                        avg_wait
+                    );
                     return DropPolicy::DropNewest;
                 }
-                
+
                 // If queue wait is low (<low_threshold), we can afford to block occasionally
                 if avg_wait < self.low_threshold_us {
                     debug!("Low queue wait ({:.2}μs), using Block policy", avg_wait);
@@ -280,11 +285,11 @@ impl BackpressurePolicy {
                 }
             }
         }
-        
+
         // Default to configured policy
         self.drop_policy
     }
-    
+
     /// Apply backpressure policy for a candidate
     /// This is NOT a hot-path function - only called when channel is full
     pub async fn apply(
@@ -295,17 +300,17 @@ impl BackpressurePolicy {
     ) -> HandoffResult {
         // Use adaptive policy if diagnostics available
         let policy = self.adaptive_policy();
-        
+
         match policy {
             DropPolicy::DropNewest => {
                 // Drop the current candidate
                 debug!("Dropping newest candidate due to backpressure");
                 metrics.dropped_full_buffer.fetch_add(1, Ordering::Relaxed);
-                
+
                 if let Some(diag) = &self.diagnostics {
                     diag.record_drop(candidate.is_high_priority());
                 }
-                
+
                 HandoffResult::Dropped
             }
             DropPolicy::DropOldest => {
@@ -313,11 +318,11 @@ impl BackpressurePolicy {
                 // For now, just drop newest
                 debug!("DropOldest not implemented - dropping newest");
                 metrics.dropped_full_buffer.fetch_add(1, Ordering::Relaxed);
-                
+
                 if let Some(diag) = &self.diagnostics {
                     diag.record_drop(candidate.is_high_priority());
                 }
-                
+
                 HandoffResult::Dropped
             }
             DropPolicy::Block => {
@@ -325,7 +330,7 @@ impl BackpressurePolicy {
                 if candidate.is_high_priority() {
                     for attempt in 0..self.max_retries_high {
                         tokio::time::sleep(Duration::from_micros(self.retry_delay_us)).await;
-                        
+
                         if let Ok(_) = tx.try_send(candidate.clone()) {
                             metrics.candidates_sent.fetch_add(1, Ordering::Relaxed);
                             metrics.high_priority_sent.fetch_add(1, Ordering::Relaxed);
@@ -333,25 +338,30 @@ impl BackpressurePolicy {
                             return HandoffResult::Sent;
                         }
                     }
-                    
+
                     // Failed after retries
                     metrics.dropped_full_buffer.fetch_add(1, Ordering::Relaxed);
-                    metrics.high_priority_dropped.fetch_add(1, Ordering::Relaxed);
-                    
+                    metrics
+                        .high_priority_dropped
+                        .fetch_add(1, Ordering::Relaxed);
+
                     if let Some(diag) = &self.diagnostics {
                         diag.record_drop(true);
                     }
-                    
-                    warn!("Dropped high priority candidate after {} retries", self.max_retries_high);
+
+                    warn!(
+                        "Dropped high priority candidate after {} retries",
+                        self.max_retries_high
+                    );
                     HandoffResult::Dropped
                 } else {
                     // Low priority - just drop
                     metrics.dropped_full_buffer.fetch_add(1, Ordering::Relaxed);
-                    
+
                     if let Some(diag) = &self.diagnostics {
                         diag.record_drop(false);
                     }
-                    
+
                     HandoffResult::Dropped
                 }
             }
@@ -362,15 +372,15 @@ impl BackpressurePolicy {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::sniffer::extractor::PriorityLevel;
     use smallvec::SmallVec;
     use solana_sdk::pubkey::Pubkey;
-    use crate::sniffer::extractor::PriorityLevel;
 
     #[tokio::test]
     async fn test_try_send_candidate() {
         let (tx, mut rx) = mpsc::channel(10);
         let metrics = Arc::new(SnifferMetrics::new());
-        
+
         let candidate = PremintCandidate::new(
             Pubkey::new_unique(),
             SmallVec::new(),
@@ -378,10 +388,10 @@ mod tests {
             1,
             PriorityLevel::High,
         );
-        
+
         let result = try_send_candidate(&tx, candidate, &metrics, None);
         assert!(matches!(result, HandoffResult::Sent));
-        
+
         assert!(rx.recv().await.is_some());
         assert_eq!(metrics.candidates_sent.load(Ordering::Relaxed), 1);
     }
@@ -390,13 +400,8 @@ mod tests {
     async fn test_batch_sender() {
         let (tx, mut rx) = mpsc::channel(100);
         let metrics = Arc::new(SnifferMetrics::new());
-        let mut batch_sender = BatchSender::new(
-            tx,
-            3,
-            Duration::from_millis(100),
-            metrics,
-        );
-        
+        let mut batch_sender = BatchSender::new(tx, 3, Duration::from_millis(100), metrics);
+
         for i in 0..5 {
             let candidate = PremintCandidate::new(
                 Pubkey::new_unique(),
@@ -407,7 +412,7 @@ mod tests {
             );
             batch_sender.add(candidate);
         }
-        
+
         // Should have sent 2 batches (3 + 2)
         let mut count = 0;
         while rx.try_recv().is_ok() {

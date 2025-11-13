@@ -1,5 +1,5 @@
 //! Enhanced RPC pooling with health checks, batching, and intelligent rotation
-//! 
+//!
 //! This module implements Step 1 requirements:
 //! - Configurable RPC/TPU endpoint list with priorities and health state
 //! - Periodic health checking (get_version / get_slot)
@@ -11,15 +11,15 @@
 //! - ZK proof verification for account responses (prevents RPC spoofing)
 //! - Taint marking for unverified endpoint data
 //! - Integration point: account fetch methods should verify ZK proofs from nonce manager
-use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::{account::Account, pubkey::Pubkey, commitment_config::CommitmentConfig};
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, Instant};
-use tokio::sync::{RwLock, broadcast};
-use tracing::{debug, error, info, warn, instrument};
 use dashmap::DashMap;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{account::Account, commitment_config::CommitmentConfig, pubkey::Pubkey};
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+use tokio::sync::{broadcast, RwLock};
+use tracing::{debug, error, info, instrument, warn};
 
 /// Health status of an RPC endpoint
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -33,9 +33,9 @@ pub enum HealthStatus {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum EndpointType {
     TPU = 0,      // Highest priority
-    Premium = 1,   // High priority
-    Standard = 2,  // Medium priority
-    Fallback = 3,  // Lowest priority
+    Premium = 1,  // High priority
+    Standard = 2, // Medium priority
+    Fallback = 3, // Lowest priority
 }
 
 /// Configuration for a single RPC endpoint
@@ -61,7 +61,7 @@ impl LatencyTracker {
             alpha: alpha.clamp(0.01, 0.99),
         }
     }
-    
+
     async fn update(&self, latency_ms: f64) {
         let mut ewma = self.ewma_latency_ms.write().await;
         if *ewma == 0.0 {
@@ -70,7 +70,7 @@ impl LatencyTracker {
             *ewma = self.alpha * latency_ms + (1.0 - self.alpha) * *ewma;
         }
     }
-    
+
     async fn get(&self) -> f64 {
         *self.ewma_latency_ms.read().await
     }
@@ -95,11 +95,11 @@ struct HealthTrackedEndpoint {
     total_requests: AtomicU64,
     successful_requests: AtomicU64,
     last_request_time: Arc<RwLock<Instant>>,
-    
+
     // Dynamic scoring additions
     latency_tracker: LatencyTracker,
     dynamic_score: Arc<RwLock<f64>>,
-    
+
     // Cooldown mechanism
     cooldown_until: Arc<RwLock<Option<Instant>>>,
     last_stale_check: Arc<RwLock<Instant>>,
@@ -134,7 +134,7 @@ impl HealthTrackedEndpoint {
             last_stale_check: Arc::new(RwLock::new(Instant::now())),
         }
     }
-    
+
     /// Calculate success rate
     fn success_rate(&self) -> f64 {
         let total = self.total_requests.load(Ordering::Relaxed);
@@ -144,7 +144,7 @@ impl HealthTrackedEndpoint {
         let successful = self.successful_requests.load(Ordering::Relaxed);
         successful as f64 / total as f64
     }
-    
+
     /// Record request result with latency
     async fn record_request(&self, success: bool, latency_ms: f64) {
         self.total_requests.fetch_add(1, Ordering::Relaxed);
@@ -154,33 +154,33 @@ impl HealthTrackedEndpoint {
         } else {
             self.consecutive_failures.fetch_add(1, Ordering::Relaxed);
         }
-        
+
         // Update latency tracker
         self.latency_tracker.update(latency_ms).await;
-        
+
         // Update dynamic score
         self.update_dynamic_score().await;
     }
-    
+
     /// Calculate and update dynamic score based on multiple factors
     /// Score formula: base_score - latency_penalty - failure_penalty + tier_bonus
     async fn update_dynamic_score(&self) {
         let mut score = 100.0; // Base score
-        
+
         // Latency penalty (EWMA-based)
         let latency = self.latency_tracker.get().await;
         let latency_penalty = (latency / 10.0).min(50.0); // Max 50 points penalty
         score -= latency_penalty;
-        
+
         // Success rate bonus/penalty
         let success_rate = self.success_rate();
         score += (success_rate - 0.5) * 40.0; // ±20 points based on success rate
-        
+
         // Consecutive failures penalty
         let consecutive = self.consecutive_failures.load(Ordering::Relaxed) as f64;
         let failure_penalty = (consecutive * 10.0).min(30.0); // Max 30 points penalty
         score -= failure_penalty;
-        
+
         // Tier weight bonus
         let tier_bonus = match self.config.endpoint_type {
             EndpointType::TPU => 20.0,
@@ -189,12 +189,12 @@ impl HealthTrackedEndpoint {
             EndpointType::Fallback => -10.0,
         };
         score += tier_bonus;
-        
+
         // Ensure score is in reasonable range
         let final_score = score.clamp(0.0, 200.0);
-        
+
         *self.dynamic_score.write().await = final_score;
-        
+
         debug!(
             url = %self.config.url,
             score = final_score,
@@ -204,12 +204,12 @@ impl HealthTrackedEndpoint {
             "Updated dynamic score"
         );
     }
-    
+
     /// Get current dynamic score
     async fn get_score(&self) -> f64 {
         *self.dynamic_score.read().await
     }
-    
+
     /// Check if endpoint is in cooldown
     async fn is_in_cooldown(&self) -> bool {
         if let Some(cooldown_until) = *self.cooldown_until.read().await {
@@ -218,7 +218,7 @@ impl HealthTrackedEndpoint {
             false
         }
     }
-    
+
     /// Set cooldown period
     async fn set_cooldown(&self, duration: Duration) {
         *self.cooldown_until.write().await = Some(Instant::now() + duration);
@@ -228,7 +228,7 @@ impl HealthTrackedEndpoint {
             "Endpoint entered cooldown"
         );
     }
-    
+
     /// Clear cooldown
     async fn clear_cooldown(&self) {
         *self.cooldown_until.write().await = None;
@@ -252,18 +252,18 @@ pub struct RpcPool {
     health_failure_threshold: u64,
     account_cache: DashMap<Pubkey, CacheEntry>,
     cache_ttl: Duration,
-    
+
     // Health event propagation
     health_event_tx: broadcast::Sender<HealthChangeEvent>,
-    
+
     // Load shedding
     active_requests: AtomicU64,
     max_concurrent_requests: u64,
-    
+
     // Cooldown configuration
     cooldown_period: Duration,
     auto_retest_interval: Duration,
-    
+
     // Stale detection
     stale_timeout: Duration,
 }
@@ -281,13 +281,13 @@ impl RpcPool {
             health_check_interval,
             health_failure_threshold,
             cache_ttl,
-            1000, // Default max concurrent requests
+            1000,                    // Default max concurrent requests
             Duration::from_secs(30), // Default cooldown period
             Duration::from_secs(10), // Default auto retest interval
             Duration::from_secs(60), // Default stale timeout
         )
     }
-    
+
     /// Create a new RPC pool with custom limits
     pub fn new_with_limits(
         endpoint_configs: Vec<EndpointConfig>,
@@ -303,9 +303,9 @@ impl RpcPool {
             .into_iter()
             .map(|config| Arc::new(HealthTrackedEndpoint::new(config)))
             .collect();
-        
+
         let (health_event_tx, _) = broadcast::channel(100);
-        
+
         Self {
             endpoints,
             current_index: AtomicU64::new(0),
@@ -321,24 +321,29 @@ impl RpcPool {
             stale_timeout,
         }
     }
-    
+
     /// Subscribe to health change events
     pub fn subscribe_health_events(&self) -> broadcast::Receiver<HealthChangeEvent> {
         self.health_event_tx.subscribe()
     }
-    
+
     /// Emit health change event
-    async fn emit_health_event(&self, url: String, old_status: HealthStatus, new_status: HealthStatus) {
+    async fn emit_health_event(
+        &self,
+        url: String,
+        old_status: HealthStatus,
+        new_status: HealthStatus,
+    ) {
         let event = HealthChangeEvent {
             url: url.clone(),
             old_status,
             new_status,
             timestamp: Instant::now(),
         };
-        
+
         // Best effort send - don't block if no receivers
         let _ = self.health_event_tx.send(event);
-        
+
         info!(
             url = %url,
             old = ?old_status,
@@ -346,7 +351,7 @@ impl RpcPool {
             "Health status changed"
         );
     }
-    
+
     /// Start background health checking with cooldown and auto-retest
     pub fn start_health_checks(self: Arc<Self>) {
         let pool = self.clone();
@@ -357,7 +362,7 @@ impl RpcPool {
             }
         });
     }
-    
+
     /// Start asynchronous stats collector
     pub fn start_stats_collector(self: Arc<Self>, interval: Duration) {
         let pool = self.clone();
@@ -369,7 +374,7 @@ impl RpcPool {
             }
         });
     }
-    
+
     /// Start stale detection and reconnection task
     pub fn start_stale_detection(self: Arc<Self>) {
         let pool = self.clone();
@@ -381,11 +386,11 @@ impl RpcPool {
             }
         });
     }
-    
+
     /// Collect stats and publish to metrics (async, non-blocking)
     async fn collect_and_publish_stats(&self) {
         let stats = self.get_stats().await;
-        
+
         debug!(
             total = stats.total_endpoints,
             healthy = stats.healthy_endpoints,
@@ -394,7 +399,7 @@ impl RpcPool {
             cache_size = stats.cache_size,
             "RPC pool statistics"
         );
-        
+
         // Log individual endpoint stats
         for ep_stat in &stats.endpoint_stats {
             debug!(
@@ -407,17 +412,17 @@ impl RpcPool {
             );
         }
     }
-    
+
     /// Detect stale connections and reconnect
     async fn detect_and_reconnect_stale(&self) {
         for endpoint in &self.endpoints {
             let last_check = *endpoint.last_stale_check.read().await;
-            
+
             // Check if enough time has passed since last stale check
             if last_check.elapsed() < Duration::from_secs(30) {
                 continue;
             }
-            
+
             // Check if last successful request was too long ago
             let last_request = *endpoint.last_request_time.read().await;
             if last_request.elapsed() > self.stale_timeout {
@@ -426,7 +431,7 @@ impl RpcPool {
                     stale_duration = ?last_request.elapsed(),
                     "Detected stale connection, recreating client"
                 );
-                
+
                 // Recreate the RPC client
                 // Note: In production, this would need proper Arc<RpcClient> replacement
                 // For now, we just log the detection
@@ -434,7 +439,7 @@ impl RpcPool {
             }
         }
     }
-    
+
     /// Check health of all endpoints
     #[instrument(skip(self))]
     async fn check_all_endpoints_health(&self) {
@@ -442,19 +447,19 @@ impl RpcPool {
             self.check_endpoint_health(endpoint).await;
         }
     }
-    
+
     /// Check health of a single endpoint using get_version and get_slot
     /// Includes cooldown logic and health event emission
     #[instrument(skip(self, endpoint), fields(url = %endpoint.config.url))]
     async fn check_endpoint_health(&self, endpoint: &Arc<HealthTrackedEndpoint>) {
         let now = Instant::now();
         let last_check = *endpoint.last_health_check.read().await;
-        
+
         // Skip if recently checked
         if now.duration_since(last_check) < self.health_check_interval {
             return;
         }
-        
+
         // Check if in cooldown
         if endpoint.is_in_cooldown().await {
             // Auto-retest after interval
@@ -469,10 +474,10 @@ impl RpcPool {
                 }
             }
         }
-        
+
         let check_start = Instant::now();
         let mut is_healthy = true;
-        
+
         // Check 1: get_version (fast, minimal load)
         match endpoint.client.get_version().await {
             Ok(version_info) => {
@@ -491,7 +496,7 @@ impl RpcPool {
                 is_healthy = false;
             }
         }
-        
+
         // Check 2: get_slot (verifies sync status)
         if is_healthy {
             match endpoint.client.get_slot().await {
@@ -512,15 +517,17 @@ impl RpcPool {
                 }
             }
         }
-        
+
         let check_latency = check_start.elapsed().as_millis() as f64;
-        
+
         // Update health status with cooldown logic
         let old_status = *endpoint.health_status.read().await;
         let new_status = if !is_healthy {
-            endpoint.consecutive_failures.fetch_add(1, Ordering::Relaxed);
+            endpoint
+                .consecutive_failures
+                .fetch_add(1, Ordering::Relaxed);
             let failures = endpoint.consecutive_failures.load(Ordering::Relaxed);
-            
+
             if failures >= self.health_failure_threshold {
                 // Enter cooldown when becoming unhealthy
                 if old_status != HealthStatus::Unhealthy {
@@ -535,24 +542,21 @@ impl RpcPool {
             endpoint.clear_cooldown().await;
             HealthStatus::Healthy
         };
-        
+
         // Record the health check as a request
         endpoint.record_request(is_healthy, check_latency).await;
-        
+
         // Emit health change event if status changed
         if old_status != new_status {
-            self.emit_health_event(
-                endpoint.config.url.clone(),
-                old_status,
-                new_status,
-            ).await;
+            self.emit_health_event(endpoint.config.url.clone(), old_status, new_status)
+                .await;
         }
-        
+
         *endpoint.health_status.write().await = new_status;
         *endpoint.last_health_check.write().await = now;
         *endpoint.last_request_time.write().await = now;
     }
-    
+
     /// Select best endpoint using weighted round-robin with dynamic scoring
     /// Implements load shedding when overloaded
     #[instrument(skip(self))]
@@ -567,16 +571,16 @@ impl RpcPool {
             );
             return None;
         }
-        
+
         // Increment active requests
         self.active_requests.fetch_add(1, Ordering::Relaxed);
-        
+
         // Filter to healthy/degraded endpoints NOT in cooldown
         let mut candidates = Vec::new();
         for ep in &self.endpoints {
             let health = *ep.health_status.read().await;
             let in_cooldown = ep.is_in_cooldown().await;
-            
+
             // Skip unhealthy or cooled-down endpoints (fail-fast)
             if health == HealthStatus::Unhealthy || in_cooldown {
                 debug!(
@@ -587,48 +591,47 @@ impl RpcPool {
                 );
                 continue;
             }
-            
+
             let score = ep.get_score().await;
             candidates.push((ep.clone(), health, score));
         }
-        
+
         if candidates.is_empty() {
             error!("No healthy RPC endpoints available");
             self.active_requests.fetch_sub(1, Ordering::Relaxed);
             return None;
         }
-        
+
         // Sort by dynamic score (highest first)
-        candidates.sort_by(|a, b| {
-            b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal)
-        });
-        
+        candidates.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+
         // Weighted round-robin among top candidates
         // Use top 3 or all if fewer
         let top_candidates_count = 3.min(candidates.len());
         let top_candidates: Vec<_> = candidates.iter().take(top_candidates_count).collect();
-        
+
         // Calculate total weight (based on scores)
         let total_weight: f64 = top_candidates.iter().map(|(_, _, score)| score).sum();
-        
+
         if total_weight <= 0.0 {
             // Fallback to simple round-robin if all scores are 0
-            let idx = self.current_index.fetch_add(1, Ordering::Relaxed) as usize % top_candidates.len();
+            let idx =
+                self.current_index.fetch_add(1, Ordering::Relaxed) as usize % top_candidates.len();
             let selected = &top_candidates[idx].0;
-            
+
             debug!(
                 url = %selected.config.url,
                 score = top_candidates[idx].2,
                 "Selected endpoint (fallback round-robin)"
             );
-            
+
             return Some(selected.client.clone());
         }
-        
+
         // Weighted random selection
         let random_weight = rand::random::<f64>() * total_weight;
         let mut cumulative = 0.0;
-        
+
         for (ep, health, score) in top_candidates {
             cumulative += score;
             if cumulative >= random_weight {
@@ -640,36 +643,36 @@ impl RpcPool {
                     success_rate = ep.success_rate(),
                     "Selected RPC endpoint (weighted)"
                 );
-                
+
                 return Some(ep.client.clone());
             }
         }
-        
+
         // Fallback: return first candidate
         let selected = &candidates[0].0;
         debug!(
             url = %selected.config.url,
             "Selected endpoint (fallback)"
         );
-        
+
         Some(selected.client.clone())
     }
-    
+
     /// Decrement active request counter (call after request completes)
     pub fn release_request(&self) {
         self.active_requests.fetch_sub(1, Ordering::Relaxed);
     }
-    
+
     /// Get current load (number of active requests)
     pub fn get_active_requests(&self) -> u64 {
         self.active_requests.load(Ordering::Relaxed)
     }
-    
+
     /// Check if pool is overloaded
     pub fn is_overloaded(&self) -> bool {
         self.active_requests.load(Ordering::Relaxed) >= self.max_concurrent_requests
     }
-    
+
     /// Get account with caching
     #[instrument(skip(self))]
     pub async fn get_account_cached(
@@ -684,45 +687,53 @@ impl RpcPool {
                 return Ok(Some(entry.account.clone()));
             }
         }
-        
+
         // Cache miss or expired, fetch from RPC
-        let client = self.select_best_endpoint().await
+        let client = self
+            .select_best_endpoint()
+            .await
             .ok_or("No healthy endpoints available")?;
-        
-        let account = client.get_account_with_commitment(pubkey, commitment).await?.value;
-        
+
+        let account = client
+            .get_account_with_commitment(pubkey, commitment)
+            .await?
+            .value;
+
         // Update cache
         if let Some(ref acc) = account {
             let slot = client.get_slot().await.unwrap_or(0);
-            self.account_cache.insert(*pubkey, CacheEntry {
-                account: acc.clone(),
-                slot,
-                timestamp: Instant::now(),
-            });
+            self.account_cache.insert(
+                *pubkey,
+                CacheEntry {
+                    account: acc.clone(),
+                    slot,
+                    timestamp: Instant::now(),
+                },
+            );
             debug!(pubkey = %pubkey, "Cache updated");
         }
-        
+
         Ok(account)
     }
-    
+
     /// Hook for ZK proof verification of account responses
-    /// 
+    ///
     /// This method integrates with the nonce manager's ZK proof system to verify
     /// that account data retrieved from RPC endpoints hasn't been tampered with.
-    /// 
+    ///
     /// # Arguments
     /// * `pubkey` - Account public key to verify
     /// * `account` - Account data received from RPC
     /// * `slot` - Slot number when account was fetched
     /// * `endpoint_url` - URL of the RPC endpoint (for taint tracking)
-    /// 
+    ///
     /// # Returns
     /// Confidence score (0.0 to 1.0) for the account data authenticity
-    /// 
+    ///
     /// # Integration Point
     /// This should be called after fetching nonce accounts to verify their state.
     /// When confidence < 0.5, the account should be considered tainted.
-    /// 
+    ///
     /// # Implementation Notes
     /// - Extracts public_inputs from account data (slot, lamports, owner, etc.)
     /// - Cross-verifies with ZK proof from nonce manager if available
@@ -737,7 +748,7 @@ impl RpcPool {
     ) -> f64 {
         // TODO: Integration with nonce manager's ZK proof system
         // This is a placeholder for the actual implementation
-        // 
+        //
         // In production, this would:
         // 1. Check if pubkey is a nonce account
         // 2. Extract public_inputs from account: [slot, lamports, owner_hash, data_hash]
@@ -746,11 +757,11 @@ impl RpcPool {
         // 5. Calculate confidence based on match + slot staleness
         // 6. Mark endpoint as tainted if confidence < 0.5
         // 7. Return confidence score
-        
+
         // For now, return perfect confidence (1.0) - no verification
         1.0
     }
-    
+
     /// Batch get multiple accounts (Step 1 requirement: batching)
     #[instrument(skip(self, pubkeys))]
     pub async fn get_multiple_accounts_batched(
@@ -761,11 +772,11 @@ impl RpcPool {
         if pubkeys.is_empty() {
             return Ok(vec![]);
         }
-        
+
         // Check cache for all keys
         let mut cached_results: HashMap<Pubkey, Account> = HashMap::new();
         let mut missing_keys = Vec::new();
-        
+
         for pubkey in pubkeys {
             if let Some(entry) = self.account_cache.get(pubkey) {
                 if entry.timestamp.elapsed() < self.cache_ttl {
@@ -775,60 +786,65 @@ impl RpcPool {
             }
             missing_keys.push(*pubkey);
         }
-        
+
         debug!(
             total = pubkeys.len(),
             cached = cached_results.len(),
             missing = missing_keys.len(),
             "Batched account fetch"
         );
-        
+
         // Fetch missing accounts in one batch RPC call
         let mut fetched_accounts = HashMap::new();
         if !missing_keys.is_empty() {
-            let client = self.select_best_endpoint().await
+            let client = self
+                .select_best_endpoint()
+                .await
                 .ok_or("No healthy endpoints available")?;
-            
-            let accounts = client.get_multiple_accounts_with_commitment(
-                &missing_keys,
-                commitment,
-            ).await?.value;
-            
+
+            let accounts = client
+                .get_multiple_accounts_with_commitment(&missing_keys, commitment)
+                .await?
+                .value;
+
             let slot = client.get_slot().await.unwrap_or(0);
-            
+
             for (pubkey, account_opt) in missing_keys.iter().zip(accounts.iter()) {
                 if let Some(account) = account_opt {
                     // Update cache
-                    self.account_cache.insert(*pubkey, CacheEntry {
-                        account: account.clone(),
-                        slot,
-                        timestamp: Instant::now(),
-                    });
+                    self.account_cache.insert(
+                        *pubkey,
+                        CacheEntry {
+                            account: account.clone(),
+                            slot,
+                            timestamp: Instant::now(),
+                        },
+                    );
                     fetched_accounts.insert(*pubkey, account.clone());
                 }
             }
         }
-        
+
         // Combine cached and fetched results in original order
         let results = pubkeys
             .iter()
             .map(|pubkey| {
-                cached_results.get(pubkey)
+                cached_results
+                    .get(pubkey)
                     .or_else(|| fetched_accounts.get(pubkey))
                     .cloned()
             })
             .collect();
-        
+
         Ok(results)
     }
-    
+
     /// Clear expired cache entries
     pub fn prune_cache(&self) {
-        self.account_cache.retain(|_, entry| {
-            entry.timestamp.elapsed() < self.cache_ttl
-        });
+        self.account_cache
+            .retain(|_, entry| entry.timestamp.elapsed() < self.cache_ttl);
     }
-    
+
     /// Get pool statistics
     pub async fn get_stats(&self) -> PoolStats {
         let mut stats = PoolStats {
@@ -840,7 +856,7 @@ impl RpcPool {
             active_requests: self.active_requests.load(Ordering::Relaxed),
             endpoint_stats: Vec::new(),
         };
-        
+
         for endpoint in &self.endpoints {
             let health = *endpoint.health_status.read().await;
             match health {
@@ -848,10 +864,10 @@ impl RpcPool {
                 HealthStatus::Degraded => stats.degraded_endpoints += 1,
                 HealthStatus::Unhealthy => stats.unhealthy_endpoints += 1,
             }
-            
+
             let in_cooldown = endpoint.is_in_cooldown().await;
             let score = endpoint.get_score().await;
-            
+
             stats.endpoint_stats.push(EndpointStats {
                 url: endpoint.config.url.clone(),
                 endpoint_type: endpoint.config.endpoint_type,
@@ -862,7 +878,7 @@ impl RpcPool {
                 in_cooldown,
             });
         }
-        
+
         stats
     }
 }
@@ -893,37 +909,35 @@ pub struct EndpointStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_endpoint_type_ordering() {
         assert!(EndpointType::TPU < EndpointType::Premium);
         assert!(EndpointType::Premium < EndpointType::Standard);
         assert!(EndpointType::Standard < EndpointType::Fallback);
     }
-    
+
     #[tokio::test]
     async fn test_pool_creation() {
-        let configs = vec![
-            EndpointConfig {
-                url: "http://localhost:8899".to_string(),
-                endpoint_type: EndpointType::Standard,
-                weight: 1.0,
-                max_requests_per_second: 100,
-            },
-        ];
-        
+        let configs = vec![EndpointConfig {
+            url: "http://localhost:8899".to_string(),
+            endpoint_type: EndpointType::Standard,
+            weight: 1.0,
+            max_requests_per_second: 100,
+        }];
+
         let pool = RpcPool::new(
             configs,
             Duration::from_secs(30),
             3,
             Duration::from_millis(500),
         );
-        
+
         assert_eq!(pool.endpoints.len(), 1);
         assert_eq!(pool.max_concurrent_requests, 1000);
         assert!(!pool.is_overloaded());
     }
-    
+
     #[tokio::test]
     async fn test_success_rate_calculation() {
         let config = EndpointConfig {
@@ -932,26 +946,26 @@ mod tests {
             weight: 1.0,
             max_requests_per_second: 100,
         };
-        
+
         let endpoint = HealthTrackedEndpoint::new(config);
-        
+
         // Initial success rate should be 1.0
         assert_eq!(endpoint.success_rate(), 1.0);
-        
+
         // Record some requests with latency
         endpoint.record_request(true, 100.0).await;
         endpoint.record_request(true, 150.0).await;
         endpoint.record_request(false, 200.0).await;
-        
+
         // 2 successful out of 3 total = 0.666...
         let rate = endpoint.success_rate();
         assert!((rate - 0.666).abs() < 0.01);
-        
+
         // Check dynamic score was updated
         let score = endpoint.get_score().await;
         assert!(score > 0.0 && score <= 200.0);
     }
-    
+
     #[tokio::test]
     async fn test_cooldown_mechanism() {
         let config = EndpointConfig {
@@ -960,32 +974,30 @@ mod tests {
             weight: 1.0,
             max_requests_per_second: 100,
         };
-        
+
         let endpoint = HealthTrackedEndpoint::new(config);
-        
+
         // Initially not in cooldown
         assert!(!endpoint.is_in_cooldown().await);
-        
+
         // Set cooldown
         endpoint.set_cooldown(Duration::from_millis(100)).await;
         assert!(endpoint.is_in_cooldown().await);
-        
+
         // Wait for cooldown to expire
         tokio::time::sleep(Duration::from_millis(150)).await;
         assert!(!endpoint.is_in_cooldown().await);
     }
-    
+
     #[tokio::test]
     async fn test_load_shedding() {
-        let configs = vec![
-            EndpointConfig {
-                url: "http://localhost:8899".to_string(),
-                endpoint_type: EndpointType::Standard,
-                weight: 1.0,
-                max_requests_per_second: 100,
-            },
-        ];
-        
+        let configs = vec![EndpointConfig {
+            url: "http://localhost:8899".to_string(),
+            endpoint_type: EndpointType::Standard,
+            weight: 1.0,
+            max_requests_per_second: 100,
+        }];
+
         let pool = RpcPool::new_with_limits(
             configs,
             Duration::from_secs(30),
@@ -996,48 +1008,47 @@ mod tests {
             Duration::from_secs(10),
             Duration::from_secs(60),
         );
-        
+
         assert!(!pool.is_overloaded());
         assert_eq!(pool.get_active_requests(), 0);
-        
+
         // Simulate active requests
         pool.active_requests.store(2, Ordering::Relaxed);
         assert!(pool.is_overloaded());
-        
+
         // Release requests
         pool.release_request();
         pool.release_request();
         assert!(!pool.is_overloaded());
     }
-    
+
     #[tokio::test]
     async fn test_health_events() {
-        let configs = vec![
-            EndpointConfig {
-                url: "http://localhost:8899".to_string(),
-                endpoint_type: EndpointType::Standard,
-                weight: 1.0,
-                max_requests_per_second: 100,
-            },
-        ];
-        
+        let configs = vec![EndpointConfig {
+            url: "http://localhost:8899".to_string(),
+            endpoint_type: EndpointType::Standard,
+            weight: 1.0,
+            max_requests_per_second: 100,
+        }];
+
         let pool = RpcPool::new(
             configs,
             Duration::from_secs(30),
             3,
             Duration::from_millis(500),
         );
-        
+
         // Subscribe to health events
         let mut rx = pool.subscribe_health_events();
-        
+
         // Emit a test event
         pool.emit_health_event(
             "http://localhost:8899".to_string(),
             HealthStatus::Healthy,
             HealthStatus::Degraded,
-        ).await;
-        
+        )
+        .await;
+
         // Receive the event
         let event = rx.recv().await.unwrap();
         assert_eq!(event.url, "http://localhost:8899");

@@ -12,12 +12,12 @@ impl CorrelationId {
     pub fn new() -> Self {
         Self(Uuid::new_v4().to_string())
     }
-    
+
     /// Create from existing string
     pub fn from_string(s: String) -> Self {
         Self(s)
     }
-    
+
     /// Get the inner string
     pub fn as_str(&self) -> &str {
         &self.0

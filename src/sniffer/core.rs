@@ -2,8 +2,8 @@
 
 use anyhow::{anyhow, Result};
 use bytes::{Bytes, BytesMut};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
 use tracing::{debug, info, warn};
@@ -42,7 +42,7 @@ impl MockStreamReceiver {
 }
 
 /// Stream subscription handler with retry logic and exponential backoff
-/// 
+///
 /// This function handles:
 /// - Initial connection with retries
 /// - Exponential backoff with jitter
@@ -52,10 +52,7 @@ pub async fn subscribe_with_retry(
     running: Arc<AtomicBool>,
     metrics: Arc<SnifferMetrics>,
 ) -> Result<MockStreamReceiver> {
-    let mut backoff = ExponentialBackoff::new(
-        config.initial_backoff_ms,
-        config.max_backoff_ms,
-    );
+    let mut backoff = ExponentialBackoff::new(config.initial_backoff_ms, config.max_backoff_ms);
 
     for attempt in 0..config.max_retry_attempts {
         if !running.load(Ordering::Relaxed) {
@@ -64,14 +61,17 @@ pub async fn subscribe_with_retry(
 
         match try_subscribe(config).await {
             Ok(receiver) => {
-                info!("Successfully subscribed to stream on attempt {}", attempt + 1);
+                info!(
+                    "Successfully subscribed to stream on attempt {}",
+                    attempt + 1
+                );
                 backoff.reset();
                 return Ok(receiver);
             }
             Err(e) => {
                 warn!("Failed to subscribe (attempt {}): {}", attempt + 1, e);
                 metrics.reconnect_count.fetch_add(1, Ordering::Relaxed);
-                
+
                 if attempt + 1 < config.max_retry_attempts {
                     let delay = backoff.next_backoff();
                     debug!("Retrying in {:?}", delay);
@@ -81,11 +81,13 @@ pub async fn subscribe_with_retry(
         }
     }
 
-    Err(anyhow!(SnifferError::RetryLimitExceeded(config.max_retry_attempts)))
+    Err(anyhow!(SnifferError::RetryLimitExceeded(
+        config.max_retry_attempts
+    )))
 }
 
 /// Try to subscribe to the gRPC stream once
-/// 
+///
 /// In production, this should:
 /// - Create tonic gRPC client
 /// - Subscribe to Geyser plugin stream
@@ -93,20 +95,20 @@ pub async fn subscribe_with_retry(
 /// - Handle TLS/authentication
 async fn try_subscribe(config: &SnifferConfig) -> Result<MockStreamReceiver> {
     info!("Connecting to stream at {}", config.grpc_endpoint);
-    
+
     // Simulate connection delay
     sleep(Duration::from_millis(100)).await;
-    
+
     // In production, replace with:
     // let client = GeyserClient::connect(config.grpc_endpoint).await?;
     // let stream = client.subscribe(subscribe_request).await?;
     // Ok(StreamReceiver::new(stream))
-    
+
     Ok(MockStreamReceiver::new(Arc::new(AtomicBool::new(true))))
 }
 
 /// Production gRPC client wrapper (placeholder for tonic integration)
-/// 
+///
 /// Example implementation structure:
 /// ```ignore
 /// use tonic::transport::Channel;
@@ -114,11 +116,11 @@ async fn try_subscribe(config: &SnifferConfig) -> Result<MockStreamReceiver> {
 ///     geyser_client::GeyserClient,
 ///     SubscribeRequest,
 /// };
-/// 
+///
 /// pub struct GeyserStreamReceiver {
 ///     stream: tonic::Streaming<SubscribeUpdate>,
 /// }
-/// 
+///
 /// impl GeyserStreamReceiver {
 ///     pub async fn recv(&mut self) -> Option<Bytes> {
 ///         match self.stream.message().await {
@@ -137,7 +139,7 @@ async fn try_subscribe(config: &SnifferConfig) -> Result<MockStreamReceiver> {
 ///         }
 ///     }
 /// }
-/// 
+///
 /// pub async fn subscribe_geyser(
 ///     endpoint: String,
 /// ) -> Result<GeyserStreamReceiver> {
@@ -174,7 +176,7 @@ pub struct GeyserConfig {
 }
 
 /// Reconnection handler
-/// 
+///
 /// This function is called when the stream disconnects
 /// It implements the full reconnection logic with backoff
 pub async fn handle_reconnect(
@@ -183,10 +185,10 @@ pub async fn handle_reconnect(
     metrics: Arc<SnifferMetrics>,
 ) -> Result<MockStreamReceiver> {
     warn!("Stream disconnected, attempting reconnection");
-    
+
     // Mark as unhealthy during reconnection
     let stream = subscribe_with_retry(config, running, metrics).await?;
-    
+
     info!("Successfully reconnected to stream");
     Ok(stream)
 }
@@ -199,11 +201,11 @@ mod tests {
     async fn test_mock_stream_receiver() {
         let running = Arc::new(AtomicBool::new(true));
         let mut receiver = MockStreamReceiver::new(running.clone());
-        
+
         let bytes = receiver.recv().await;
         assert!(bytes.is_some());
         assert_eq!(bytes.unwrap().len(), 256);
-        
+
         // Stop the receiver
         running.store(false, Ordering::Relaxed);
         let bytes = receiver.recv().await;
@@ -215,7 +217,7 @@ mod tests {
         let config = SnifferConfig::default();
         let running = Arc::new(AtomicBool::new(true));
         let metrics = Arc::new(SnifferMetrics::new());
-        
+
         let result = subscribe_with_retry(&config, running, metrics).await;
         assert!(result.is_ok());
     }
@@ -225,7 +227,7 @@ mod tests {
         let config = SnifferConfig::default();
         let running = Arc::new(AtomicBool::new(false));
         let metrics = Arc::new(SnifferMetrics::new());
-        
+
         let result = subscribe_with_retry(&config, running, metrics).await;
         assert!(result.is_err());
     }
