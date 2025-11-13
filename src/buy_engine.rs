@@ -2140,6 +2140,7 @@ impl BuyEngine {
         match &self.tx_builder {
             Some(builder) => {
                 let config = TransactionConfig::default();
+                // Phase 1, Task 1.5: Uses default method which enforces nonce for trade-critical ops
                 builder
                     .build_buy_transaction(candidate, &config, false)
                     .await
@@ -2169,6 +2170,7 @@ impl BuyEngine {
         match &self.tx_builder {
             Some(builder) => {
                 let config = TransactionConfig::default();
+                // Phase 1, Task 1.5: Uses default method which enforces nonce for trade-critical ops
                 builder
                     .build_sell_transaction(mint, "pump.fun", sell_percent, &config, false)
                     .await
