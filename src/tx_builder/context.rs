@@ -126,9 +126,9 @@ impl ExecutionContext {
     ///
     /// # RAII Contract
     ///
-    /// This method uses `&mut self` to take ownership of the lease without
-    /// consuming the entire context. If the lease is not extracted, it will
-    /// be automatically released when ExecutionContext is dropped.
+    /// This method consumes `self`, transferring ownership of the lease to the caller.
+    /// If the lease is not extracted, it will be automatically released when
+    /// ExecutionContext is dropped.
     ///
     /// # Returns
     ///
@@ -137,11 +137,11 @@ impl ExecutionContext {
     /// # Example
     ///
     /// ```no_run
-    /// let mut context = prepare_execution_context().await?;
+    /// let context = prepare_execution_context().await?;
     /// let lease = context.extract_lease();
     /// let output = TxBuildOutput::new(tx, lease);
     /// ```
-    pub fn extract_lease(&mut self) -> Option<NonceLease> {
+    pub fn extract_lease(mut self) -> Option<NonceLease> {
         self.nonce_lease.take()
     }
     
