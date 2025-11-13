@@ -60,6 +60,7 @@ jobs:
           - "default"
           - "mock-mode"
           - "test_utils"
+          - "all-features"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

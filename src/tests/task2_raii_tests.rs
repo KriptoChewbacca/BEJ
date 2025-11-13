@@ -77,6 +77,7 @@ mod task2_raii_tests {
             nonce_lease: None,
             #[cfg(feature = "zk_enabled")]
             zk_proof: None,
+            trace_context: None,
         };
 
         assert!(!context.is_durable(), "Should not be durable mode");
@@ -97,6 +98,7 @@ mod task2_raii_tests {
             nonce_lease: Some(lease),
             #[cfg(feature = "zk_enabled")]
             zk_proof: None,
+            trace_context: None,
         };
 
         assert!(context.is_durable(), "Should be durable mode");
@@ -117,6 +119,7 @@ mod task2_raii_tests {
             nonce_lease: Some(lease),
             #[cfg(feature = "zk_enabled")]
             zk_proof: None,
+            trace_context: None,
         };
 
         // Extract lease (consumes context)
@@ -148,6 +151,7 @@ mod task2_raii_tests {
                 nonce_lease: Some(lease),
                 #[cfg(feature = "zk_enabled")]
                 zk_proof: None,
+                trace_context: None,
             };
             // Context dropped here
         }
@@ -363,6 +367,7 @@ mod task2_raii_tests {
             nonce_lease: Some(lease),
             #[cfg(feature = "zk_enabled")]
             zk_proof: None,
+            trace_context: None,
         };
 
         // Extract lease (transfer ownership, consumes context)
@@ -432,6 +437,7 @@ mod task2_raii_tests {
                     nonce_lease: Some(lease),
                     #[cfg(feature = "zk_enabled")]
                     zk_proof: None,
+                    trace_context: None,
                 };
 
                 let lease = context.extract_lease().expect("Should extract");
@@ -461,6 +467,7 @@ mod task2_raii_tests {
             nonce_lease: Some(lease),
             #[cfg(feature = "zk_enabled")]
             zk_proof: None,
+            trace_context: None,
         };
 
         // Call Debug format

@@ -9,15 +9,20 @@
 //! - RAII nonce lease management via `try_acquire()`
 //! - Zero TOCTTOU vulnerabilities
 //! - Efficient lease transfer to TxBuildOutput
+//! - Task 5: Integrated TraceContext for distributed tracing
 //!
 //! ## Implementation Status
 //! **COMPLETED (Task 2)**: ExecutionContext with RAII nonce management
+//! **ENHANCED (Task 5)**: Added TraceContext for observability
 
 use solana_sdk::{hash::Hash, pubkey::Pubkey};
 
 // Import NonceLease from nonce_manager module
 // The nonce_manager module is defined in main.rs with #[path = "nonce manager/mod.rs"]
 use crate::nonce_manager::NonceLease;
+
+// Task 5: Import TraceContext for observability
+use crate::observability::TraceContext;
 
 // Conditional ZK proof type
 #[cfg(feature = "zk_enabled")]
@@ -45,15 +50,22 @@ use crate::nonce_manager::ZkProofData;
 /// 3. Lease extracted via `extract_lease()` for transfer to TxBuildOutput
 /// 4. If not extracted, lease is automatically released on drop
 ///
+/// # Task 5 Enhancement
+///
+/// Added TraceContext for distributed tracing and correlation across
+/// transaction building operations.
+///
 /// # Example
 ///
 /// ```no_run
-/// // Durable nonce mode
+/// // Durable nonce mode with trace context
+/// let trace_ctx = TraceContext::new("build_buy_transaction");
 /// let context = ExecutionContext {
 ///     blockhash: nonce_blockhash,
 ///     nonce_pubkey: Some(nonce_pubkey),
 ///     nonce_authority: Some(authority),
 ///     nonce_lease: Some(lease),
+///     trace_context: Some(trace_ctx),
 /// };
 ///
 /// // Extract lease for transfer to output
@@ -87,6 +99,9 @@ pub struct ExecutionContext {
     /// Only available when zk_enabled feature is active
     #[cfg(feature = "zk_enabled")]
     pub zk_proof: Option<ZkProofData>,
+
+    /// Task 5: Optional trace context for distributed tracing
+    pub trace_context: Option<TraceContext>,
 }
 
 impl std::fmt::Debug for ExecutionContext {
@@ -115,6 +130,15 @@ impl std::fmt::Debug for ExecutionContext {
                 .zk_proof
                 .as_ref()
                 .map(|p| format!("confidence={}", p.confidence)),
+        );
+
+        // Task 5: Include trace context in debug output
+        debug_struct.field(
+            "trace_context",
+            &self
+                .trace_context
+                .as_ref()
+                .map(|ctx| format!("trace_id={}, span_id={}", ctx.trace_id(), ctx.span_id())),
         );
 
         debug_struct.finish()
