@@ -111,10 +111,7 @@ impl TxBuildOutput {
     /// let output = TxBuildOutput::new(tx, Some(nonce_lease));
     /// assert_eq!(output.required_signers.len(), 1);
     /// ```
-    pub fn new(
-        tx: VersionedTransaction,
-        nonce_guard: Option<NonceLease>,
-    ) -> Self {
+    pub fn new(tx: VersionedTransaction, nonce_guard: Option<NonceLease>) -> Self {
         // Extract required signers using compat layer for unified API
         let required_signers = crate::compat::get_required_signers(&tx.message).to_vec();
 
@@ -191,10 +188,9 @@ impl TxBuildOutput {
     /// ```
     pub async fn release_nonce(mut self) -> Result<(), TransactionBuilderError> {
         if let Some(guard) = self.nonce_guard.take() {
-            guard.release().await
-                .map_err(|e| TransactionBuilderError::Internal(
-                    format!("Failed to release nonce: {}", e)
-                ))?;
+            guard.release().await.map_err(|e| {
+                TransactionBuilderError::Internal(format!("Failed to release nonce: {}", e))
+            })?;
         }
         Ok(())
     }
