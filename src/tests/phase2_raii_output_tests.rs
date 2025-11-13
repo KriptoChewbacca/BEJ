@@ -13,9 +13,7 @@ mod phase2_tests {
     use crate::tx_builder::TxBuildOutput;
     use solana_sdk::{
         hash::Hash,
-        instruction::Instruction,
         message::{v0::Message as MessageV0, VersionedMessage},
-        pubkey::Pubkey,
         signature::Keypair,
         signer::Signer,
         system_instruction,
