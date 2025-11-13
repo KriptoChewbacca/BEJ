@@ -104,7 +104,21 @@ criterion = "0.5"
 proptest = "1.5"
 mockito = "1.6"
 
+[[bench]]
+name = "tx_builder_nonce_bench"
+harness = false
 
+[[bench]]
+name = "analytics_bench"
+harness = false
+
+[[bench]]
+name = "extractor_bench"
+harness = false
+
+[[bench]]
+name = "prefilter_bench"
+harness = false
 
 
 

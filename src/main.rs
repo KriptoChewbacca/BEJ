@@ -286,6 +286,7 @@ mod tests {
     mod phase1_nonce_enforcement_tests;
     mod phase2_raii_output_tests; // Phase 2 RAII output integration tests
     mod phase4_e2e_perf_stress_tests; // Phase 4 E2E, Performance, and Stress tests
+    mod production_stress_tests; // Task 4: Production-grade stress tests
     mod simulation_nonce_tests;
     mod task2_raii_tests; // Task 2: RAII tests for ExecutionContext and TxBuildOutput
     mod test_helpers;
