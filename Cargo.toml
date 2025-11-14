@@ -133,5 +133,10 @@ harness = false
 name = "prefilter_bench"
 harness = false
 
+# Quantum-Inspired Static Pruner binary
+[[bin]]
+name = "prune_bot"
+path = "src/bin/prune_bot.rs"
+
 
 
