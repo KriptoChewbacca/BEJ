@@ -324,6 +324,7 @@ mod tests {
     mod error_conversion_tests;
     mod execution_context_tests;
     mod instruction_ordering_tests;
+    mod multi_token_state_tests; // Multi-token state management tests
     mod nonce_concurrency_tests;
     mod nonce_integration_tests;
     mod nonce_lease_tests;
