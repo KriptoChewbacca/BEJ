@@ -365,7 +365,7 @@ mod tests {
     #[test]
     fn test_monitoring_gui_creation() {
         let tracker = Arc::new(PositionTracker::new());
-        let (tx, rx) = broadcast::channel(100);
+        let (_tx, rx) = broadcast::channel(100);
         let bot_state = Arc::new(AtomicU8::new(0));
 
         let _gui = MonitoringGui::new(tracker, rx, bot_state);

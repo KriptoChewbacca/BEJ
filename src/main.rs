@@ -334,6 +334,7 @@ mod tests {
     mod simulation_nonce_tests;
     mod task2_raii_tests; // Task 2: RAII tests for ExecutionContext and TxBuildOutput
     mod task5_gui_control_tests; // Task 5: GUI Bot State Control Integration tests
+    mod task6_gui_feature_gating_tests; // Task 6: GUI Feature Gating tests
     mod test_helpers;
     mod tx_builder_fee_strategy_test;
     mod tx_builder_improvements_tests;
