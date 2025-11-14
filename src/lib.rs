@@ -22,5 +22,8 @@ pub mod rpc_manager;
 // Export the new modular tx_builder supercomponent
 pub mod tx_builder;
 
+// Export GUI integration components
+pub mod components;
+
 // Re-export commonly used types
 pub use solana_sdk::{message::VersionedMessage, pubkey::Pubkey, signature::Signature};
