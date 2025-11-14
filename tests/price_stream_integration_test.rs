@@ -7,7 +7,6 @@
 mod price_stream_integration_tests {
     use std::sync::Arc;
     use std::time::Duration;
-    use tokio::sync::Mutex;
     use bot::components::price_stream::PriceStreamManager;
     
     #[tokio::test]
