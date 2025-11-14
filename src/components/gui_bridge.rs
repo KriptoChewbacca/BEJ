@@ -184,6 +184,91 @@ impl Default for BotState {
     }
 }
 
+// =============================================================================
+// GUI Commands (Future Feature)
+// =============================================================================
+// NOTE: These command types are placeholders for future GUI-to-bot communication.
+// Currently unused, will be integrated when implementing manual control features.
+
+// Placeholder types (will be replaced with imports from crate::types in future)
+// For now, define minimal stubs to avoid circular dependencies
+
+/// Portfolio configuration placeholder
+#[allow(dead_code)]
+#[derive(Clone, Debug)]
+pub struct PortfolioConfig {
+    pub enable_multi_token: bool,
+    pub max_concurrent_positions: usize,
+    pub max_total_exposure_sol: f64,
+}
+
+/// Trading mode placeholder
+#[allow(dead_code)]
+#[derive(Clone, Debug)]
+pub enum TradingMode {
+    Single,
+    Multi,
+    Hybrid,
+}
+
+/// Sell strategy placeholder
+#[allow(dead_code)]
+#[derive(Clone, Debug)]
+pub struct SellStrategy {
+    // Placeholder - actual implementation in crate::types
+}
+
+/// Commands that can be sent from GUI to bot
+///
+/// Enables manual control and configuration changes from the GUI.
+/// Currently a placeholder for future functionality.
+#[allow(dead_code)]
+#[derive(Clone, Debug)]
+pub enum GuiCommand {
+    /// Pause/Resume trading
+    SetPaused(bool),
+    
+    /// Change trading mode
+    SetMode(TradingMode),
+    
+    /// Emergency stop all trading and close positions
+    EmergencyStop,
+    
+    /// Manually trigger a sell for specific token
+    ManualSell {
+        mint: Pubkey,
+        percentage: f64, // 0.0 to 1.0
+    },
+    
+    /// Update portfolio configuration
+    UpdatePortfolioConfig(PortfolioConfig),
+    
+    /// Update sell strategy for a position
+    UpdateSellStrategy {
+        mint: Pubkey,
+        strategy: SellStrategy,
+    },
+}
+
+/// Response from bot to GUI commands
+///
+/// Provides feedback on command execution.
+/// Currently a placeholder for future functionality.
+#[allow(dead_code)]
+#[derive(Clone, Debug)]
+pub enum GuiCommandResponse {
+    /// Command executed successfully
+    Success,
+    
+    /// Command failed with error message
+    Error(String),
+    
+    /// Command acknowledged but pending
+    Pending,
+}
+
+
+
 impl GuiSnapshot {
     /// Create a new empty snapshot
     ///

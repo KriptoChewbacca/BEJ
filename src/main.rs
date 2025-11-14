@@ -27,6 +27,10 @@ use tokio::sync::mpsc;
 use tracing::{error, info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+// Conditional GUI imports
+#[cfg(feature = "gui_monitor")]
+use std::sync::atomic::AtomicU8;
+
 // Module declarations
 mod compat; // Solana SDK compatibility layer
 mod components; // GUI integration components
@@ -51,6 +55,12 @@ mod sniffer;
 // Legacy monolithic tx_builder - will be migrated to modular structure in Task 6
 #[path = "tx_builder_legacy.rs"]
 mod tx_builder;
+
+// GUI module (conditional compilation based on gui_monitor feature)
+#[cfg(feature = "gui_monitor")]
+mod gui;
+
+mod position_tracker;
 
 // Re-exports
 use config::Config;
@@ -175,6 +185,39 @@ async fn main() -> Result<()> {
     // Note: Actual buy engine initialization would happen here
     // let buy_engine = buy_engine::BuyEngine::new(...);
 
+    // Create shared components for GUI integration
+    #[cfg(feature = "gui_monitor")]
+    let position_tracker = Arc::new(position_tracker::PositionTracker::new());
+    
+    #[cfg(feature = "gui_monitor")]
+    let price_stream = Arc::new(components::price_stream::PriceStreamManager::new(
+        1000, // channel capacity
+        std::time::Duration::from_millis(333), // 333ms refresh rate
+    ));
+    
+    #[cfg(feature = "gui_monitor")]
+    let bot_state = Arc::new(AtomicU8::new(1)); // 1 = Running
+
+    // Launch GUI monitor if feature is enabled
+    #[cfg(feature = "gui_monitor")]
+    {
+        info!("🎨 Launching GUI monitoring dashboard");
+        let pos_tracker_gui = Arc::clone(&position_tracker);
+        let price_rx_gui = price_stream.subscribe();
+        let bot_state_gui = Arc::clone(&bot_state);
+        
+        std::thread::spawn(move || {
+            if let Err(e) = gui::launch_monitoring_gui(pos_tracker_gui, price_rx_gui, bot_state_gui) {
+                error!("GUI error: {}", e);
+            }
+        });
+        
+        info!("✅ GUI monitor launched successfully (333ms refresh rate)");
+    }
+
+    #[cfg(not(feature = "gui_monitor"))]
+    info!("ℹ️  GUI monitoring disabled (compile with --features gui_monitor to enable)");
+
     // Start main event loop
     info!("✅ All components initialized successfully");
     info!("🎬 Starting main event loop...");
@@ -277,6 +320,7 @@ mod tests {
     use super::*;
 
     // Include test modules
+    mod config_validation; // Multi-token configuration validation tests
     mod error_conversion_tests;
     mod execution_context_tests;
     mod instruction_ordering_tests;
@@ -291,6 +335,7 @@ mod tests {
     mod simulation_nonce_tests;
     mod task2_raii_tests; // Task 2: RAII tests for ExecutionContext and TxBuildOutput
     mod task5_gui_control_tests; // Task 5: GUI Bot State Control Integration tests
+    mod task6_gui_feature_gating_tests; // Task 6: GUI Feature Gating tests
     mod test_helpers;
     mod tx_builder_fee_strategy_test;
     mod tx_builder_improvements_tests;
