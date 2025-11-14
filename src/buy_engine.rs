@@ -1357,7 +1357,7 @@ pub struct BuyEngine {
     price_stream: Option<Arc<PriceStreamManager>>,
 
     // Task 3: Optional position tracker for GUI monitoring
-    position_tracker: Option<Arc<crate::position_tracker::PositionTracker>>,
+    position_tracker: Option<Arc<bot::position_tracker::PositionTracker>>,
 }
 
 impl BuyEngine {
@@ -1465,7 +1465,7 @@ impl BuyEngine {
         tx_builder: Option<TransactionBuilder>,
         bundler: Option<Arc<dyn Bundler>>,
         price_stream: Option<Arc<PriceStreamManager>>,
-        position_tracker: Option<Arc<crate::position_tracker::PositionTracker>>,
+        position_tracker: Option<Arc<bot::position_tracker::PositionTracker>>,
     ) -> Self {
         // Initialize allowed sources for taint tracking
         let allowed_sources = vec![
