@@ -28,7 +28,8 @@ pub mod components;
 // Export position tracker module
 pub mod position_tracker;
 
-// Export GUI module
+// Export GUI module (only when gui_monitor feature is enabled)
+#[cfg(feature = "gui_monitor")]
 pub mod gui;
 
 // Re-export commonly used types

@@ -19,6 +19,8 @@ zk_enabled = ["dep:solana-zk-sdk"]
 perf = []
 # Production parsing optimizations
 prod_parse = []
+# GUI monitoring dashboard (optional, zero performance impact)
+gui_monitor = ["dep:eframe", "dep:egui_plot"]
 
 [dependencies]
 # Core async runtime and utilities
@@ -61,6 +63,10 @@ spl-token = "~6.0.0"
 # DEX SDKs (optional)
 pumpfun = { version = "4.4.1", features = ["create-ata", "versioned-tx", "close-ata"], optional = true }
 
+# GUI dependencies (optional)
+eframe = { version = "0.29", optional = true }
+egui_plot = { version = "0.29", optional = true }
+
 # Advanced data structures and concurrency
 dashmap = "6.1"
 parking_lot = "0.12"
@@ -89,8 +95,6 @@ dotenvy = "0.15"
 
 # Utils
 base64 = "0.22"
-eframe = { version = "0.29" }
-egui_plot = { version = "0.29" }
 tempfile = "3.14"
 hex = "0.4"
 uuid = { version = "1.11", features = ["v4", "serde"] }
