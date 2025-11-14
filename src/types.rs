@@ -84,6 +84,10 @@ pub struct AppState {
 
     /// GUI snapshot provider for real-time monitoring (optional)
     pub gui_snapshot_provider: Option<Arc<GuiSnapshotProvider>>,
+
+    /// Portfolio configuration for multi-token trading (future feature)
+    #[allow(dead_code)]
+    pub portfolio_config: PortfolioConfig,
 }
 
 /// Application statistics
@@ -116,6 +120,7 @@ impl AppState {
             last_buy_price: None,
             holdings_percent: 0.0,
             gui_snapshot_provider: None,
+            portfolio_config: PortfolioConfig::default(),
         }
     }
 
@@ -129,6 +134,7 @@ impl AppState {
             last_buy_price: None,
             holdings_percent: 0.0,
             gui_snapshot_provider: Some(gui_provider),
+            portfolio_config: PortfolioConfig::default(),
         }
     }
 
@@ -164,3 +170,167 @@ impl AppState {
         stats.total_volume_sol += volume_sol;
     }
 }
+
+// =============================================================================
+// Multi-Token Portfolio Configuration Types (Future Feature)
+// =============================================================================
+// NOTE: These types are placeholders for future multi-token support.
+// They are not yet integrated into the main trading logic.
+// Use with `#[cfg(feature = "multi_token")]` when implementing.
+
+/// Portfolio configuration for multi-token trading
+///
+/// Controls how the bot manages multiple concurrent positions.
+/// Currently a placeholder for future functionality.
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PortfolioConfig {
+    /// Enable multi-token portfolio management
+    /// When false, bot operates in single-token mode (default, safer)
+    pub enable_multi_token: bool,
+
+    /// Maximum number of concurrent positions
+    /// Only applies when enable_multi_token = true
+    pub max_concurrent_positions: usize,
+
+    /// Maximum total exposure in SOL across all positions
+    /// Prevents over-leveraging the portfolio
+    pub max_total_exposure_sol: f64,
+}
+
+impl Default for PortfolioConfig {
+    fn default() -> Self {
+        Self {
+            enable_multi_token: false,
+            max_concurrent_positions: 1,
+            max_total_exposure_sol: 10.0,
+        }
+    }
+}
+
+/// Trading mode for portfolio management
+///
+/// Defines how the bot handles multiple token opportunities.
+/// Currently a placeholder for future functionality.
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TradingMode {
+    /// Single token at a time (default, safest)
+    Single,
+    
+    /// Multiple tokens simultaneously
+    /// Requires enable_multi_token = true
+    Multi,
+    
+    /// Adaptive based on market conditions (experimental)
+    /// Switches between Single and Multi based on volatility
+    Hybrid,
+}
+
+impl Default for TradingMode {
+    fn default() -> Self {
+        TradingMode::Single
+    }
+}
+
+/// Sell strategy configuration
+///
+/// Defines when and how to sell positions.
+/// Currently a placeholder for future functionality.
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SellStrategy {
+    /// Stop loss configuration
+    pub stop_loss: Option<StopLossConfig>,
+    
+    /// Take profit configuration
+    pub take_profit: Option<TakeProfitConfig>,
+    
+    /// Trailing stop configuration
+    pub trailing_stop: Option<TrailingStopConfig>,
+}
+
+impl Default for SellStrategy {
+    fn default() -> Self {
+        Self {
+            stop_loss: None,
+            take_profit: None,
+            trailing_stop: None,
+        }
+    }
+}
+
+/// Stop loss configuration
+///
+/// Defines automatic sell triggers to limit losses.
+/// Currently a placeholder for future functionality.
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StopLossConfig {
+    /// Stop loss percentage (e.g., 0.10 for -10%)
+    pub percentage: f64,
+    
+    /// Enable time-based stop loss (sell after duration regardless of price)
+    pub time_based: bool,
+    
+    /// Time limit in seconds (only if time_based = true)
+    pub time_limit_seconds: Option<u64>,
+}
+
+impl Default for StopLossConfig {
+    fn default() -> Self {
+        Self {
+            percentage: 0.10, // -10% stop loss
+            time_based: false,
+            time_limit_seconds: None,
+        }
+    }
+}
+
+/// Take profit configuration
+///
+/// Defines automatic sell triggers to lock in profits.
+/// Currently a placeholder for future functionality.
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TakeProfitConfig {
+    /// Take profit percentage (e.g., 0.50 for +50%)
+    pub percentage: f64,
+    
+    /// Partial take profit levels (optional)
+    /// Array of (percentage_gain, percentage_to_sell) tuples
+    pub partial_levels: Vec<(f64, f64)>,
+}
+
+impl Default for TakeProfitConfig {
+    fn default() -> Self {
+        Self {
+            percentage: 0.50, // +50% take profit
+            partial_levels: vec![],
+        }
+    }
+}
+
+/// Trailing stop configuration
+///
+/// Defines dynamic stop loss that follows price upward.
+/// Currently a placeholder for future functionality.
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrailingStopConfig {
+    /// Trailing stop percentage (e.g., 0.05 for -5% from peak)
+    pub percentage: f64,
+    
+    /// Activation threshold (profit % needed to activate trailing stop)
+    pub activation_threshold: f64,
+}
+
+impl Default for TrailingStopConfig {
+    fn default() -> Self {
+        Self {
+            percentage: 0.05,        // -5% from peak
+            activation_threshold: 0.20, // Activate at +20%
+        }
+    }
+}
+

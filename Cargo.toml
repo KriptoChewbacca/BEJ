@@ -21,6 +21,8 @@ perf = []
 prod_parse = []
 # GUI monitoring dashboard (optional, zero performance impact)
 gui_monitor = ["dep:eframe", "dep:egui_plot"]
+# Multi-token portfolio support (experimental, future feature)
+multi_token = []
 
 [dependencies]
 # Core async runtime and utilities

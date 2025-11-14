@@ -1,0 +1,29 @@
+# Trading Bot Configuration
+# This file contains runtime configuration for the trading bot
+
+[portfolio]
+# Enable multi-token portfolio management (experimental)
+# When false, bot operates in single-token mode (safer, default)
+enable_multi_token = false
+
+# Maximum number of concurrent positions allowed
+# Only applies when enable_multi_token = true
+max_concurrent_positions = 5
+
+# Maximum total exposure in SOL across all positions
+# Prevents over-leveraging the portfolio
+max_total_exposure_sol = 10.0
+
+[trading]
+# Trading mode configuration
+# Options: "single", "multi", "hybrid"
+# - single: One token at a time (default, safest)
+# - multi: Multiple tokens simultaneously (requires enable_multi_token = true)
+# - hybrid: Adaptive based on market conditions (experimental)
+mode = "single"
+
+# Default buy amount in SOL for each position
+default_buy_amount_sol = 0.1
+
+# Enable automatic position sizing based on portfolio exposure
+auto_position_sizing = false

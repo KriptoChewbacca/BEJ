@@ -320,6 +320,7 @@ mod tests {
     use super::*;
 
     // Include test modules
+    mod config_validation; // Multi-token configuration validation tests
     mod error_conversion_tests;
     mod execution_context_tests;
     mod instruction_ordering_tests;
