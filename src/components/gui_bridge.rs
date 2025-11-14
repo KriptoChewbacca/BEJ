@@ -10,6 +10,9 @@ use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::mpsc;
 
+// Import types from the types module to avoid duplication
+use crate::types::{TradingMode, PortfolioConfig};
+
 /// GUI state snapshot (zero-copy where possible)
 ///
 /// This structure provides a complete snapshot of the bot's current state
@@ -190,64 +193,52 @@ impl Default for BotState {
 // NOTE: These command types are placeholders for future GUI-to-bot communication.
 // Currently unused, will be integrated when implementing manual control features.
 
-// Placeholder types (will be replaced with imports from crate::types in future)
-// For now, define minimal stubs to avoid circular dependencies
-
-/// Portfolio configuration placeholder
-#[allow(dead_code)]
-#[derive(Clone, Debug)]
-pub struct PortfolioConfig {
-    pub enable_multi_token: bool,
-    pub max_concurrent_positions: usize,
-    pub max_total_exposure_sol: f64,
-}
-
-/// Trading mode placeholder
-#[allow(dead_code)]
-#[derive(Clone, Debug)]
-pub enum TradingMode {
-    Single,
-    Multi,
-    Hybrid,
-}
-
-/// Sell strategy placeholder
-#[allow(dead_code)]
-#[derive(Clone, Debug)]
-pub struct SellStrategy {
-    // Placeholder - actual implementation in crate::types
-}
-
 /// Commands that can be sent from GUI to bot
 ///
 /// Enables manual control and configuration changes from the GUI.
-/// Currently a placeholder for future functionality.
-#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum GuiCommand {
+    /// Manually trigger a sell for specific token
+    Sell {
+        mint: Pubkey,
+        percent: f64, // 0.0 to 1.0
+    },
+    
+    /// Change trading mode (Manual/Auto/Hybrid)
+    SetTradingMode(TradingMode),
+    
+    /// Set stop loss for a specific token
+    SetStopLoss {
+        mint: Pubkey,
+        threshold_percent: f64,
+    },
+    
+    /// Set take profit for a specific token
+    SetTakeProfit {
+        mint: Pubkey,
+        threshold_percent: f64,
+        sell_percent: f64,
+    },
+    
+    /// Clear all TP/SL strategies for a token
+    ClearStrategy {
+        mint: Pubkey,
+    },
+    
+    /// Enable/disable multi-token mode
+    SetMultiTokenMode {
+        enabled: bool,
+        max_positions: Option<usize>,
+    },
+    
     /// Pause/Resume trading
     SetPaused(bool),
-    
-    /// Change trading mode
-    SetMode(TradingMode),
     
     /// Emergency stop all trading and close positions
     EmergencyStop,
     
-    /// Manually trigger a sell for specific token
-    ManualSell {
-        mint: Pubkey,
-        percentage: f64, // 0.0 to 1.0
-    },
-    
     /// Update portfolio configuration
     UpdatePortfolioConfig(PortfolioConfig),
-    
-    /// Update sell strategy for a position
-    UpdateSellStrategy {
-        mint: Pubkey,
-        strategy: SellStrategy,
-    },
 }
 
 /// Response from bot to GUI commands
