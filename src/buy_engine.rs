@@ -1358,6 +1358,13 @@ pub struct BuyEngine {
 
     // Task 3: Optional position tracker for GUI monitoring
     position_tracker: Option<Arc<bot::position_tracker::PositionTracker>>,
+
+    // Task 5: GUI control state for START/STOP/PAUSE functionality
+    /// Shared atomic state for GUI control:
+    /// - 0 = Stopped (exit gracefully)
+    /// - 1 = Running (normal operation)
+    /// - 2 = Paused (sleep and continue)
+    gui_control_state: Arc<AtomicU8>,
 }
 
 impl BuyEngine {
@@ -1467,6 +1474,42 @@ impl BuyEngine {
         price_stream: Option<Arc<PriceStreamManager>>,
         position_tracker: Option<Arc<bot::position_tracker::PositionTracker>>,
     ) -> Self {
+        // Create default bot state (Running)
+        let gui_control_state = Arc::new(AtomicU8::new(1));
+        Self::new_with_gui_control(
+            rpc,
+            nonce_manager,
+            candidate_rx,
+            app_state,
+            config,
+            tx_builder,
+            bundler,
+            price_stream,
+            position_tracker,
+            gui_control_state,
+        )
+    }
+
+    /// Task 5: Create BuyEngine with complete GUI integration including bot control state
+    ///
+    /// # Arguments
+    ///
+    /// * `bundler` - Optional Arc<dyn Bundler> for MEV-protected bundle submission
+    /// * `price_stream` - Optional Arc<PriceStreamManager> for real-time price updates to GUI
+    /// * `position_tracker` - Optional Arc<PositionTracker> for tracking active positions and P&L
+    /// * `gui_control_state` - Shared AtomicU8 for GUI control (0=Stopped, 1=Running, 2=Paused)
+    pub fn new_with_gui_control(
+        rpc: Arc<dyn RpcBroadcaster>,
+        nonce_manager: Arc<NonceManager>,
+        candidate_rx: CandidateReceiver,
+        app_state: Arc<Mutex<AppState>>,
+        config: Config,
+        tx_builder: Option<TransactionBuilder>,
+        bundler: Option<Arc<dyn Bundler>>,
+        price_stream: Option<Arc<PriceStreamManager>>,
+        position_tracker: Option<Arc<bot::position_tracker::PositionTracker>>,
+        gui_control_state: Arc<AtomicU8>,
+    ) -> Self {
         // Initialize allowed sources for taint tracking
         let allowed_sources = vec![
             "internal".to_string(),
@@ -1515,6 +1558,7 @@ impl BuyEngine {
             bundler, // Task 7: Optional Jito bundler
             price_stream, // Task 2: Optional price stream for GUI monitoring
             position_tracker, // Task 3: Optional position tracker for GUI monitoring
+            gui_control_state, // Task 5: GUI control state for START/STOP/PAUSE
         }
     }
 
@@ -1621,6 +1665,29 @@ impl BuyEngine {
     pub async fn run(&mut self) {
         info!("BuyEngine started (Universe Class Grade)");
         loop {
+            // Task 5: Check GUI control state
+            let control_state = self.gui_control_state.load(Ordering::Relaxed);
+            match control_state {
+                0 => {
+                    // STOPPED - exit loop gracefully
+                    info!("Bot stopped via GUI control");
+                    break;
+                }
+                2 => {
+                    // PAUSED - sleep and continue
+                    debug!("Bot paused via GUI control, sleeping...");
+                    sleep(Duration::from_millis(100)).await;
+                    continue;
+                }
+                1 => {
+                    // RUNNING - normal operation (continue below)
+                }
+                _ => {
+                    // Unknown state, treat as running
+                    debug!("Unknown GUI control state: {}, treating as running", control_state);
+                }
+            }
+
             // Check circuit breaker first
             if !self.circuit_breaker.should_allow().await {
                 warn!("Circuit breaker is OPEN, waiting for recovery...");
@@ -1856,6 +1923,75 @@ impl BuyEngine {
             }
         }
         info!("BuyEngine stopped");
+    }
+
+    /// Task 5: Graceful shutdown triggered by GUI
+    ///
+    /// This method initiates a graceful shutdown of the bot by:
+    /// 1. Setting the control state to Stopped (0)
+    /// 2. Waiting for pending transactions to complete (max 30s timeout)
+    /// 3. Logging shutdown progress
+    ///
+    /// # Timeout
+    /// If active transactions don't complete within 30 seconds, a forced shutdown occurs.
+    pub async fn shutdown(&self) {
+        info!("Initiating graceful shutdown via GUI control");
+        
+        // Set control state to Stopped
+        self.gui_control_state.store(0, Ordering::Relaxed);
+        
+        // Wait for active transactions to complete (max 30s)
+        let start = Instant::now();
+        let timeout_duration = Duration::from_secs(30);
+        
+        while self.pending_buy.load(Ordering::Relaxed) {
+            if start.elapsed() > timeout_duration {
+                warn!("Forced shutdown after 30s timeout - pending transaction may be incomplete");
+                metrics().increment_counter("shutdown_forced");
+                break;
+            }
+            
+            // Check every 100ms
+            sleep(Duration::from_millis(100)).await;
+        }
+        
+        let elapsed = start.elapsed();
+        info!(
+            elapsed_ms = elapsed.as_millis(),
+            "Shutdown complete - all pending transactions resolved"
+        );
+        metrics().increment_counter("shutdown_graceful");
+    }
+
+    /// Task 5: Get current bot control state
+    ///
+    /// # Returns
+    /// - 0 = Stopped
+    /// - 1 = Running
+    /// - 2 = Paused
+    pub fn get_control_state(&self) -> u8 {
+        self.gui_control_state.load(Ordering::Relaxed)
+    }
+
+    /// Task 5: Set bot control state
+    ///
+    /// # Arguments
+    /// * `state` - New control state (0=Stopped, 1=Running, 2=Paused)
+    pub fn set_control_state(&self, state: u8) {
+        if state > 2 {
+            warn!("Invalid control state: {}, ignoring", state);
+            return;
+        }
+        
+        let state_name = match state {
+            0 => "Stopped",
+            1 => "Running",
+            2 => "Paused",
+            _ => "Unknown",
+        };
+        
+        info!("Bot control state changed to: {}", state_name);
+        self.gui_control_state.store(state, Ordering::Relaxed);
     }
 
     // =========================================================================
