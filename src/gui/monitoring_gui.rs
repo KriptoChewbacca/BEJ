@@ -19,7 +19,9 @@
 //! - `AtomicU8`: Shared bot state (Running/Stopped/Paused)
 
 use crate::components::price_stream::PriceUpdate;
+use crate::components::gui_bridge::GuiCommand;
 use crate::position_tracker::PositionTracker;
+use crate::types::TradingMode;
 use eframe::egui::{self, Button, Color32, Ui};
 use egui_plot::{Line, Plot, PlotPoints};
 use solana_sdk::pubkey::Pubkey;
@@ -27,7 +29,8 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, mpsc};
+use tracing::error;
 
 /// GUI refresh interval (333ms for smooth updates)
 const GUI_REFRESH_INTERVAL: Duration = Duration::from_millis(333);
@@ -38,7 +41,7 @@ const MAX_PRICE_HISTORY: usize = 1024;
 /// Monitoring GUI application
 ///
 /// Provides a real-time dashboard for monitoring the trading bot's
-/// performance, positions, and price movements.
+/// performance, positions, and price movements with interactive controls.
 pub struct MonitoringGui {
     // Data sources (read-only from bot)
     /// Position tracker (shared with BuyEngine)
@@ -50,6 +53,9 @@ pub struct MonitoringGui {
     /// Bot state (0=Stopped, 1=Running, 2=Paused)
     bot_state: Arc<AtomicU8>,
 
+    /// Command channel to BuyEngine
+    command_tx: mpsc::Sender<GuiCommand>,
+
     // UI state (local to GUI)
     /// Price history for chart visualization
     /// Maps mint -> VecDeque of (timestamp, price)
@@ -58,8 +64,16 @@ pub struct MonitoringGui {
     /// Timestamp of last UI update
     last_update: Instant,
 
-    /// Currently selected mint for detail view
+    /// Currently selected mint for operations (CRITICAL for context-aware sell)
     selected_mint: Option<Pubkey>,
+
+    /// Trading mode state
+    trading_mode: TradingMode,
+
+    /// TP/SL form inputs
+    stop_loss_input: String,
+    take_profit_threshold_input: String,
+    take_profit_sell_pct_input: String,
 }
 
 impl MonitoringGui {
@@ -69,6 +83,7 @@ impl MonitoringGui {
     /// * `position_tracker` - Shared position tracker from the bot
     /// * `price_rx` - Broadcast receiver for price updates
     /// * `bot_state` - Shared atomic bot state
+    /// * `command_tx` - Channel sender for GUI commands to the bot
     ///
     /// # Returns
     /// A new MonitoringGui instance
@@ -76,15 +91,31 @@ impl MonitoringGui {
         position_tracker: Arc<PositionTracker>,
         price_rx: broadcast::Receiver<PriceUpdate>,
         bot_state: Arc<AtomicU8>,
+        command_tx: mpsc::Sender<GuiCommand>,
     ) -> Self {
         Self {
             position_tracker,
             price_rx,
             bot_state,
+            command_tx,
             price_history: HashMap::new(),
             last_update: Instant::now(),
             selected_mint: None,
+            trading_mode: TradingMode::default(),
+            stop_loss_input: String::new(),
+            take_profit_threshold_input: String::new(),
+            take_profit_sell_pct_input: String::from("50"),
         }
+    }
+
+    /// Send command to BuyEngine (fire-and-forget)
+    fn send_command(&self, cmd: GuiCommand) {
+        let tx = self.command_tx.clone();
+        tokio::spawn(async move {
+            if let Err(e) = tx.send(cmd).await {
+                error!("Failed to send GUI command: {:?}", e);
+            }
+        });
     }
 
     /// Poll for price updates (non-blocking)
@@ -152,8 +183,20 @@ impl MonitoringGui {
             self.render_control_panel(ui);
             ui.separator();
 
-            // Position List
+            // ZADANIE 5: Trading Mode Toggle UI
+            self.render_trading_mode_panel(ui);
+            ui.separator();
+
+            // ZADANIE 3: Position List with Selection
             self.render_position_list(ui);
+            ui.separator();
+
+            // ZADANIE 4: Context-Aware Sell Buttons
+            self.render_context_sell_buttons(ui);
+            ui.separator();
+
+            // ZADANIE 6: TP/SL Configuration Forms
+            self.render_auto_sell_config(ui);
             ui.separator();
 
             // Selected Position Details + Chart
@@ -209,8 +252,9 @@ impl MonitoringGui {
     /// Render the list of active positions
     ///
     /// Shows a table with key metrics for each position
+    /// ZADANIE 3: Updated with clickable selection
     fn render_position_list(&mut self, ui: &mut Ui) {
-        ui.heading("Active Positions");
+        ui.heading("📊 Active Positions");
 
         let positions = self.position_tracker.get_all_positions();
 
@@ -220,10 +264,11 @@ impl MonitoringGui {
         }
 
         egui::Grid::new("position_grid")
-            .num_columns(6)
+            .num_columns(7)
             .striped(true)
             .show(ui, |ui| {
                 // Header
+                ui.label("");  // Selection indicator column
                 ui.label("Token");
                 ui.label("Amount");
                 ui.label("Entry Price");
@@ -235,23 +280,43 @@ impl MonitoringGui {
                 // Rows
                 for pos in &positions {
                     let (pnl_sol, pnl_percent) = pos.calculate_pnl(pos.last_seen_price);
+                    
+                    // Selection indicator (👉 if selected)
+                    let is_selected = self.selected_mint == Some(pos.mint);
+                    if is_selected {
+                        ui.label("👉");
+                    } else {
+                        ui.label("");
+                    }
 
-                    // Clickable mint (for selection)
+                    // Clickable mint (KEY FEATURE for context-aware sell)
                     let mint_str = pos.mint.to_string();
-                    let mint_short = if mint_str.len() >= 8 {
-                        format!("{}...{}", &mint_str[..4], &mint_str[mint_str.len() - 4..])
+                    let mint_short = if mint_str.len() >= 12 {
+                        format!("{}...{}", &mint_str[..6], &mint_str[mint_str.len() - 6..])
                     } else {
                         mint_str.clone()
                     };
 
-                    if ui.button(&mint_short).clicked() {
+                    let button = ui.button(&mint_short);
+                    if button.clicked() {
                         self.selected_mint = Some(pos.mint);
                     }
+                    
+                    // Highlight if selected
+                    if is_selected {
+                        button.highlight();
+                    }
 
+                    // Amount
                     ui.label(format!("{}", pos.remaining_token_amount()));
 
-                    let entry_price = pos.entry_price();
+                    // Entry price per token
+                    let entry_price = pos.initial_sol_cost as f64
+                        / pos.initial_token_amount as f64
+                        / 1_000_000_000.0;
                     ui.label(format!("{:.9} SOL", entry_price));
+
+                    // Current price
                     ui.label(format!("{:.9} SOL", pos.last_seen_price));
 
                     // Color-coded P&L
@@ -314,6 +379,246 @@ impl MonitoringGui {
             ui.label("Position no longer active");
             self.selected_mint = None;
         }
+    }
+
+    /// ZADANIE 4: Render context-aware sell buttons
+    ///
+    /// Shows sell buttons that operate on the currently selected token
+    fn render_context_sell_buttons(&mut self, ui: &mut Ui) {
+        ui.group(|ui| {
+            ui.heading("💸 Manual Sell");
+            
+            if let Some(mint) = self.selected_mint {
+                // Show which token is selected
+                let mint_short = format!("{}...{}", 
+                    &mint.to_string()[..6],
+                    &mint.to_string()[mint.to_string().len()-6..]
+                );
+                ui.label(egui::RichText::new(format!("Selected: {}", mint_short))
+                    .strong()
+                    .color(egui::Color32::from_rgb(100, 200, 255)));
+                
+                ui.separator();
+                
+                // Sell buttons (ONLY active when token selected)
+                ui.horizontal(|ui| {
+                    if ui.button("10%")
+                        .on_hover_text("Sell 10% of position")
+                        .clicked() 
+                    {
+                        self.send_command(GuiCommand::Sell {
+                            mint,
+                            percent: 0.10,
+                        });
+                    }
+                    
+                    if ui.button("25%")
+                        .on_hover_text("Sell 25% of position")
+                        .clicked() 
+                    {
+                        self.send_command(GuiCommand::Sell {
+                            mint,
+                            percent: 0.25,
+                        });
+                    }
+                    
+                    if ui.button("50%")
+                        .on_hover_text("Sell 50% of position")
+                        .clicked() 
+                    {
+                        self.send_command(GuiCommand::Sell {
+                            mint,
+                            percent: 0.50,
+                        });
+                    }
+                    
+                    if ui.add(
+                        egui::Button::new("100%")
+                            .fill(egui::Color32::from_rgb(200, 50, 50))
+                        )
+                        .on_hover_text("Close entire position")
+                        .clicked() 
+                    {
+                        self.send_command(GuiCommand::Sell {
+                            mint,
+                            percent: 1.00,
+                        });
+                    }
+                });
+                
+            } else {
+                // No token selected - show warning
+                ui.label(
+                    egui::RichText::new("⚠️ Select a token from the list above to enable sell buttons")
+                        .color(egui::Color32::YELLOW)
+                );
+            }
+        });
+    }
+
+    /// ZADANIE 5: Render trading mode toggle panel
+    ///
+    /// Shows radio buttons for Manual/Auto/Hybrid trading modes
+    fn render_trading_mode_panel(&mut self, ui: &mut Ui) {
+        ui.group(|ui| {
+            ui.heading("⚙️ Trading Mode");
+            
+            ui.horizontal(|ui| {
+                if ui.radio_value(&mut self.trading_mode, TradingMode::Manual, "📋 Manual")
+                    .on_hover_text("All sells must be triggered manually via buttons")
+                    .clicked() 
+                {
+                    self.send_command(GuiCommand::SetTradingMode(TradingMode::Manual));
+                }
+                
+                if ui.radio_value(&mut self.trading_mode, TradingMode::Auto, "🤖 Auto")
+                    .on_hover_text("Bot auto-sells based on TP/SL rules")
+                    .clicked() 
+                {
+                    self.send_command(GuiCommand::SetTradingMode(TradingMode::Auto));
+                }
+                
+                if ui.radio_value(&mut self.trading_mode, TradingMode::Hybrid, "🔀 Hybrid")
+                    .on_hover_text("Auto-buy + Manual-sell (recommended)")
+                    .clicked() 
+                {
+                    self.send_command(GuiCommand::SetTradingMode(TradingMode::Hybrid));
+                }
+            });
+            
+            ui.separator();
+            
+            // Mode description
+            let (icon, desc, color) = match self.trading_mode {
+                TradingMode::Manual => (
+                    "📋",
+                    "All trading decisions are manual",
+                    egui::Color32::from_rgb(150, 150, 200)
+                ),
+                TradingMode::Auto => (
+                    "🤖",
+                    "Automated sell based on Stop Loss and Take Profit rules",
+                    egui::Color32::from_rgb(100, 200, 100)
+                ),
+                TradingMode::Hybrid => (
+                    "🔀",
+                    "Auto-buy enabled, manual sell (safest option)",
+                    egui::Color32::from_rgb(200, 150, 100)
+                ),
+            };
+            
+            ui.horizontal(|ui| {
+                ui.label(icon);
+                ui.label(egui::RichText::new(desc).italics().color(color));
+            });
+        });
+    }
+
+    /// ZADANIE 6: Render TP/SL configuration forms
+    ///
+    /// Shows Stop Loss and Take Profit configuration UI (only in Auto mode)
+    fn render_auto_sell_config(&mut self, ui: &mut Ui) {
+        // Only show in Auto mode
+        if self.trading_mode != TradingMode::Auto {
+            return;
+        }
+        
+        ui.group(|ui| {
+            ui.heading("🎯 Auto-Sell Strategy");
+            
+            if let Some(mint) = self.selected_mint {
+                let mint_short = format!("{}...{}", 
+                    &mint.to_string()[..6],
+                    &mint.to_string()[mint.to_string().len()-6..]
+                );
+                ui.label(format!("Configuring: {}", mint_short));
+                ui.separator();
+                
+                // STOP LOSS
+                ui.horizontal(|ui| {
+                    ui.label("🛑 Stop Loss:");
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.stop_loss_input)
+                            .desired_width(60.0)
+                            .hint_text("10")
+                    );
+                    ui.label("% loss");
+                    
+                    if ui.button("Set SL").clicked() {
+                        if let Ok(pct) = self.stop_loss_input.parse::<f64>() {
+                            self.send_command(GuiCommand::SetStopLoss {
+                                mint,
+                                threshold_percent: pct,
+                            });
+                            self.stop_loss_input.clear();
+                            ui.ctx().request_repaint();
+                        }
+                    }
+                });
+                ui.label(
+                    egui::RichText::new("Automatically sells 100% when loss exceeds threshold")
+                        .small()
+                        .italics()
+                        .color(egui::Color32::GRAY)
+                );
+                
+                ui.separator();
+                
+                // TAKE PROFIT
+                ui.horizontal(|ui| {
+                    ui.label("✅ Take Profit:");
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.take_profit_threshold_input)
+                            .desired_width(60.0)
+                            .hint_text("50")
+                    );
+                    ui.label("% profit, sell");
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.take_profit_sell_pct_input)
+                            .desired_width(60.0)
+                            .hint_text("50")
+                    );
+                    ui.label("%");
+                    
+                    if ui.button("Set TP").clicked() {
+                        if let (Ok(threshold), Ok(sell_pct)) = (
+                            self.take_profit_threshold_input.parse::<f64>(),
+                            self.take_profit_sell_pct_input.parse::<f64>(),
+                        ) {
+                            self.send_command(GuiCommand::SetTakeProfit {
+                                mint,
+                                threshold_percent: threshold,
+                                sell_percent: sell_pct / 100.0,
+                            });
+                            self.take_profit_threshold_input.clear();
+                            ui.ctx().request_repaint();
+                        }
+                    }
+                });
+                ui.label(
+                    egui::RichText::new("Automatically sells specified % when profit exceeds threshold")
+                        .small()
+                        .italics()
+                        .color(egui::Color32::GRAY)
+                );
+                
+                ui.separator();
+                
+                // Clear strategy button
+                if ui.button("🧹 Clear All Rules")
+                    .on_hover_text("Remove all TP/SL rules for this token")
+                    .clicked() 
+                {
+                    self.send_command(GuiCommand::ClearStrategy { mint });
+                }
+                
+            } else {
+                ui.label(
+                    egui::RichText::new("⚠️ Select a token to configure auto-sell rules")
+                        .color(egui::Color32::YELLOW)
+                );
+            }
+        });
     }
 }
 

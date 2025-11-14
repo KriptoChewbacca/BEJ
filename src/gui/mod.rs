@@ -43,14 +43,55 @@
 pub mod monitoring_gui;
 
 use crate::components::price_stream::PriceUpdate;
+use crate::components::gui_bridge::GuiCommand;
 use crate::position_tracker::PositionTracker;
 use eframe::egui;
 use monitoring_gui::MonitoringGui;
 use std::sync::atomic::AtomicU8;
 use std::sync::Arc;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, mpsc};
 
-/// Launch the monitoring GUI
+/// Launch the monitoring GUI with command channel support
+///
+/// Creates and runs the monitoring GUI window with bi-directional communication.
+/// This function blocks until the GUI window is closed, so it should be run in a separate thread.
+///
+/// # Arguments
+/// * `position_tracker` - Shared position tracker from the bot
+/// * `price_rx` - Broadcast receiver for price updates
+/// * `bot_state` - Shared atomic bot state (0=Stopped, 1=Running, 2=Paused)
+/// * `command_tx` - Channel sender for GUI commands to the bot
+///
+/// # Returns
+/// `eframe::Result<()>` indicating success or error
+pub fn launch_monitoring_gui_with_commands(
+    position_tracker: Arc<PositionTracker>,
+    price_rx: broadcast::Receiver<PriceUpdate>,
+    bot_state: Arc<AtomicU8>,
+    command_tx: mpsc::Sender<GuiCommand>,
+) -> eframe::Result<()> {
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([1200.0, 800.0])
+            .with_title("Solana Sniper Bot - Monitoring Dashboard"),
+        ..Default::default()
+    };
+
+    eframe::run_native(
+        "Bot Monitor",
+        options,
+        Box::new(|_cc| {
+            Ok(Box::new(MonitoringGui::new(
+                position_tracker,
+                price_rx,
+                bot_state,
+                command_tx,
+            )))
+        }),
+    )
+}
+
+/// Launch the monitoring GUI (legacy version without commands)
 ///
 /// Creates and runs the monitoring GUI window. This function blocks until
 /// the GUI window is closed, so it should be run in a separate thread.
@@ -91,24 +132,9 @@ pub fn launch_monitoring_gui(
     price_rx: broadcast::Receiver<PriceUpdate>,
     bot_state: Arc<AtomicU8>,
 ) -> eframe::Result<()> {
-    let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1200.0, 800.0])
-            .with_title("Solana Sniper Bot - Monitoring Dashboard"),
-        ..Default::default()
-    };
-
-    eframe::run_native(
-        "Bot Monitor",
-        options,
-        Box::new(|_cc| {
-            Ok(Box::new(MonitoringGui::new(
-                position_tracker,
-                price_rx,
-                bot_state,
-            )))
-        }),
-    )
+    // Create a dummy command channel for backward compatibility
+    let (command_tx, _command_rx) = mpsc::channel(1);
+    launch_monitoring_gui_with_commands(position_tracker, price_rx, bot_state, command_tx)
 }
 
 #[cfg(test)]

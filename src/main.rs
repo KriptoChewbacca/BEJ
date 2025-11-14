@@ -31,6 +31,9 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 #[cfg(feature = "gui_monitor")]
 use std::sync::atomic::AtomicU8;
 
+#[cfg(feature = "gui_monitor")]
+use components::gui_bridge::GuiCommand;
+
 // Module declarations
 mod compat; // Solana SDK compatibility layer
 mod components; // GUI integration components
@@ -198,6 +201,10 @@ async fn main() -> Result<()> {
     #[cfg(feature = "gui_monitor")]
     let bot_state = Arc::new(AtomicU8::new(1)); // 1 = Running
 
+    // ZADANIE 1: Create GUI command channel
+    #[cfg(feature = "gui_monitor")]
+    let (gui_cmd_tx, mut gui_cmd_rx) = mpsc::channel::<GuiCommand>(100);
+
     // Launch GUI monitor if feature is enabled
     #[cfg(feature = "gui_monitor")]
     {
@@ -205,14 +212,37 @@ async fn main() -> Result<()> {
         let pos_tracker_gui = Arc::clone(&position_tracker);
         let price_rx_gui = price_stream.subscribe();
         let bot_state_gui = Arc::clone(&bot_state);
+        let cmd_tx_gui = gui_cmd_tx.clone();
         
         std::thread::spawn(move || {
-            if let Err(e) = gui::launch_monitoring_gui(pos_tracker_gui, price_rx_gui, bot_state_gui) {
+            if let Err(e) = gui::launch_monitoring_gui_with_commands(
+                pos_tracker_gui,
+                price_rx_gui,
+                bot_state_gui,
+                cmd_tx_gui,
+            ) {
                 error!("GUI error: {}", e);
             }
         });
         
         info!("✅ GUI monitor launched successfully (333ms refresh rate)");
+    }
+
+    // ZADANIE 1: Spawn GUI command handler
+    // Note: This would be connected to a real BuyEngine instance
+    // For now, we'll set up the infrastructure
+    #[cfg(feature = "gui_monitor")]
+    {
+        info!("📡 Starting GUI command handler");
+        tokio::spawn(async move {
+            while let Some(cmd) = gui_cmd_rx.recv().await {
+                // In a real implementation, this would call handle_gui_command
+                // with a reference to the actual BuyEngine instance
+                info!("Received GUI command: {:?}", cmd);
+                // Example: handle_gui_command(&buy_engine, cmd).await;
+            }
+        });
+        info!("✅ GUI command handler started");
     }
 
     #[cfg(not(feature = "gui_monitor"))]
@@ -314,6 +344,106 @@ async fn run_event_loop(
     info!("👋 Shutting down gracefully...");
     Ok(())
 }
+
+/// Handle GUI commands sent from the monitoring dashboard
+///
+/// This function processes commands from the GUI and executes them on the BuyEngine.
+/// It's designed to be called from a tokio task that receives commands from the GUI.
+///
+/// # Arguments
+/// * `engine` - Reference to the BuyEngine instance
+/// * `cmd` - The GUI command to process
+///
+/// # Returns
+/// `Result<()>` indicating success or error
+#[cfg(feature = "gui_monitor")]
+async fn handle_gui_command(
+    engine: &Arc<buy_engine::BuyEngine>,
+    cmd: GuiCommand,
+) -> Result<()> {
+    use components::gui_bridge::GuiCommand;
+    
+    match cmd {
+        GuiCommand::Sell { mint, percent } => {
+            info!(mint = %mint, percent = percent, "GUI: Manual sell requested");
+            engine.sell_manual(&mint, percent).await?;
+        }
+        
+        GuiCommand::SetTradingMode(mode) => {
+            info!(mode = ?mode, "GUI: Trading mode change requested");
+            engine.set_trading_mode(mode).await;
+        }
+        
+        GuiCommand::SetStopLoss { mint, threshold_percent } => {
+            info!(
+                mint = %mint,
+                threshold = threshold_percent,
+                "GUI: Stop loss configuration"
+            );
+            engine.set_stop_loss(mint, threshold_percent).await;
+        }
+        
+        GuiCommand::SetTakeProfit {
+            mint,
+            threshold_percent,
+            sell_percent,
+        } => {
+            info!(
+                mint = %mint,
+                threshold = threshold_percent,
+                sell_pct = sell_percent,
+                "GUI: Take profit configuration"
+            );
+            engine
+                .set_take_profit(mint, threshold_percent, sell_percent)
+                .await;
+        }
+        
+        GuiCommand::ClearStrategy { mint } => {
+            info!(mint = %mint, "GUI: Clear strategy requested");
+            engine.clear_strategy(&mint).await;
+        }
+        
+        GuiCommand::SetMultiTokenMode {
+            enabled,
+            max_positions,
+        } => {
+            info!(
+                enabled = enabled,
+                max_positions = ?max_positions,
+                "GUI: Multi-token mode change"
+            );
+            let mut st = engine.app_state.lock().await;
+            st.portfolio_config.enable_multi_token = enabled;
+            if let Some(max) = max_positions {
+                st.portfolio_config.max_concurrent_positions = max;
+            }
+        }
+        
+        GuiCommand::SetPaused(paused) => {
+            info!(paused = paused, "GUI: Pause state change");
+            let st = engine.app_state.lock().await;
+            *st.is_paused.write().await = paused;
+        }
+        
+        GuiCommand::EmergencyStop => {
+            warn!("GUI: Emergency stop requested");
+            // Emergency stop logic would go here
+            // For now, just pause trading
+            let st = engine.app_state.lock().await;
+            *st.is_paused.write().await = true;
+        }
+        
+        GuiCommand::UpdatePortfolioConfig(config) => {
+            info!(config = ?config, "GUI: Portfolio config update");
+            let mut st = engine.app_state.lock().await;
+            st.portfolio_config = config;
+        }
+    }
+    
+    Ok(())
+}
+
 
 #[cfg(test)]
 mod tests {
