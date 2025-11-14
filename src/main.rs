@@ -29,6 +29,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 // Module declarations
 mod compat; // Solana SDK compatibility layer
+mod components; // GUI integration components
 mod config;
 mod endpoints;
 mod metrics;

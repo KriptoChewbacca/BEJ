@@ -1,5 +1,6 @@
 //! Common types used throughout the application
 
+use crate::components::gui_bridge::GuiSnapshotProvider;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 use std::sync::Arc;
@@ -80,6 +81,9 @@ pub struct AppState {
 
     /// Current holdings percentage (0.0 - 1.0)
     pub holdings_percent: f64,
+
+    /// GUI snapshot provider for real-time monitoring (optional)
+    pub gui_snapshot_provider: Option<Arc<GuiSnapshotProvider>>,
 }
 
 /// Application statistics
@@ -111,6 +115,20 @@ impl AppState {
             active_token: None,
             last_buy_price: None,
             holdings_percent: 0.0,
+            gui_snapshot_provider: None,
+        }
+    }
+
+    /// Create new application state with GUI support
+    pub fn with_gui(mode: Mode, gui_provider: Arc<GuiSnapshotProvider>) -> Self {
+        Self {
+            mode: Arc::new(RwLock::new(mode)),
+            is_paused: Arc::new(RwLock::new(false)),
+            stats: Arc::new(RwLock::new(Stats::default())),
+            active_token: None,
+            last_buy_price: None,
+            holdings_percent: 0.0,
+            gui_snapshot_provider: Some(gui_provider),
         }
     }
 
