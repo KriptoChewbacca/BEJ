@@ -102,7 +102,7 @@ use crate::rpc_manager::RpcBroadcaster;
 use crate::security::validator;
 use crate::structured_logging::PipelineContext;
 use crate::tx_builder::{TransactionBuilder, TransactionConfig};
-use crate::types::{AppState, CandidateReceiver, Mode, PremintCandidate};
+use crate::types::{AppState, CandidateReceiver, Mode, PremintCandidate, SellStrategy, TradingMode};
 use bot::observability::TraceContext as ObservabilityTraceContext;
 use bot::tx_builder::Bundler;
 
@@ -1365,6 +1365,16 @@ pub struct BuyEngine {
     /// - 1 = Running (normal operation)
     /// - 2 = Paused (sleep and continue)
     gui_control_state: Arc<AtomicU8>,
+
+    // ZADANIE 1.1: Trading modes infrastructure
+    /// Current trading mode (shared with GUI)
+    trading_mode: Arc<RwLock<TradingMode>>,
+
+    /// Per-token sell strategies (TP/SL rules)
+    sell_strategies: Arc<DashMap<Pubkey, SellStrategy>>,
+
+    /// Auto-sell monitor task handle
+    auto_sell_handle: Arc<RwLock<Option<tokio::task::JoinHandle<()>>>>,
 }
 
 impl BuyEngine {
@@ -1559,6 +1569,11 @@ impl BuyEngine {
             price_stream,      // Task 2: Optional price stream for GUI monitoring
             position_tracker,  // Task 3: Optional position tracker for GUI monitoring
             gui_control_state, // Task 5: GUI control state for START/STOP/PAUSE
+            
+            // ZADANIE 1.1: Initialize trading modes infrastructure
+            trading_mode: Arc::new(RwLock::new(TradingMode::default())),
+            sell_strategies: Arc::new(DashMap::new()),
+            auto_sell_handle: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -2414,6 +2429,443 @@ impl BuyEngine {
                 Err(e)
             }
         }
+    }
+
+    // ============================================================================
+    // ZADANIE 1.1: Trading Mode Management
+    // ============================================================================
+
+    /// Set trading mode
+    ///
+    /// Changes the current trading mode and logs the change.
+    /// Mode affects auto-sell behavior:
+    /// - Manual: User controls all sells
+    /// - Auto: Automatic TP/SL execution
+    /// - Hybrid: Auto monitoring with confirmation (default)
+    pub async fn set_trading_mode(&self, mode: TradingMode) {
+        *self.trading_mode.write().await = mode;
+        info!("Trading mode changed to: {:?}", mode);
+        metrics().increment_counter("trading_mode_changed");
+    }
+
+    /// Get current trading mode
+    ///
+    /// Returns the current trading mode setting.
+    pub async fn get_trading_mode(&self) -> TradingMode {
+        *self.trading_mode.read().await
+    }
+
+    // ============================================================================
+    // ZADANIE 1.4: Strategy Management API
+    // ============================================================================
+
+    /// Set stop loss for a token
+    ///
+    /// Configures automatic stop loss trigger for a specific token.
+    /// When enabled in Auto mode, will sell 100% of position if P&L
+    /// drops below threshold.
+    ///
+    /// # Arguments
+    /// * `mint` - Token mint address
+    /// * `threshold_percent` - Stop loss threshold (e.g., -10.0 for -10%)
+    pub async fn set_stop_loss(&self, mint: Pubkey, threshold_percent: f64) {
+        let mut strategy = self
+            .sell_strategies
+            .entry(mint)
+            .or_insert_with(SellStrategy::default);
+
+        strategy.stop_loss = Some(crate::types::StopLossConfig {
+            enabled: true,
+            threshold_percent: -threshold_percent.abs(), // Ensure negative
+        });
+
+        info!(
+            mint = %mint,
+            threshold = threshold_percent,
+            "Stop loss configured"
+        );
+
+        metrics().increment_counter("stop_loss_configured");
+    }
+
+    /// Set take profit for a token
+    ///
+    /// Configures automatic take profit trigger for a specific token.
+    /// When enabled in Auto mode, will sell specified percentage of position
+    /// if P&L exceeds threshold.
+    ///
+    /// # Arguments
+    /// * `mint` - Token mint address
+    /// * `threshold_percent` - Take profit threshold (e.g., 50.0 for +50%)
+    /// * `sell_percent` - Percentage of position to sell (0.0 to 1.0)
+    pub async fn set_take_profit(
+        &self,
+        mint: Pubkey,
+        threshold_percent: f64,
+        sell_percent: f64,
+    ) {
+        let mut strategy = self
+            .sell_strategies
+            .entry(mint)
+            .or_insert_with(SellStrategy::default);
+
+        strategy.take_profit = Some(crate::types::TakeProfitConfig {
+            enabled: true,
+            threshold_percent: threshold_percent.abs(), // Ensure positive
+            sell_percent: sell_percent.clamp(0.0, 1.0),
+        });
+
+        info!(
+            mint = %mint,
+            threshold = threshold_percent,
+            sell_pct = sell_percent,
+            "Take profit configured"
+        );
+
+        metrics().increment_counter("take_profit_configured");
+    }
+
+    /// Clear all auto-sell rules for a token
+    ///
+    /// Removes stop loss and take profit configurations for a token.
+    ///
+    /// # Arguments
+    /// * `mint` - Token mint address
+    pub async fn clear_strategy(&self, mint: &Pubkey) {
+        self.sell_strategies.remove(mint);
+        info!(mint = %mint, "Auto-sell strategy cleared");
+        metrics().increment_counter("strategy_cleared");
+    }
+
+    /// Get current strategy for a token
+    ///
+    /// Returns the current sell strategy configuration if one exists.
+    ///
+    /// # Arguments
+    /// * `mint` - Token mint address
+    ///
+    /// # Returns
+    /// Optional SellStrategy with TP/SL configuration
+    pub async fn get_strategy(&self, mint: &Pubkey) -> Option<SellStrategy> {
+        self.sell_strategies.get(mint).map(|s| s.clone())
+    }
+
+    // ============================================================================
+    // ZADANIE 1.2: Auto-Sell Monitor Loop
+    // ============================================================================
+
+    /// Start auto-sell monitoring loop (333ms tick rate)
+    ///
+    /// Spawns a background task that monitors all positions and evaluates
+    /// auto-sell conditions (TP/SL) when in Auto mode.
+    ///
+    /// The monitor runs at 333ms tick rate (~3 times per second) for
+    /// responsive trade execution without excessive overhead.
+    pub async fn start_auto_sell_monitor(self: Arc<Self>) {
+        let engine = Arc::clone(&self);
+        let handle = tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_millis(333));
+
+            loop {
+                interval.tick().await;
+
+                // Only run in Auto mode
+                let mode = *engine.trading_mode.read().await;
+                if mode != TradingMode::Auto {
+                    continue;
+                }
+
+                // Check all positions
+                if let Some(tracker) = &engine.position_tracker {
+                    let positions = tracker.get_all_positions();
+
+                    for pos in positions {
+                        if let Some(strategy) = engine.sell_strategies.get(&pos.mint) {
+                            if let Err(e) = engine.evaluate_auto_sell(&pos, &strategy).await {
+                                error!(
+                                    mint = %pos.mint,
+                                    error = %e,
+                                    "Auto-sell evaluation failed"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        *self.auto_sell_handle.write().await = Some(handle);
+        info!("Auto-sell monitor started (333ms tick rate)");
+    }
+
+    // ============================================================================
+    // ZADANIE 1.3: TP/SL Evaluation Logic
+    // ============================================================================
+
+    /// Evaluate auto-sell conditions for a position (DETERMINISTIC)
+    ///
+    /// Checks stop loss and take profit conditions for a position and
+    /// executes sells if thresholds are met. Stop loss has priority over
+    /// take profit for safety.
+    ///
+    /// # Arguments
+    /// * `pos` - Active position to evaluate
+    /// * `strategy` - Sell strategy with TP/SL configuration
+    ///
+    /// # Returns
+    /// Result indicating success or error
+    async fn evaluate_auto_sell(
+        &self,
+        pos: &bot::position_tracker::ActivePosition,
+        strategy: &SellStrategy,
+    ) -> Result<()> {
+        let (_pnl_sol, pnl_percent) = pos.calculate_pnl(pos.last_seen_price);
+
+        // STOP LOSS CHECK (highest priority)
+        if let Some(sl) = &strategy.stop_loss {
+            if sl.enabled && pnl_percent <= sl.threshold_percent {
+                warn!(
+                    mint = %pos.mint,
+                    pnl_percent = pnl_percent,
+                    threshold = sl.threshold_percent,
+                    "🛑 STOP LOSS TRIGGERED - Selling 100%"
+                );
+
+                metrics().increment_counter("auto_sell_stop_loss_triggered");
+
+                return self.sell_internal(&pos.mint, 1.0, "stop_loss").await;
+            }
+        }
+
+        // TAKE PROFIT CHECK
+        if let Some(tp) = &strategy.take_profit {
+            if tp.enabled && pnl_percent >= tp.threshold_percent {
+                info!(
+                    mint = %pos.mint,
+                    pnl_percent = pnl_percent,
+                    threshold = tp.threshold_percent,
+                    sell_percent = tp.sell_percent,
+                    "✅ TAKE PROFIT TRIGGERED"
+                );
+
+                metrics().increment_counter("auto_sell_take_profit_triggered");
+
+                return self
+                    .sell_internal(&pos.mint, tp.sell_percent, "take_profit")
+                    .await;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Internal sell method supporting both manual and auto triggers
+    ///
+    /// Core sell implementation that can be called from manual GUI triggers
+    /// or automatic TP/SL evaluation. Records the reason for metrics.
+    ///
+    /// # Arguments
+    /// * `mint` - Token mint address
+    /// * `percent` - Percentage of position to sell (0.0 to 1.0)
+    /// * `reason` - Reason for sell (e.g., "manual_gui", "stop_loss", "take_profit")
+    ///
+    /// # Returns
+    /// Result indicating success or error
+    async fn sell_internal(&self, mint: &Pubkey, percent: f64, reason: &str) -> Result<()> {
+        let ctx = PipelineContext::new(&format!("sell_{}", reason));
+
+        info!(
+            mint = %mint,
+            percent = percent,
+            reason = reason,
+            "Executing sell (internal)"
+        );
+
+        // Record reason in metrics
+        metrics().increment_counter(&format!("sell_reason_{}", reason));
+
+        // Validate holdings percentage for overflow protection
+        let pct = match validator::validate_holdings_percent(percent.clamp(0.0, 1.0)) {
+            Ok(validated_pct) => validated_pct,
+            Err(e) => {
+                ctx.logger.error(&format!(
+                    "Invalid sell percentage: {} (percent: {})",
+                    e, percent
+                ));
+                return Err(anyhow!("Invalid sell percentage: {}", e));
+            }
+        };
+
+        // Check if there's a pending buy operation
+        if self.pending_buy.load(Ordering::Relaxed) {
+            warn!("Sell requested while buy is pending; rejecting to avoid race condition");
+            return Err(anyhow!("buy operation in progress"));
+        }
+
+        let (current_pct, _candidate_opt) = {
+            let st = self.app_state.lock().await;
+
+            // For auto-sell, get holdings from active_tokens map
+            let holdings = st.active_tokens.get(mint).map(|tok| tok.holdings_percent).unwrap_or(0.0);
+
+            (holdings, st.active_token.clone())
+        };
+
+        // UNIVERSE: Check for anomalous holdings changes
+        if self
+            .universe_metrics
+            .check_holdings_anomaly(current_pct * (1.0 - pct))
+            .await
+        {
+            warn!(mint = %mint, "Anomalous holdings change detected during sell");
+            metrics().increment_counter("sell_anomaly_detected");
+        }
+
+        // Validate the new holdings calculation
+        let new_holdings =
+            match validator::validate_holdings_percent((current_pct * (1.0 - pct)).max(0.0)) {
+                Ok(validated_holdings) => validated_holdings,
+                Err(e) => {
+                    ctx.logger.error(&format!(
+                        "Holdings calculation overflow: {} (current: {}, sell: {})",
+                        e, current_pct, pct
+                    ));
+                    return Err(anyhow!("Holdings calculation error: {}", e));
+                }
+            };
+
+        ctx.logger
+            .log_sell_operation(&mint.to_string(), pct, new_holdings);
+        info!(mint=%mint, sell_percent=pct, correlation_id=ctx.correlation_id, "Composing SELL transaction");
+
+        // Phase 2, Task 2.5: Use output method and hold guard through broadcast
+        let sell_output = self.create_sell_transaction(mint, pct).await?;
+
+        // Hold the output (and nonce guard) through broadcast
+        match self
+            .rpc
+            .send_on_many_rpc(vec![sell_output.tx.clone()], None)
+            .await
+        {
+            Ok(sig) => {
+                // Check for duplicate signatures
+                let sig_str = sig.to_string();
+                if !validator::check_duplicate_signature(&sig_str) {
+                    warn!(mint=%mint, sig=%sig, correlation_id=ctx.correlation_id, "Duplicate signature detected for SELL");
+                    metrics().increment_counter("duplicate_signatures_detected");
+                }
+
+                info!(mint=%mint, sig=%sig, correlation_id=ctx.correlation_id, "SELL broadcasted");
+
+                // Phase 2, Task 2.5: Explicitly release nonce after successful broadcast
+                if let Err(e) = sell_output.release_nonce().await {
+                    warn!(mint=%mint, error=%e, "Failed to release nonce after sell broadcast");
+                }
+
+                // Task 2: Record sell price for GUI monitoring
+                let sell_price = self
+                    .get_execution_price_mock(&PremintCandidate {
+                        mint: *mint,
+                        program: "pump.fun".to_string(),
+                        accounts: vec![],
+                        priority: crate::types::PriorityLevel::Medium,
+                        timestamp: 0,
+                        price_hint: None,
+                        signature: None,
+                    })
+                    .await;
+                self.record_price_for_gui(*mint, sell_price);
+
+                // Task 3: Record sell for position tracking
+                if let Some(position_tracker) = &self.position_tracker {
+                    if let Some(position) = position_tracker.get_position(mint) {
+                        let tokens_to_sell =
+                            (position.remaining_token_amount() as f64 * pct) as u64;
+                        let sol_received_estimate =
+                            (tokens_to_sell as f64 * sell_price * 1_000_000_000.0) as u64;
+
+                        let fully_sold = position_tracker.record_sell(
+                            mint,
+                            tokens_to_sell,
+                            sol_received_estimate,
+                        );
+
+                        if fully_sold {
+                            info!(mint = %mint, "Position fully closed (tracked)");
+                        } else {
+                            info!(
+                                mint = %mint,
+                                tokens_sold = tokens_to_sell,
+                                "Partial sell recorded"
+                            );
+                        }
+                    }
+                }
+
+                // Update app state
+                #[allow(unused_mut)]
+                let mut st = self.app_state.lock().await;
+
+                // Update active_tokens map
+                if let Some(mut token_pos) = st.active_tokens.get_mut(mint) {
+                    let final_holdings = token_pos.holdings_percent * (1.0 - pct);
+                    token_pos.holdings_percent = final_holdings;
+
+                    // If fully sold, remove position
+                    if final_holdings <= f64::EPSILON {
+                        drop(token_pos); // Release mutable reference before remove
+                        st.active_tokens.remove(mint);
+                        info!(mint = %mint, "Position fully closed");
+
+                        // Return to Sniffing if no more positions
+                        if st.active_tokens.is_empty() {
+                            *st.mode.write().await = Mode::Sniffing;
+                            info!("All positions closed - returning to Sniffing mode");
+                        }
+
+                        // UNIVERSE: Update portfolio - remove fully sold token
+                        let mut portfolio = self.portfolio.write().await;
+                        portfolio.remove(mint);
+                    } else {
+                        info!(
+                            mint = %mint,
+                            remaining = final_holdings,
+                            "Partial sell executed"
+                        );
+
+                        // UNIVERSE: Update portfolio with new holdings
+                        let mut portfolio = self.portfolio.write().await;
+                        portfolio.insert(*mint, final_holdings);
+                    }
+                } else {
+                    warn!(mint = %mint, "Token not found in active_tokens during sell");
+                    return Err(anyhow!("Position not found for mint {}", mint));
+                };
+
+                Ok(())
+            }
+            Err(e) => {
+                // Phase 2, Task 2.5: Drop sell_output on error (automatic nonce release via RAII)
+                drop(sell_output);
+                error!(mint=%mint, error=%e, correlation_id=ctx.correlation_id, "SELL failed to broadcast");
+                Err(e)
+            }
+        }
+    }
+
+    /// Public sell method (for GUI manual triggers)
+    ///
+    /// Manual sell operation triggered from GUI. Wraps sell_internal
+    /// with "manual_gui" reason for tracking.
+    ///
+    /// # Arguments
+    /// * `mint` - Token mint address
+    /// * `percent` - Percentage of position to sell (0.0 to 1.0)
+    ///
+    /// # Returns
+    /// Result indicating success or error
+    pub async fn sell_manual(&self, mint: &Pubkey, percent: f64) -> Result<()> {
+        self.sell_internal(mint, percent, "manual_gui").await
     }
 
     /// Protected buy operation with atomic guards and proper lease management

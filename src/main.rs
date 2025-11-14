@@ -320,6 +320,7 @@ mod tests {
     use super::*;
 
     // Include test modules
+    mod auto_sell_monitor_tests; // ZADANIE 1.2: Auto-sell monitor loop tests
     mod buy_engine_multi_token_tests; // Multi-token buy engine tests
     mod config_validation; // Multi-token configuration validation tests
     mod error_conversion_tests;
@@ -338,10 +339,13 @@ mod tests {
     mod production_stress_tests; // Task 4: Production-grade stress tests
     mod sell_multi_token_tests; // Multi-token sell logic tests
     mod simulation_nonce_tests;
+    mod strategy_management_tests; // ZADANIE 1.4: Strategy management API tests
     mod task2_raii_tests; // Task 2: RAII tests for ExecutionContext and TxBuildOutput
     mod task5_gui_control_tests; // Task 5: GUI Bot State Control Integration tests
     mod task6_gui_feature_gating_tests; // Task 6: GUI Feature Gating tests
     mod test_helpers;
+    mod tpsl_evaluation_tests; // ZADANIE 1.3: TP/SL evaluation logic tests
+    mod trading_mode_tests; // ZADANIE 1.1: Trading mode management tests
     mod tx_builder_fee_strategy_test;
     mod tx_builder_improvements_tests;
     mod tx_builder_output_tests;
