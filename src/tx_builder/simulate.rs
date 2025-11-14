@@ -12,12 +12,12 @@
 //! ## Implementation Status
 //! **COMPLETED (Task 4)**: Simulation utilities for E2E testing
 
+#[allow(deprecated)]
 use solana_sdk::{
     instruction::Instruction,
     message::{v0::Message as MessageV0, VersionedMessage},
     pubkey::Pubkey,
     signature::Signature,
-    signer::Signer,
     system_program,
     transaction::VersionedTransaction,
 };
@@ -115,6 +115,7 @@ pub fn build_sim_tx_like(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[allow(deprecated)]
     use solana_sdk::{hash::Hash, system_instruction};
 
     #[test]
@@ -122,7 +123,7 @@ mod tests {
         let nonce_account = Pubkey::new_unique();
         let nonce_authority = Pubkey::new_unique();
 
-        let mut instructions = vec![
+        let instructions = vec![
             system_instruction::advance_nonce_account(&nonce_account, &nonce_authority),
             system_instruction::transfer(&Pubkey::new_unique(), &Pubkey::new_unique(), 1000),
         ];

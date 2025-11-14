@@ -14,7 +14,9 @@
 //! ## Implementation Status
 //! **COMPLETED (Task 3)**: Instruction planning and validation
 
+#[allow(deprecated)]
 use crate::tx_builder::errors::TransactionBuilderError;
+#[allow(deprecated)]
 use solana_sdk::{
     compute_budget::ComputeBudgetInstruction, instruction::Instruction, pubkey::Pubkey,
     system_instruction, system_program,
