@@ -97,10 +97,12 @@ use crate::metrics::{metrics, Timer};
 use crate::nonce_manager::NonceManager;
 
 use crate::observability::CorrelationId;
+use bot::observability::TraceContext as ObservabilityTraceContext;
 use crate::rpc_manager::RpcBroadcaster;
 use crate::security::validator;
 use crate::structured_logging::PipelineContext;
 use crate::tx_builder::{TransactionBuilder, TransactionConfig};
+use bot::tx_builder::Bundler;
 use crate::types::{AppState, CandidateReceiver, Mode, PremintCandidate};
 
 // ============================================================================
@@ -1346,6 +1348,9 @@ pub struct BuyEngine {
 
     // FIX #5: Transaction queue for pump loop
     tx_queue: Arc<TransactionQueue>,
+
+    // Task 7: Optional Jito bundler for MEV-protected submission
+    bundler: Option<Arc<dyn Bundler>>,
 }
 
 impl BuyEngine {
@@ -1356,6 +1361,26 @@ impl BuyEngine {
         app_state: Arc<Mutex<AppState>>,
         config: Config,
         tx_builder: Option<TransactionBuilder>,
+    ) -> Self {
+        Self::new_with_bundler(rpc, nonce_manager, candidate_rx, app_state, config, tx_builder, None)
+    }
+
+    /// Task 7: Create BuyEngine with optional Jito bundler for MEV-protected submission
+    ///
+    /// # Arguments
+    ///
+    /// * `bundler` - Optional Arc<dyn Bundler> for MEV-protected bundle submission
+    ///
+    /// When bundler is provided and available, the engine will prefer bundle submission
+    /// over single transaction broadcast for critical operations (buy/sell).
+    pub fn new_with_bundler(
+        rpc: Arc<dyn RpcBroadcaster>,
+        nonce_manager: Arc<NonceManager>,
+        candidate_rx: CandidateReceiver,
+        app_state: Arc<Mutex<AppState>>,
+        config: Config,
+        tx_builder: Option<TransactionBuilder>,
+        bundler: Option<Arc<dyn Bundler>>,
     ) -> Self {
         // Initialize allowed sources for taint tracking
         let allowed_sources = vec![
@@ -1402,6 +1427,7 @@ impl BuyEngine {
             rpc_endpoints: Arc::new(RwLock::new(vec![])), // Initialize with empty, to be configured
             current_endpoint_idx: AtomicU64::new(0),
             tx_queue: Arc::new(TransactionQueue::new(1000)), // Queue up to 1000 txs
+            bundler, // Task 7: Optional Jito bundler
         }
     }
 
@@ -1783,13 +1809,49 @@ impl BuyEngine {
         
         ctx.logger.log_nonce_operation("acquire", None, true);
 
-        // Hold the output (and nonce guard) through broadcast
-        match self
-            .send_transaction_fire_and_forget(
+        // Task 7: Choose submission path - bundler (MEV-protected) vs single tx
+        let submission_result = if let Some(ref bundler) = self.bundler {
+            if bundler.is_available() {
+                debug!(mint=%candidate.mint, "Using Jito bundler for MEV-protected submission");
+                metrics().increment_counter("bundler_submission_attempt");
+                
+                // Calculate dynamic tip using bundler
+                let base_tip = self.calculate_dynamic_tip().await;
+                let dynamic_tip = bundler.calculate_dynamic_tip(base_tip);
+                
+                // Convert local TraceContext to observability TraceContext for bundler
+                let obs_trace_ctx = ObservabilityTraceContext::new(&trace_ctx.span_id);
+                
+                // Submit bundle (single transaction in this case, but bundler handles it)
+                bundler.submit_bundle(vec![buy_output.tx.clone()], dynamic_tip, &obs_trace_ctx).await
+                    .map_err(|e| {
+                        metrics().increment_counter("bundler_submission_failed");
+                        anyhow!("Bundler submission failed: {}", e)
+                    })
+            } else {
+                debug!(mint=%candidate.mint, "Bundler unavailable, falling back to RPC");
+                metrics().increment_counter("bundler_unavailable_fallback");
+                
+                // Fallback to regular RPC broadcast
+                self.send_transaction_fire_and_forget(
+                    buy_output.tx.clone(),
+                    Some(CorrelationId::new()),
+                )
+                .await
+            }
+        } else {
+            debug!(mint=%candidate.mint, "No bundler configured, using direct RPC submission");
+            
+            // No bundler - use regular RPC broadcast
+            self.send_transaction_fire_and_forget(
                 buy_output.tx.clone(),
                 Some(CorrelationId::new()),
             )
             .await
+        };
+
+        // Hold the output (and nonce guard) through broadcast
+        match submission_result
         {
             Ok(sig) => {
                 // Record build-to-land latency (Task 6 requirement)

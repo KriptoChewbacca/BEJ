@@ -91,10 +91,14 @@ pub use output::TxBuildOutput;
 // Task 3: Export instruction planning types and functions
 pub use instructions::{plan_buy_instructions, sanity_check_ix_order, InstructionPlan};
 
+// Task 7: Export bundler types
+pub use bundle::{BundleConfig, BundleEndpoint, Bundler, JitoBundler, MockBundler};
+
+// Task 4: Export simulation utilities
+pub use simulate::{build_sim_tx_like, strip_nonce_for_simulation};
+
 // Future exports (will be populated in later tasks)
 // pub use builder::TxBuilder;
-// pub use simulate::{strip_nonce_for_simulation, build_sim_tx_like};
-// pub use bundle::{Bundler, BundleCandidate, JitoBundler};
 // pub use legacy::*;
 
 // Type aliases for backward compatibility
