@@ -336,28 +336,25 @@ impl Default for PortfolioConfig {
     }
 }
 
-/// Trading mode for portfolio management
+/// Trading mode for auto-sell behavior
 ///
-/// Defines how the bot handles multiple token opportunities.
-/// Currently a placeholder for future functionality.
+/// Defines how the bot handles auto-sell operations (TP/SL).
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TradingMode {
-    /// Single token at a time (default, safest)
-    Single,
+    /// Manual mode - user controls all sell operations via GUI
+    Manual,
     
-    /// Multiple tokens simultaneously
-    /// Requires enable_multi_token = true
-    Multi,
+    /// Auto mode - automatic TP/SL execution based on strategies
+    Auto,
     
-    /// Adaptive based on market conditions (experimental)
-    /// Switches between Single and Multi based on volatility
+    /// Hybrid mode - auto monitoring with manual confirmation (default)
     Hybrid,
 }
 
 impl Default for TradingMode {
     fn default() -> Self {
-        TradingMode::Single
+        TradingMode::Hybrid
     }
 }
 
@@ -391,26 +388,21 @@ impl Default for SellStrategy {
 /// Stop loss configuration
 ///
 /// Defines automatic sell triggers to limit losses.
-/// Currently a placeholder for future functionality.
 #[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StopLossConfig {
-    /// Stop loss percentage (e.g., 0.10 for -10%)
-    pub percentage: f64,
+    /// Whether stop loss is enabled
+    pub enabled: bool,
     
-    /// Enable time-based stop loss (sell after duration regardless of price)
-    pub time_based: bool,
-    
-    /// Time limit in seconds (only if time_based = true)
-    pub time_limit_seconds: Option<u64>,
+    /// Stop loss threshold percentage (negative value, e.g., -10.0 for -10%)
+    pub threshold_percent: f64,
 }
 
 impl Default for StopLossConfig {
     fn default() -> Self {
         Self {
-            percentage: 0.10, // -10% stop loss
-            time_based: false,
-            time_limit_seconds: None,
+            enabled: false,
+            threshold_percent: -10.0, // -10% stop loss
         }
     }
 }
@@ -418,23 +410,25 @@ impl Default for StopLossConfig {
 /// Take profit configuration
 ///
 /// Defines automatic sell triggers to lock in profits.
-/// Currently a placeholder for future functionality.
 #[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TakeProfitConfig {
-    /// Take profit percentage (e.g., 0.50 for +50%)
-    pub percentage: f64,
+    /// Whether take profit is enabled
+    pub enabled: bool,
     
-    /// Partial take profit levels (optional)
-    /// Array of (percentage_gain, percentage_to_sell) tuples
-    pub partial_levels: Vec<(f64, f64)>,
+    /// Take profit threshold percentage (positive value, e.g., 50.0 for +50%)
+    pub threshold_percent: f64,
+    
+    /// Percentage of position to sell when triggered (0.0 to 1.0)
+    pub sell_percent: f64,
 }
 
 impl Default for TakeProfitConfig {
     fn default() -> Self {
         Self {
-            percentage: 0.50, // +50% take profit
-            partial_levels: vec![],
+            enabled: false,
+            threshold_percent: 50.0, // +50% take profit
+            sell_percent: 0.5,       // Sell 50% of position
         }
     }
 }

@@ -34,7 +34,7 @@ fn test_portfolio_config_custom() {
 #[test]
 fn test_trading_mode_default() {
     let mode = TradingMode::default();
-    assert_eq!(mode, TradingMode::Single);
+    assert_eq!(mode, TradingMode::Hybrid);
 }
 
 #[test]
@@ -51,55 +51,50 @@ fn test_trading_mode_serialization() {
 #[test]
 fn test_trading_mode_variants() {
     // Verify all variants are distinct
-    assert_ne!(TradingMode::Single, TradingMode::Multi);
-    assert_ne!(TradingMode::Single, TradingMode::Hybrid);
-    assert_ne!(TradingMode::Multi, TradingMode::Hybrid);
+    assert_ne!(TradingMode::Auto, TradingMode::Manual);
+    assert_ne!(TradingMode::Auto, TradingMode::Hybrid);
+    assert_ne!(TradingMode::Manual, TradingMode::Hybrid);
 }
 
 #[test]
 fn test_stop_loss_config_default() {
     let config = StopLossConfig::default();
     
-    assert_eq!(config.percentage, 0.10); // 10% stop loss
-    assert!(!config.time_based);
-    assert!(config.time_limit_seconds.is_none());
+    assert_eq!(config.threshold_percent, -10.0); // -10% stop loss
+    assert!(!config.enabled);
 }
 
 #[test]
 fn test_stop_loss_config_custom() {
     let config = StopLossConfig {
-        percentage: 0.05,
-        time_based: true,
-        time_limit_seconds: Some(3600), // 1 hour
+        enabled: true,
+        threshold_percent: -5.0,
     };
     
-    assert_eq!(config.percentage, 0.05);
-    assert!(config.time_based);
-    assert_eq!(config.time_limit_seconds, Some(3600));
+    assert_eq!(config.threshold_percent, -5.0);
+    assert!(config.enabled);
 }
 
 #[test]
 fn test_take_profit_config_default() {
     let config = TakeProfitConfig::default();
     
-    assert_eq!(config.percentage, 0.50); // 50% take profit
-    assert!(config.partial_levels.is_empty());
+    assert_eq!(config.threshold_percent, 50.0); // 50% take profit
+    assert_eq!(config.sell_percent, 0.5);
+    assert!(!config.enabled);
 }
 
 #[test]
-fn test_take_profit_config_with_partials() {
+fn test_take_profit_config_custom() {
     let config = TakeProfitConfig {
-        percentage: 1.0, // 100%
-        partial_levels: vec![
-            (0.25, 0.25), // At 25% gain, sell 25%
-            (0.50, 0.50), // At 50% gain, sell 50%
-        ],
+        enabled: true,
+        threshold_percent: 100.0, // 100%
+        sell_percent: 1.0,
     };
     
-    assert_eq!(config.percentage, 1.0);
-    assert_eq!(config.partial_levels.len(), 2);
-    assert_eq!(config.partial_levels[0], (0.25, 0.25));
-    assert_eq!(config.partial_levels[1], (0.50, 0.50));
+    assert_eq!(config.threshold_percent, 100.0);
+    assert_eq!(config.sell_percent, 1.0);
+    assert!(config.enabled);
 }
 
 #[test]
@@ -153,13 +148,13 @@ fn test_portfolio_config_serialization() {
 fn test_sell_strategy_serialization() {
     let strategy = SellStrategy {
         stop_loss: Some(StopLossConfig {
-            percentage: 0.15,
-            time_based: true,
-            time_limit_seconds: Some(7200),
+            enabled: true,
+            threshold_percent: -15.0,
         }),
         take_profit: Some(TakeProfitConfig {
-            percentage: 0.75,
-            partial_levels: vec![(0.30, 0.30)],
+            enabled: true,
+            threshold_percent: 75.0,
+            sell_percent: 0.75,
         }),
         trailing_stop: None,
     };
@@ -173,7 +168,7 @@ fn test_sell_strategy_serialization() {
     assert!(deserialized.trailing_stop.is_none());
     
     let stop_loss = deserialized.stop_loss.unwrap();
-    assert_eq!(stop_loss.percentage, 0.15);
+    assert_eq!(stop_loss.threshold_percent, -15.0);
 }
 
 #[test]
@@ -187,7 +182,7 @@ fn test_portfolio_config_clone() {
 
 #[test]
 fn test_trading_mode_clone() {
-    let mode = TradingMode::Multi;
+    let mode = TradingMode::Auto;
     let cloned = mode;
     
     assert_eq!(mode, cloned);
@@ -221,20 +216,21 @@ fn test_portfolio_config_large_exposure() {
 #[test]
 fn test_stop_loss_zero_percentage() {
     let config = StopLossConfig {
-        percentage: 0.0, // Edge case: immediate stop
-        time_based: false,
-        time_limit_seconds: None,
+        enabled: true,
+        threshold_percent: 0.0,
     };
     
-    assert_eq!(config.percentage, 0.0);
+    assert_eq!(config.threshold_percent, 0.0);
 }
 
 #[test]
 fn test_take_profit_very_high() {
     let config = TakeProfitConfig {
-        percentage: 10.0, // 1000% gain
-        partial_levels: vec![],
+        enabled: true,
+        threshold_percent: 1000.0, // 1000% gain
+        sell_percent: 1.0,
     };
     
-    assert_eq!(config.percentage, 10.0);
+    assert_eq!(config.threshold_percent, 1000.0);
+    assert_eq!(config.sell_percent, 1.0);
 }
