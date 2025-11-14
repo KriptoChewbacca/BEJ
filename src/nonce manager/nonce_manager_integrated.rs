@@ -1905,24 +1905,24 @@ mod tests {
 
     #[test]
     fn test_batch_validate_simd() {
-        // Create test accounts
+        // Create test accounts with last_valid_slot values 1010-1019
         let accounts: Vec<Arc<ImprovedNonceAccount>> = (0..10)
             .map(|i| {
                 Arc::new(ImprovedNonceAccount::new(
                     Pubkey::new_unique(),
                     Hash::new_unique(),
-                    1000 + i as u64,
+                    1010 + i as u64,
                 ))
             })
             .collect();
 
-        // Test validation at slot 1005 (should be valid for all)
+        // Test validation at slot 1005 (should be valid for all: 1005 < 1010..1019)
         let results = UniverseNonceManager::batch_validate_not_expired_simd(&accounts, 1005);
         assert_eq!(results.len(), 10);
         assert!(results.iter().all(|&r| r), "All accounts should be valid");
 
-        // Test validation at slot 1015 (should be invalid for all)
-        let results = UniverseNonceManager::batch_validate_not_expired_simd(&accounts, 1015);
+        // Test validation at slot 1020 (should be invalid for all: 1020 >= 1010..1019)
+        let results = UniverseNonceManager::batch_validate_not_expired_simd(&accounts, 1020);
         assert_eq!(results.len(), 10);
         assert!(
             results.iter().all(|&r| !r),
