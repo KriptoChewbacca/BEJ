@@ -455,6 +455,8 @@ mod tests {
     mod config_validation; // Multi-token configuration validation tests
     mod error_conversion_tests;
     mod execution_context_tests;
+    mod gui_command_tests; // ZADANIE 1: GUI command channel tests
+    mod gui_selection_tests; // ZADANIE 2: GUI selection tests
     mod instruction_ordering_tests;
     mod migration_tests; // Backward compatibility tests
     mod multi_token_integration_tests; // Comprehensive multi-token integration tests
