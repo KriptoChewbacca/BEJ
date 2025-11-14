@@ -177,7 +177,7 @@ pub fn should_process(tx_bytes: &[u8]) -> bool {
 /// Two modes:
 /// - prod_parse feature: Uses solana-sdk VersionedTransaction deserialization
 /// - default: Uses optimized offset-based extraction with validation
-pub fn extract_mint(tx_bytes: &[u8], safe_offsets: bool) -> Result<Pubkey, MintExtractError> {
+pub fn extract_mint(tx_bytes: &[u8], _safe_offsets: bool) -> Result<Pubkey, MintExtractError> {
     #[cfg(feature = "prod_parse")]
     {
         let tx: VersionedTransaction = bincode::deserialize(tx_bytes)
@@ -200,6 +200,9 @@ pub fn extract_mint(tx_bytes: &[u8], safe_offsets: bool) -> Result<Pubkey, MintE
 
     #[cfg(not(feature = "prod_parse"))]
     {
+        #[allow(unused_variables)]
+        let safe_offsets = _safe_offsets;
+        
         if tx_bytes.len() < 96 {
             return Err(MintExtractError::TooSmall);
         }
@@ -221,7 +224,7 @@ pub fn extract_mint(tx_bytes: &[u8], safe_offsets: bool) -> Result<Pubkey, MintE
 /// Extract account pubkeys from transaction bytes with safe parsing
 pub fn extract_accounts(
     tx_bytes: &[u8],
-    safe_offsets: bool,
+    _safe_offsets: bool,
 ) -> Result<SmallVec<[Pubkey; 8]>, AccountExtractError> {
     #[cfg(feature = "prod_parse")]
     {
@@ -249,6 +252,9 @@ pub fn extract_accounts(
 
     #[cfg(not(feature = "prod_parse"))]
     {
+        #[allow(unused_variables)]
+        let safe_offsets = _safe_offsets;
+        
         let mut accounts = SmallVec::new();
 
         if tx_bytes.len() < 128 {
