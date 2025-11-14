@@ -8,6 +8,9 @@ use tracing::debug;
 #[cfg(feature = "prod_parse")]
 use solana_sdk::transaction::VersionedTransaction;
 
+#[cfg(feature = "prod_parse")]
+use bincode;
+
 /// Pump.fun program ID bytes (hardcoded for fast matching)
 const PUMP_FUN_PROGRAM_ID: [u8; 32] = [
     0x6f, 0x1d, 0x8a, 0x9c, 0x2e, 0xf4, 0xa3, 0x5b, 0x7c, 0x4d, 0x9e, 0x1f, 0x6a, 0x8b, 0x3c, 0x2d,
@@ -177,7 +180,7 @@ pub fn should_process(tx_bytes: &[u8]) -> bool {
 pub fn extract_mint(tx_bytes: &[u8], safe_offsets: bool) -> Result<Pubkey, MintExtractError> {
     #[cfg(feature = "prod_parse")]
     {
-        let tx = VersionedTransaction::deserialize(tx_bytes)
+        let tx: VersionedTransaction = bincode::deserialize(tx_bytes)
             .map_err(|_| MintExtractError::DeserializationFailed)?;
 
         // Use compat layer for unified message access
@@ -222,7 +225,7 @@ pub fn extract_accounts(
 ) -> Result<SmallVec<[Pubkey; 8]>, AccountExtractError> {
     #[cfg(feature = "prod_parse")]
     {
-        let tx = VersionedTransaction::deserialize(tx_bytes)
+        let tx: VersionedTransaction = bincode::deserialize(tx_bytes)
             .map_err(|_| AccountExtractError::DeserializationFailed)?;
 
         // Use compat layer for unified message access
