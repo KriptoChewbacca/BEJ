@@ -320,10 +320,14 @@ mod tests {
     use super::*;
 
     // Include test modules
+    mod buy_engine_multi_token_tests; // Multi-token buy engine tests
     mod config_validation; // Multi-token configuration validation tests
     mod error_conversion_tests;
     mod execution_context_tests;
     mod instruction_ordering_tests;
+    mod migration_tests; // Backward compatibility tests
+    mod multi_token_integration_tests; // Comprehensive multi-token integration tests
+    mod multi_token_state_tests; // Multi-token state management tests
     mod nonce_concurrency_tests;
     mod nonce_integration_tests;
     mod nonce_lease_tests;
@@ -332,6 +336,7 @@ mod tests {
     mod phase2_raii_output_tests; // Phase 2 RAII output integration tests
     mod phase4_e2e_perf_stress_tests; // Phase 4 E2E, Performance, and Stress tests
     mod production_stress_tests; // Task 4: Production-grade stress tests
+    mod sell_multi_token_tests; // Multi-token sell logic tests
     mod simulation_nonce_tests;
     mod task2_raii_tests; // Task 2: RAII tests for ExecutionContext and TxBuildOutput
     mod task5_gui_control_tests; // Task 5: GUI Bot State Control Integration tests

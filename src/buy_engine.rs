@@ -1705,6 +1705,19 @@ impl BuyEngine {
             };
 
             if sniffing {
+                // Check if we can buy new token (respects multi-token portfolio config)
+                let can_buy = {
+                    let state = self.app_state.lock().await;
+                    state.can_buy()
+                };
+
+                if !can_buy {
+                    debug!("Cannot buy: portfolio limit reached");
+                    metrics().increment_counter("buy_blocked_portfolio_limit");
+                    sleep(Duration::from_millis(100)).await;
+                    continue;
+                }
+
                 // Check predictive surge before backoff
                 if let Some(confidence) = self.predictive_analytics.predict_surge().await {
                     info!("Predictive surge detected with {}% confidence", confidence);
@@ -1825,10 +1838,33 @@ impl BuyEngine {
 
                                 {
                                     let mut st = self.app_state.lock().await;
-                                    *st.mode.write().await = Mode::PassiveToken(candidate.mint);
-                                    st.active_token = Some(candidate.clone());
-                                    st.last_buy_price = Some(exec_price);
-                                    st.holdings_percent = 1.0;
+                                    
+                                    // Create and insert token position
+                                    use crate::types::TokenPosition;
+                                    st.active_tokens.insert(
+                                        candidate.mint,
+                                        TokenPosition::new(candidate.clone(), exec_price),
+                                    );
+
+                                    // Set mode if first token
+                                    if st.active_tokens.len() == 1 {
+                                        *st.mode.write().await = Mode::PassiveToken(candidate.mint);
+                                    }
+
+                                    let position_count = st.active_tokens.len();
+                                    info!(
+                                        mint = %candidate.mint,
+                                        total_positions = position_count,
+                                        "Token position opened"
+                                    );
+
+                                    // Update deprecated fields for backward compatibility
+                                    #[allow(deprecated)]
+                                    {
+                                        st.active_token = Some(candidate.clone());
+                                        st.last_buy_price = Some(exec_price);
+                                        st.holdings_percent = 1.0;
+                                    }
                                 }
 
                                 // Update portfolio
@@ -2318,22 +2354,55 @@ impl BuyEngine {
                     }
                 }
 
-                // Update app state
+                // Update app state - multi-token approach
                 let mut st = self.app_state.lock().await;
-                st.holdings_percent = new_holdings;
-                if st.holdings_percent <= f64::EPSILON {
-                    info!(mint=%mint, correlation_id=ctx.correlation_id, "Sold 100%; returning to Sniffing mode");
-                    *st.mode.write().await = Mode::Sniffing;
-                    st.active_token = None;
-                    st.last_buy_price = None;
+                
+                // Calculate new holdings by updating the position
+                let final_holdings = if let Some(mut pos) = st.active_tokens.get_mut(&mint) {
+                    pos.holdings_percent *= (1.0 - pct);
+                    pos.holdings_percent
+                } else {
+                    return Err(anyhow!("Position not found for mint {}", mint));
+                };
+
+                // If fully sold, remove position
+                if final_holdings <= f64::EPSILON {
+                    st.active_tokens.remove(&mint);
+                    info!(mint = %mint, "Position fully closed");
+                    
+                    // Return to Sniffing if no more positions
+                    if st.active_tokens.is_empty() {
+                        *st.mode.write().await = Mode::Sniffing;
+                        info!("All positions closed - returning to Sniffing mode");
+                    }
 
                     // UNIVERSE: Update portfolio - remove fully sold token
                     let mut portfolio = self.portfolio.write().await;
                     portfolio.remove(&mint);
+                    
+                    // Update deprecated fields for backward compatibility
+                    #[allow(deprecated)]
+                    {
+                        st.active_token = None;
+                        st.last_buy_price = None;
+                        st.holdings_percent = 0.0;
+                    }
                 } else {
+                    info!(
+                        mint = %mint,
+                        remaining = final_holdings,
+                        "Partial sell executed"
+                    );
+                    
                     // UNIVERSE: Update portfolio with new holdings
                     let mut portfolio = self.portfolio.write().await;
-                    portfolio.insert(mint, new_holdings);
+                    portfolio.insert(mint, final_holdings);
+                    
+                    // Update deprecated fields for backward compatibility
+                    #[allow(deprecated)]
+                    {
+                        st.holdings_percent = final_holdings;
+                    }
                 }
 
                 Ok(())
@@ -3144,6 +3213,15 @@ impl BuyEngine {
     pub async fn export_performance_report(&self) -> String {
         let diagnostics = self.get_universe_diagnostics().await;
         serde_json::to_string_pretty(&diagnostics).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    /// Get holdings percentage for a specific token
+    ///
+    /// Returns the current holdings percentage (0.0 - 1.0) for the specified mint,
+    /// or None if no position exists for that token.
+    pub async fn get_holdings(&self, mint: &Pubkey) -> Option<f64> {
+        let st = self.app_state.lock().await;
+        st.active_tokens.get(mint).map(|pos| pos.holdings_percent)
     }
 }
 

@@ -1,9 +1,11 @@
 //! Common types used throughout the application
 
 use crate::components::gui_bridge::GuiSnapshotProvider;
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::{mpsc, RwLock};
 
 /// Trading mode
@@ -61,6 +63,37 @@ pub type CandidateReceiver = mpsc::UnboundedReceiver<PremintCandidate>;
 /// Sender for candidates to buy engine
 pub type CandidateSender = mpsc::UnboundedSender<PremintCandidate>;
 
+/// Token position information for multi-token portfolio management
+#[derive(Debug, Clone)]
+pub struct TokenPosition {
+    /// The premint candidate information
+    pub candidate: PremintCandidate,
+    
+    /// Entry price when position was opened
+    pub entry_price: f64,
+    
+    /// Current holdings percentage (0.0 - 1.0)
+    pub holdings_percent: f64,
+    
+    /// Timestamp when position was entered (Unix timestamp in seconds)
+    pub entry_timestamp: u64,
+}
+
+impl TokenPosition {
+    /// Create a new token position
+    pub fn new(candidate: PremintCandidate, entry_price: f64) -> Self {
+        Self {
+            candidate,
+            entry_price,
+            holdings_percent: 1.0,
+            entry_timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        }
+    }
+}
+
 /// Shared application state
 #[derive(Clone)]
 pub struct AppState {
@@ -73,21 +106,35 @@ pub struct AppState {
     /// Statistics
     pub stats: Arc<RwLock<Stats>>,
 
-    /// Currently active token (if any)
-    pub active_token: Option<PremintCandidate>,
-
-    /// Last buy price (if any)
-    pub last_buy_price: Option<f64>,
-
-    /// Current holdings percentage (0.0 - 1.0)
-    pub holdings_percent: f64,
+    /// Active token positions (multi-token support)
+    pub active_tokens: Arc<DashMap<Pubkey, TokenPosition>>,
 
     /// GUI snapshot provider for real-time monitoring (optional)
     pub gui_snapshot_provider: Option<Arc<GuiSnapshotProvider>>,
 
-    /// Portfolio configuration for multi-token trading (future feature)
-    #[allow(dead_code)]
+    /// Portfolio configuration for multi-token trading
     pub portfolio_config: PortfolioConfig,
+    
+    // ============================================================================
+    // DEPRECATED FIELDS - Kept for backward compatibility, will be removed in future
+    // ============================================================================
+    // These fields are kept temporarily to avoid breaking existing code that may
+    // still reference them. New code should use active_tokens instead.
+    
+    /// DEPRECATED: Use active_tokens instead
+    /// Currently active token (if any)
+    #[deprecated(since = "0.2.0", note = "Use active_tokens instead")]
+    pub active_token: Option<PremintCandidate>,
+
+    /// DEPRECATED: Use TokenPosition.entry_price in active_tokens instead
+    /// Last buy price (if any)
+    #[deprecated(since = "0.2.0", note = "Use TokenPosition.entry_price in active_tokens")]
+    pub last_buy_price: Option<f64>,
+
+    /// DEPRECATED: Use TokenPosition.holdings_percent in active_tokens instead
+    /// Current holdings percentage (0.0 - 1.0)
+    #[deprecated(since = "0.2.0", note = "Use TokenPosition.holdings_percent in active_tokens")]
+    pub holdings_percent: f64,
 }
 
 /// Application statistics
@@ -116,11 +163,16 @@ impl AppState {
             mode: Arc::new(RwLock::new(mode)),
             is_paused: Arc::new(RwLock::new(false)),
             stats: Arc::new(RwLock::new(Stats::default())),
-            active_token: None,
-            last_buy_price: None,
-            holdings_percent: 0.0,
+            active_tokens: Arc::new(DashMap::new()),
             gui_snapshot_provider: None,
             portfolio_config: PortfolioConfig::default(),
+            // Deprecated fields
+            #[allow(deprecated)]
+            active_token: None,
+            #[allow(deprecated)]
+            last_buy_price: None,
+            #[allow(deprecated)]
+            holdings_percent: 0.0,
         }
     }
 
@@ -130,11 +182,35 @@ impl AppState {
             mode: Arc::new(RwLock::new(mode)),
             is_paused: Arc::new(RwLock::new(false)),
             stats: Arc::new(RwLock::new(Stats::default())),
-            active_token: None,
-            last_buy_price: None,
-            holdings_percent: 0.0,
+            active_tokens: Arc::new(DashMap::new()),
             gui_snapshot_provider: Some(gui_provider),
             portfolio_config: PortfolioConfig::default(),
+            // Deprecated fields
+            #[allow(deprecated)]
+            active_token: None,
+            #[allow(deprecated)]
+            last_buy_price: None,
+            #[allow(deprecated)]
+            holdings_percent: 0.0,
+        }
+    }
+
+    /// Create new application state with custom portfolio configuration
+    pub fn with_config(mode: Mode, portfolio_config: PortfolioConfig) -> Self {
+        Self {
+            mode: Arc::new(RwLock::new(mode)),
+            is_paused: Arc::new(RwLock::new(false)),
+            stats: Arc::new(RwLock::new(Stats::default())),
+            active_tokens: Arc::new(DashMap::new()),
+            gui_snapshot_provider: None,
+            portfolio_config,
+            // Deprecated fields
+            #[allow(deprecated)]
+            active_token: None,
+            #[allow(deprecated)]
+            last_buy_price: None,
+            #[allow(deprecated)]
+            holdings_percent: 0.0,
         }
     }
 
@@ -169,6 +245,60 @@ impl AppState {
         }
         stats.total_volume_sol += volume_sol;
     }
+
+    // ============================================================================
+    // Multi-Token Portfolio Management Methods
+    // ============================================================================
+
+    /// Check if bot can buy a new token (respects multi-token configuration)
+    ///
+    /// Returns true if:
+    /// - Multi-token mode is disabled and no active positions exist, OR
+    /// - Multi-token mode is enabled and positions < max_concurrent_positions
+    pub fn can_buy(&self) -> bool {
+        if !self.portfolio_config.enable_multi_token {
+            // Single-token mode: only allow buy if no active positions
+            return self.active_tokens.is_empty();
+        }
+        // Multi-token mode: check against position limit
+        self.active_tokens.len() < self.portfolio_config.max_concurrent_positions
+    }
+
+    /// Get position for a specific token
+    ///
+    /// Returns a cloned TokenPosition if it exists, None otherwise
+    pub fn get_position(&self, mint: &Pubkey) -> Option<TokenPosition> {
+        self.active_tokens.get(mint).map(|r| r.clone())
+    }
+
+    /// Get all active positions
+    ///
+    /// Returns a vector of (Pubkey, TokenPosition) tuples
+    pub fn get_all_positions(&self) -> Vec<(Pubkey, TokenPosition)> {
+        self.active_tokens
+            .iter()
+            .map(|r| (*r.key(), r.value().clone()))
+            .collect()
+    }
+
+    /// Add or update a token position
+    ///
+    /// Returns the previous position if one existed
+    pub fn set_position(&self, mint: Pubkey, position: TokenPosition) -> Option<TokenPosition> {
+        self.active_tokens.insert(mint, position)
+    }
+
+    /// Remove a token position
+    ///
+    /// Returns the removed position if it existed
+    pub fn remove_position(&self, mint: &Pubkey) -> Option<(Pubkey, TokenPosition)> {
+        self.active_tokens.remove(mint)
+    }
+
+    /// Get the number of active positions
+    pub fn position_count(&self) -> usize {
+        self.active_tokens.len()
+    }
 }
 
 // =============================================================================
@@ -181,8 +311,6 @@ impl AppState {
 /// Portfolio configuration for multi-token trading
 ///
 /// Controls how the bot manages multiple concurrent positions.
-/// Currently a placeholder for future functionality.
-#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PortfolioConfig {
     /// Enable multi-token portfolio management
