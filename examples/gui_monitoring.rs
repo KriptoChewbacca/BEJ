@@ -13,8 +13,10 @@
 //!
 //! ## Usage
 //!
+//! This example requires the `gui_monitor` feature to be enabled:
+//!
 //! ```bash
-//! cargo run --example gui_monitoring
+//! cargo run --example gui_monitoring --features gui_monitor
 //! ```
 //!
 //! ## Note

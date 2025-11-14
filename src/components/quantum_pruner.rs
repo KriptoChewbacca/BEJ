@@ -450,9 +450,7 @@ impl PathPruner {
     fn generate_suggested_code(&self, path: &CodePath) -> String {
         match path.path_type {
             PathType::Panic => {
-                format!(
-                    "return Err(anyhow::anyhow!(\"Error condition\"))"
-                )
+                "return Err(anyhow::anyhow!(\"Error condition\"))".to_string()
             }
             PathType::EdgeCase => {
                 "// TODO: Implement this path or remove if unnecessary".to_string()

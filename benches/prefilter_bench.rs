@@ -1,6 +1,7 @@
 //! Benchmark for prefilter performance
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use bot::sniffer::prefilter;
 
 fn create_mock_tx(size: usize) -> Vec<u8> {
     let mut tx = vec![0x01; size];
@@ -21,7 +22,7 @@ fn bench_prefilter_should_process(c: &mut Criterion) {
             b.iter(|| {
                 // Note: This will likely always return false for mock data
                 // In real benchmarks, use realistic transaction data
-                black_box(ultra::sniffer::prefilter::should_process(black_box(tx)))
+                black_box(prefilter::should_process(black_box(tx)))
             });
         });
     }
@@ -33,7 +34,7 @@ fn bench_prefilter_vote_check(c: &mut Criterion) {
     let tx = create_mock_tx(256);
 
     c.bench_function("is_vote_tx", |b| {
-        b.iter(|| black_box(ultra::sniffer::prefilter::is_vote_tx(black_box(&tx))));
+        b.iter(|| black_box(prefilter::is_vote_tx(black_box(&tx))));
     });
 }
 

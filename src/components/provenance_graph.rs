@@ -42,6 +42,7 @@ use sha2::{Digest, Sha256};
 use solana_sdk::pubkey::Pubkey;
 use std::{
     collections::{HashMap, VecDeque},
+    fmt,
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc,
@@ -81,11 +82,6 @@ impl DID {
         }
     }
 
-    /// Convert to canonical string format
-    pub fn to_string(&self) -> String {
-        format!("did:{}:{}", self.method, self.identifier)
-    }
-
     /// Parse from string format
     pub fn from_string(s: &str) -> Result<Self> {
         let parts: Vec<&str> = s.split(':').collect();
@@ -107,6 +103,12 @@ impl DID {
         let hash = hasher.finalize();
 
         bs58::encode(hash).into_string() == self.identifier
+    }
+}
+
+impl fmt::Display for DID {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "did:{}:{}", self.method, self.identifier)
     }
 }
 

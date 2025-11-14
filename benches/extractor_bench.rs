@@ -3,7 +3,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use smallvec::SmallVec;
 use solana_sdk::pubkey::Pubkey;
-use ultra::sniffer::extractor::{PremintCandidate, PriorityLevel};
+use bot::sniffer::extractor::{PremintCandidate, PriorityLevel};
 
 fn bench_candidate_creation(c: &mut Criterion) {
     let mint = Pubkey::new_unique();

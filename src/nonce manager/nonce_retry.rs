@@ -314,6 +314,12 @@ pub struct GlobalCircuitBreaker {
     tainted_endpoints: Arc<RwLock<std::collections::HashSet<String>>>,
 }
 
+impl Default for GlobalCircuitBreaker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GlobalCircuitBreaker {
     pub fn new() -> Self {
         Self {
@@ -531,7 +537,7 @@ impl ErrorClassifier {
     }
 
     /// Simple k-means clustering approximation on error strings
-    fn perform_clustering(&self, history: &mut Vec<ErrorHistoryEntry>) {
+    fn perform_clustering(&self, history: &mut [ErrorHistoryEntry]) {
         // Simplified clustering based on error string similarity
         // In production, use proper feature extraction and k-means
 

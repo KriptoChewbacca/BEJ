@@ -1,7 +1,7 @@
 //! Benchmark for analytics performance
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use ultra::sniffer::analytics::PredictiveAnalytics;
+use bot::sniffer::analytics::PredictiveAnalytics;
 
 fn bench_accumulate_volume(c: &mut Criterion) {
     let analytics = PredictiveAnalytics::new(0.2, 0.05, 1.5);

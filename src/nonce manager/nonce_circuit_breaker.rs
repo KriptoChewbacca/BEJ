@@ -133,6 +133,12 @@ pub struct GlobalCircuitBreaker {
     pub average_latency_ms: AtomicCell<f64>,
 }
 
+impl Default for GlobalCircuitBreaker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GlobalCircuitBreaker {
     pub fn new() -> Self {
         Self {
@@ -189,6 +195,12 @@ pub struct RLAgent {
     epsilon: AtomicCell<f64>, // Exploration rate
     alpha: f64,               // Learning rate
     gamma: f64,               // Discount factor
+}
+
+impl Default for RLAgent {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl RLAgent {

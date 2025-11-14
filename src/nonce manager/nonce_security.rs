@@ -579,7 +579,7 @@ impl AuthorityRotationManager {
 
     /// Check if rotation is needed based on counter
     pub fn needs_rotation(&self, counter: u64) -> bool {
-        counter > 0 && counter % self.rotation_threshold == 0
+        counter > 0 && counter.is_multiple_of(self.rotation_threshold)
     }
 
     /// Build authority rotation transaction

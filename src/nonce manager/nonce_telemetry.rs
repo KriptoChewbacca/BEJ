@@ -365,16 +365,16 @@ impl NonceTelemetry {
         let mut output = String::new();
 
         output.push_str(&self.counters.export_prometheus());
-        output.push_str("\n");
+        output.push('\n');
         output.push_str(&self.gauges.export_prometheus().await);
-        output.push_str("\n");
+        output.push('\n');
         output.push_str(
             &self
                 .acquire_latency
                 .export_prometheus("nonce_acquire_latency_seconds")
                 .await,
         );
-        output.push_str("\n");
+        output.push('\n');
         output.push_str(
             &self
                 .refresh_latency

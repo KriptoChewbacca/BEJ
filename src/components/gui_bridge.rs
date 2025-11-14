@@ -64,11 +64,13 @@ pub struct PositionSnapshot {
 ///
 /// Represents the current operational state of the trading bot.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Default)]
 pub enum BotState {
     /// Bot is actively trading
     Running,
 
     /// Bot is stopped and not processing candidates
+    #[default]
     Stopped,
 
     /// Bot is paused temporarily
@@ -181,11 +183,6 @@ impl GuiSnapshotProvider {
     }
 }
 
-impl Default for BotState {
-    fn default() -> Self {
-        BotState::Stopped
-    }
-}
 
 // =============================================================================
 // GUI Commands (Future Feature)

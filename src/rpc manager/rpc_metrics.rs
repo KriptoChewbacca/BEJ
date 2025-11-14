@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt;
 
 /// Health check response for HTTP endpoint
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -90,16 +91,18 @@ impl PrometheusMetrics {
             .push(format!("{}_count{{{}}} {}", name, label_str, count));
     }
 
-    pub fn to_string(&self) -> String {
-        self.metrics.join("\n")
-    }
-
     fn format_labels(labels: &[(&str, &str)]) -> String {
         labels
             .iter()
             .map(|(k, v)| format!("{}=\"{}\"", k, v))
             .collect::<Vec<_>>()
             .join(",")
+    }
+}
+
+impl fmt::Display for PrometheusMetrics {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.metrics.join("\n"))
     }
 }
 
