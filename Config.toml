@@ -1,6 +1,24 @@
 # Trading Bot Configuration
 # This file contains runtime configuration for the trading bot
 
+[streaming]
+# Streaming mode: "websocket" (free tier) or "geyser" (premium)
+mode = "websocket"
+
+# WebSocket endpoint (for ws-stream feature)
+# Options:
+# - Native Solana: wss://api.devnet.solana.com
+# - Helius: wss://devnet.helius-rpc.com/?api-key=YOUR_KEY
+# - QuickNode: wss://your-endpoint.solana-devnet.quiknode.pro/TOKEN/
+# - Alchemy: wss://solana-devnet.g.alchemy.com/v2/YOUR_KEY
+websocket_url = "wss://api.devnet.solana.com"
+
+# gRPC endpoint (for geyser-stream feature)
+# geyser_endpoint = "https://your-geyser-endpoint:10000"
+
+# Commitment level: finalized, confirmed, processed
+commitment = "confirmed"
+
 [portfolio]
 # Enable multi-token portfolio management (experimental)
 # When false, bot operates in single-token mode (safer, default)

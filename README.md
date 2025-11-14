@@ -4,7 +4,7 @@ Bot is an advanced, high-performance trading bot for the Solana blockchain, impl
 
 ## Features
 
-- **Real-time Transaction Monitoring**: Geyser gRPC streaming
+- **Real-time Transaction Monitoring**: WebSocket streaming (free tier) or Geyser gRPC (premium)
 - **Multi-DEX Support**: PumpFun, Raydium, Orca integration
 - **MEV Protection**: Jito bundle support
 - **Advanced Nonce Management**: Enterprise-grade nonce pooling
@@ -53,15 +53,35 @@ cargo build --release --all-features
 
 The project supports several optional features:
 
+- `ws-stream` - WebSocket streaming for real-time data (default, free tier)
+- `geyser-stream` - Geyser gRPC streaming (premium, production)
 - `pumpfun` - PumpFun DEX integration
 - `orca` - Orca Whirlpools integration
 - `raydium` - Raydium DEX integration (currently disabled)
 - `zk_enabled` - Zero-knowledge proof support
 - `mock-mode` - Mock trading mode for testing
 - `test_utils` - Testing utilities
-- `dex-all` - Enable all DEX integrations
+- `gui_monitor` - GUI monitoring dashboard
+- `multi_token` - Multi-token portfolio support (experimental)
 
 See [BUILD_MATRIX.md](BUILD_MATRIX.md) for complete feature documentation and testing matrix.
+
+### WebSocket Streaming (Free Tier)
+
+The bot supports WebSocket streaming as a free alternative to Geyser gRPC:
+
+```bash
+# Build with WebSocket support (default)
+cargo build --release
+
+# Run with WebSocket streaming
+STREAMING_MODE=websocket cargo run --release
+
+# Try the demo
+cargo run --example websocket_demo --features ws-stream
+```
+
+See [docs/WEBSOCKET_SETUP.md](docs/WEBSOCKET_SETUP.md) for detailed setup instructions and provider options (Solana, Helius, QuickNode, Alchemy).
 
 ### Building with Specific Features
 
