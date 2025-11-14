@@ -104,6 +104,7 @@ use crate::structured_logging::PipelineContext;
 use crate::tx_builder::{TransactionBuilder, TransactionConfig};
 use bot::tx_builder::Bundler;
 use crate::types::{AppState, CandidateReceiver, Mode, PremintCandidate};
+use crate::components::price_stream::PriceStreamManager;
 
 // ============================================================================
 // UNIVERSE CLASS GRADE: Enhanced Configuration & Rate Limiting
@@ -1351,6 +1352,9 @@ pub struct BuyEngine {
 
     // Task 7: Optional Jito bundler for MEV-protected submission
     bundler: Option<Arc<dyn Bundler>>,
+
+    // Task 2: Optional price stream for GUI monitoring
+    price_stream: Option<Arc<PriceStreamManager>>,
 }
 
 impl BuyEngine {
@@ -1362,7 +1366,16 @@ impl BuyEngine {
         config: Config,
         tx_builder: Option<TransactionBuilder>,
     ) -> Self {
-        Self::new_with_bundler(rpc, nonce_manager, candidate_rx, app_state, config, tx_builder, None)
+        Self::new_with_bundler_and_price_stream(
+            rpc,
+            nonce_manager,
+            candidate_rx,
+            app_state,
+            config,
+            tx_builder,
+            None,
+            None,
+        )
     }
 
     /// Task 7: Create BuyEngine with optional Jito bundler for MEV-protected submission
@@ -1381,6 +1394,40 @@ impl BuyEngine {
         config: Config,
         tx_builder: Option<TransactionBuilder>,
         bundler: Option<Arc<dyn Bundler>>,
+    ) -> Self {
+        Self::new_with_bundler_and_price_stream(
+            rpc,
+            nonce_manager,
+            candidate_rx,
+            app_state,
+            config,
+            tx_builder,
+            bundler,
+            None,
+        )
+    }
+
+    /// Task 2 & 7: Create BuyEngine with optional Jito bundler and price stream for GUI monitoring
+    ///
+    /// # Arguments
+    ///
+    /// * `bundler` - Optional Arc<dyn Bundler> for MEV-protected bundle submission
+    /// * `price_stream` - Optional Arc<PriceStreamManager> for real-time price updates to GUI
+    ///
+    /// When bundler is provided and available, the engine will prefer bundle submission
+    /// over single transaction broadcast for critical operations (buy/sell).
+    ///
+    /// When price_stream is provided, the engine will publish price updates after each
+    /// successful buy/sell operation for GUI monitoring.
+    pub fn new_with_bundler_and_price_stream(
+        rpc: Arc<dyn RpcBroadcaster>,
+        nonce_manager: Arc<NonceManager>,
+        candidate_rx: CandidateReceiver,
+        app_state: Arc<Mutex<AppState>>,
+        config: Config,
+        tx_builder: Option<TransactionBuilder>,
+        bundler: Option<Arc<dyn Bundler>>,
+        price_stream: Option<Arc<PriceStreamManager>>,
     ) -> Self {
         // Initialize allowed sources for taint tracking
         let allowed_sources = vec![
@@ -1428,6 +1475,7 @@ impl BuyEngine {
             current_endpoint_idx: AtomicU64::new(0),
             tx_queue: Arc::new(TransactionQueue::new(1000)), // Queue up to 1000 txs
             bundler, // Task 7: Optional Jito bundler
+            price_stream, // Task 2: Optional price stream for GUI monitoring
         }
     }
 
@@ -1679,6 +1727,9 @@ impl BuyEngine {
                                     let mut portfolio = self.portfolio.write().await;
                                     portfolio.insert(candidate.mint, 1.0);
                                 }
+
+                                // Task 2: Record price for GUI monitoring
+                                self.record_price_for_gui(candidate.mint, exec_price);
 
                                 info!(mint=%candidate.mint, price=%exec_price, "Recorded buy price and entered PassiveToken");
 
@@ -2047,6 +2098,19 @@ impl BuyEngine {
                     warn!(mint=%mint, error=%e, "Failed to release nonce after sell broadcast");
                 }
 
+                // Task 2: Record sell price for GUI monitoring
+                // Use mock price for now - in production, this would come from actual transaction result
+                let sell_price = self.get_execution_price_mock(&PremintCandidate {
+                    mint,
+                    program: "pump.fun".to_string(),
+                    accounts: vec![],
+                    priority: crate::types::PriorityLevel::Medium,
+                    timestamp: 0,
+                    price_hint: None,
+                    signature: None,
+                }).await;
+                self.record_price_for_gui(mint, sell_price);
+
                 // Update app state
                 let mut st = self.app_state.lock().await;
                 st.holdings_percent = new_holdings;
@@ -2232,6 +2296,41 @@ impl BuyEngine {
         let msg = Message::new(&[ix], None);
         let tx = Transaction::new_unsigned(msg);
         VersionedTransaction::from(tx)
+    }
+
+    /// Task 2: Record price for GUI monitoring (non-blocking)
+    ///
+    /// Publishes a price update to the price stream if available.
+    /// This is called after successful buy/sell operations to provide
+    /// real-time price updates to the GUI.
+    ///
+    /// # Arguments
+    /// * `mint` - Token mint address
+    /// * `price_sol` - Current price in SOL
+    ///
+    /// # Performance
+    /// This method is designed to be non-blocking and have zero impact on
+    /// trading performance. If the price stream is not available or the
+    /// publish fails, it's silently ignored.
+    fn record_price_for_gui(&self, mint: Pubkey, price_sol: f64) {
+        use crate::components::price_stream::PriceUpdate;
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        if let Some(price_stream) = &self.price_stream {
+            let update = PriceUpdate {
+                mint,
+                price_sol,
+                price_usd: 0.0, // TODO: Fetch from price oracle if available
+                volume_24h: 0.0, // TODO: Calculate from on-chain data if needed
+                timestamp: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or(Duration::from_secs(0))
+                    .as_secs(),
+                source: "internal".to_string(),
+            };
+            
+            price_stream.publish_price(update);
+        }
     }
 
     /// UNIVERSE: Advanced candidate filtering with zero-copy processing
