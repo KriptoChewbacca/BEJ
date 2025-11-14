@@ -44,11 +44,11 @@ pub mod monitoring_gui;
 
 use crate::components::price_stream::PriceUpdate;
 use crate::position_tracker::PositionTracker;
+use eframe::egui;
 use monitoring_gui::MonitoringGui;
 use std::sync::atomic::AtomicU8;
 use std::sync::Arc;
 use tokio::sync::broadcast;
-use eframe::egui;
 
 /// Launch the monitoring GUI
 ///
@@ -97,7 +97,7 @@ pub fn launch_monitoring_gui(
             .with_title("Solana Sniper Bot - Monitoring Dashboard"),
         ..Default::default()
     };
-    
+
     eframe::run_native(
         "Bot Monitor",
         options,
@@ -123,7 +123,7 @@ mod tests {
         let _tracker = Arc::new(PositionTracker::new());
         let _price_stream = PriceStreamManager::new(100, Duration::from_millis(333));
         let _bot_state = Arc::new(AtomicU8::new(0));
-        
+
         // Can't actually launch GUI in tests, but we can verify the types
     }
 }

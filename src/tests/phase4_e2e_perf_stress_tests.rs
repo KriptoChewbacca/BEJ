@@ -294,8 +294,8 @@ mod phase4_tests {
             1_000_000,
         ));
 
-        let message = MessageV0::try_compile(&payer.pubkey(), &instructions, &[], nonce_blockhash)
-            .unwrap();
+        let message =
+            MessageV0::try_compile(&payer.pubkey(), &instructions, &[], nonce_blockhash).unwrap();
         let tx_unsigned = VersionedTransaction {
             signatures: vec![solana_sdk::signature::Signature::default()],
             message: VersionedMessage::V0(message),
@@ -335,7 +335,10 @@ mod phase4_tests {
 
         // Verify transaction is properly signed
         assert_eq!(tx_signed.signatures.len(), 1);
-        assert_ne!(tx_signed.signatures[0], solana_sdk::signature::Signature::default());
+        assert_ne!(
+            tx_signed.signatures[0],
+            solana_sdk::signature::Signature::default()
+        );
 
         // Step 5: Mock broadcast (in real scenario, would send to RPC)
         let broadcast_start = Instant::now();
@@ -353,8 +356,11 @@ mod phase4_tests {
         tokio::time::sleep(Duration::from_millis(100)).await;
         assert_eq!(nonce_manager.get_stats().await.permits_in_use, 0);
 
-        let total_duration =
-            acquire_duration + build_duration + simulate_duration + sign_duration + release_duration;
+        let total_duration = acquire_duration
+            + build_duration
+            + simulate_duration
+            + sign_duration
+            + release_duration;
         println!("  ✓ Total E2E duration: {:?}", total_duration);
         println!("✓ E2E with simulate and sign test passed");
     }
@@ -408,7 +414,10 @@ mod phase4_tests {
                 VersionedTransaction::try_new(tx_unsigned.message.clone(), &signers).unwrap();
 
             // Verify signed
-            assert_ne!(tx_signed.signatures[0], solana_sdk::signature::Signature::default());
+            assert_ne!(
+                tx_signed.signatures[0],
+                solana_sdk::signature::Signature::default()
+            );
 
             // Release
             drop(lease.release().await);

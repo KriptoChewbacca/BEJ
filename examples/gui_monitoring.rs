@@ -34,16 +34,13 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 fn main() -> eframe::Result<()> {
     // Initialize components
     let position_tracker = Arc::new(PositionTracker::new());
-    let price_stream = Arc::new(PriceStreamManager::new(
-        1000,
-        Duration::from_millis(333),
-    ));
+    let price_stream = Arc::new(PriceStreamManager::new(1000, Duration::from_millis(333)));
     let bot_state = Arc::new(AtomicU8::new(1)); // Start in Running state
 
     // Add some demo positions
     let demo_mint1 = Pubkey::new_unique();
     let demo_mint2 = Pubkey::new_unique();
-    
+
     position_tracker.record_buy(demo_mint1, 1_000_000, 10_000_000); // 1M tokens for 0.01 SOL
     position_tracker.record_buy(demo_mint2, 2_000_000, 30_000_000); // 2M tokens for 0.03 SOL
 
@@ -103,9 +100,5 @@ fn main() -> eframe::Result<()> {
     println!("After 10 seconds, a partial sell will be simulated.");
     println!("Close the window to exit.");
 
-    launch_monitoring_gui(
-        position_tracker,
-        price_stream.subscribe(),
-        bot_state,
-    )
+    launch_monitoring_gui(position_tracker, price_stream.subscribe(), bot_state)
 }

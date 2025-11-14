@@ -96,15 +96,15 @@ use tracing::{debug, error, info, instrument, warn, Span};
 use crate::metrics::{metrics, Timer};
 use crate::nonce_manager::NonceManager;
 
+use crate::components::price_stream::PriceStreamManager;
 use crate::observability::CorrelationId;
-use bot::observability::TraceContext as ObservabilityTraceContext;
 use crate::rpc_manager::RpcBroadcaster;
 use crate::security::validator;
 use crate::structured_logging::PipelineContext;
 use crate::tx_builder::{TransactionBuilder, TransactionConfig};
-use bot::tx_builder::Bundler;
 use crate::types::{AppState, CandidateReceiver, Mode, PremintCandidate};
-use crate::components::price_stream::PriceStreamManager;
+use bot::observability::TraceContext as ObservabilityTraceContext;
+use bot::tx_builder::Bundler;
 
 // ============================================================================
 // UNIVERSE CLASS GRADE: Enhanced Configuration & Rate Limiting
@@ -1555,9 +1555,9 @@ impl BuyEngine {
             rpc_endpoints: Arc::new(RwLock::new(vec![])), // Initialize with empty, to be configured
             current_endpoint_idx: AtomicU64::new(0),
             tx_queue: Arc::new(TransactionQueue::new(1000)), // Queue up to 1000 txs
-            bundler, // Task 7: Optional Jito bundler
-            price_stream, // Task 2: Optional price stream for GUI monitoring
-            position_tracker, // Task 3: Optional position tracker for GUI monitoring
+            bundler,                                         // Task 7: Optional Jito bundler
+            price_stream,      // Task 2: Optional price stream for GUI monitoring
+            position_tracker,  // Task 3: Optional position tracker for GUI monitoring
             gui_control_state, // Task 5: GUI control state for START/STOP/PAUSE
         }
     }
@@ -1684,7 +1684,10 @@ impl BuyEngine {
                 }
                 _ => {
                     // Unknown state, treat as running
-                    debug!("Unknown GUI control state: {}, treating as running", control_state);
+                    debug!(
+                        "Unknown GUI control state: {}, treating as running",
+                        control_state
+                    );
                 }
             }
 
@@ -1839,14 +1842,19 @@ impl BuyEngine {
 
                                 // Task 3: Record buy for position tracking
                                 // Calculate token amount and SOL cost from buy_amount_sol
-                                let sol_cost_lamports = (self.config.trading.buy_amount_sol * 1_000_000_000.0) as u64;
+                                let sol_cost_lamports =
+                                    (self.config.trading.buy_amount_sol * 1_000_000_000.0) as u64;
                                 // Estimate token amount from price (price is per token in SOL)
                                 let token_amount = if exec_price > 0.0 {
                                     (self.config.trading.buy_amount_sol / exec_price) as u64
                                 } else {
                                     0
                                 };
-                                self.record_buy_for_gui(candidate.mint, token_amount, sol_cost_lamports);
+                                self.record_buy_for_gui(
+                                    candidate.mint,
+                                    token_amount,
+                                    sol_cost_lamports,
+                                );
 
                                 info!(mint=%candidate.mint, price=%exec_price, "Recorded buy price and entered PassiveToken");
 
@@ -1936,25 +1944,25 @@ impl BuyEngine {
     /// If active transactions don't complete within 30 seconds, a forced shutdown occurs.
     pub async fn shutdown(&self) {
         info!("Initiating graceful shutdown via GUI control");
-        
+
         // Set control state to Stopped
         self.gui_control_state.store(0, Ordering::Relaxed);
-        
+
         // Wait for active transactions to complete (max 30s)
         let start = Instant::now();
         let timeout_duration = Duration::from_secs(30);
-        
+
         while self.pending_buy.load(Ordering::Relaxed) {
             if start.elapsed() > timeout_duration {
                 warn!("Forced shutdown after 30s timeout - pending transaction may be incomplete");
                 metrics().increment_counter("shutdown_forced");
                 break;
             }
-            
+
             // Check every 100ms
             sleep(Duration::from_millis(100)).await;
         }
-        
+
         let elapsed = start.elapsed();
         info!(
             elapsed_ms = elapsed.as_millis(),
@@ -1982,14 +1990,14 @@ impl BuyEngine {
             warn!("Invalid control state: {}, ignoring", state);
             return;
         }
-        
+
         let state_name = match state {
             0 => "Stopped",
             1 => "Running",
             2 => "Paused",
             _ => "Unknown",
         };
-        
+
         info!("Bot control state changed to: {}", state_name);
         self.gui_control_state.store(state, Ordering::Relaxed);
     }
@@ -2038,12 +2046,12 @@ impl BuyEngine {
         let acquire_start = Instant::now();
         let buy_output = self.create_buy_transaction_output(&candidate).await?;
         let acquire_lease_ms = acquire_start.elapsed().as_millis() as u64;
-        
+
         // Task 6: Record acquire_lease metric
         self.universe_metrics
             .record_latency("acquire_lease", acquire_lease_ms)
             .await;
-        
+
         ctx.logger.log_nonce_operation("acquire", None, true);
 
         // Task 7: Choose submission path - bundler (MEV-protected) vs single tx
@@ -2051,16 +2059,18 @@ impl BuyEngine {
             if bundler.is_available() {
                 debug!(mint=%candidate.mint, "Using Jito bundler for MEV-protected submission");
                 metrics().increment_counter("bundler_submission_attempt");
-                
+
                 // Calculate dynamic tip using bundler
                 let base_tip = self.calculate_dynamic_tip().await;
                 let dynamic_tip = bundler.calculate_dynamic_tip(base_tip);
-                
+
                 // Convert local TraceContext to observability TraceContext for bundler
                 let obs_trace_ctx = ObservabilityTraceContext::new(&trace_ctx.span_id);
-                
+
                 // Submit bundle (single transaction in this case, but bundler handles it)
-                bundler.submit_bundle(vec![buy_output.tx.clone()], dynamic_tip, &obs_trace_ctx).await
+                bundler
+                    .submit_bundle(vec![buy_output.tx.clone()], dynamic_tip, &obs_trace_ctx)
+                    .await
                     .map_err(|e| {
                         metrics().increment_counter("bundler_submission_failed");
                         anyhow!("Bundler submission failed: {}", e)
@@ -2068,7 +2078,7 @@ impl BuyEngine {
             } else {
                 debug!(mint=%candidate.mint, "Bundler unavailable, falling back to RPC");
                 metrics().increment_counter("bundler_unavailable_fallback");
-                
+
                 // Fallback to regular RPC broadcast
                 self.send_transaction_fire_and_forget(
                     buy_output.tx.clone(),
@@ -2078,18 +2088,14 @@ impl BuyEngine {
             }
         } else {
             debug!(mint=%candidate.mint, "No bundler configured, using direct RPC submission");
-            
+
             // No bundler - use regular RPC broadcast
-            self.send_transaction_fire_and_forget(
-                buy_output.tx.clone(),
-                Some(CorrelationId::new()),
-            )
-            .await
+            self.send_transaction_fire_and_forget(buy_output.tx.clone(), Some(CorrelationId::new()))
+                .await
         };
 
         // Hold the output (and nonce guard) through broadcast
-        match submission_result
-        {
+        match submission_result {
             Ok(sig) => {
                 // Record build-to-land latency (Task 6 requirement)
                 self.universe_metrics
@@ -2286,15 +2292,17 @@ impl BuyEngine {
 
                 // Task 2: Record sell price for GUI monitoring
                 // Use mock price for now - in production, this would come from actual transaction result
-                let sell_price = self.get_execution_price_mock(&PremintCandidate {
-                    mint,
-                    program: "pump.fun".to_string(),
-                    accounts: vec![],
-                    priority: crate::types::PriorityLevel::Medium,
-                    timestamp: 0,
-                    price_hint: None,
-                    signature: None,
-                }).await;
+                let sell_price = self
+                    .get_execution_price_mock(&PremintCandidate {
+                        mint,
+                        program: "pump.fun".to_string(),
+                        accounts: vec![],
+                        priority: crate::types::PriorityLevel::Medium,
+                        timestamp: 0,
+                        price_hint: None,
+                        signature: None,
+                    })
+                    .await;
                 self.record_price_for_gui(mint, sell_price);
 
                 // Task 3: Record sell for position tracking
@@ -2302,8 +2310,10 @@ impl BuyEngine {
                 // We need to estimate from the original buy
                 if let Some(position_tracker) = &self.position_tracker {
                     if let Some(position) = position_tracker.get_position(&mint) {
-                        let tokens_to_sell = (position.remaining_token_amount() as f64 * pct) as u64;
-                        let sol_received = (tokens_to_sell as f64 * sell_price * 1_000_000_000.0) as u64;
+                        let tokens_to_sell =
+                            (position.remaining_token_amount() as f64 * pct) as u64;
+                        let sol_received =
+                            (tokens_to_sell as f64 * sell_price * 1_000_000_000.0) as u64;
                         self.record_sell_for_gui(&mint, tokens_to_sell, sol_received);
                     }
                 }
@@ -2372,15 +2382,14 @@ impl BuyEngine {
         let acquire_start = Instant::now();
         let buy_output = self.create_buy_transaction_output(&candidate).await?;
         let acquire_lease_ms = acquire_start.elapsed().as_millis() as u64;
-        
+
         // Task 6: Record acquire_lease metric
         self.universe_metrics
             .record_latency("acquire_lease", acquire_lease_ms)
             .await;
-        
+
         ctx.logger.log_nonce_operation("acquire", None, true);
-        ctx.logger
-            .log_buy_attempt(&candidate.mint.to_string(), 1);
+        ctx.logger.log_buy_attempt(&candidate.mint.to_string(), 1);
 
         // Hold the output (and nonce guard) through broadcast
         match self
@@ -2517,7 +2526,7 @@ impl BuyEngine {
             let update = PriceUpdate {
                 mint,
                 price_sol,
-                price_usd: 0.0, // TODO: Fetch from price oracle if available
+                price_usd: 0.0,  // TODO: Fetch from price oracle if available
                 volume_24h: 0.0, // TODO: Calculate from on-chain data if needed
                 timestamp: SystemTime::now()
                     .duration_since(UNIX_EPOCH)
@@ -2525,7 +2534,7 @@ impl BuyEngine {
                     .as_secs(),
                 source: "internal".to_string(),
             };
-            
+
             price_stream.publish_price(update);
         }
     }

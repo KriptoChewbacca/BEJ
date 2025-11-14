@@ -136,9 +136,11 @@ mod tests {
 
     #[test]
     fn test_strip_nonce_for_simulation_non_durable() {
-        let instructions = vec![
-            system_instruction::transfer(&Pubkey::new_unique(), &Pubkey::new_unique(), 1000),
-        ];
+        let instructions = vec![system_instruction::transfer(
+            &Pubkey::new_unique(),
+            &Pubkey::new_unique(),
+            1000,
+        )];
 
         let sim_ix = strip_nonce_for_simulation(&instructions, false);
 

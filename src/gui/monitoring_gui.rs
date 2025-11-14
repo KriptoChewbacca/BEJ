@@ -22,12 +22,12 @@ use crate::components::price_stream::PriceUpdate;
 use crate::position_tracker::PositionTracker;
 use eframe::egui::{self, Button, Color32, Ui};
 use egui_plot::{Line, Plot, PlotPoints};
+use solana_sdk::pubkey::Pubkey;
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::broadcast;
-use solana_sdk::pubkey::Pubkey;
 
 /// GUI refresh interval (333ms for smooth updates)
 const GUI_REFRESH_INTERVAL: Duration = Duration::from_millis(333);
@@ -43,21 +43,21 @@ pub struct MonitoringGui {
     // Data sources (read-only from bot)
     /// Position tracker (shared with BuyEngine)
     position_tracker: Arc<PositionTracker>,
-    
+
     /// Price update receiver (broadcast channel)
     price_rx: broadcast::Receiver<PriceUpdate>,
-    
+
     /// Bot state (0=Stopped, 1=Running, 2=Paused)
     bot_state: Arc<AtomicU8>,
-    
+
     // UI state (local to GUI)
     /// Price history for chart visualization
     /// Maps mint -> VecDeque of (timestamp, price)
     price_history: HashMap<Pubkey, VecDeque<(f64, f64)>>,
-    
+
     /// Timestamp of last UI update
     last_update: Instant,
-    
+
     /// Currently selected mint for detail view
     selected_mint: Option<Pubkey>,
 }
@@ -102,12 +102,13 @@ impl MonitoringGui {
     ///
     /// Maintains a ring buffer of price points for each token.
     fn update_price_history(&mut self, update: PriceUpdate) {
-        let history = self.price_history
+        let history = self
+            .price_history
             .entry(update.mint)
             .or_insert_with(|| VecDeque::with_capacity(MAX_PRICE_HISTORY));
-        
+
         history.push_back((update.timestamp as f64, update.price_sol));
-        
+
         // Maintain ring buffer size
         if history.len() > MAX_PRICE_HISTORY {
             history.pop_front();
@@ -121,16 +122,18 @@ impl MonitoringGui {
     fn refresh_positions(&mut self) {
         // Positions are already tracked by PositionTracker
         // This method can be used for periodic cleanup or validation
-        
+
         // Clean up price history for positions that no longer exist
-        let active_mints: Vec<Pubkey> = self.position_tracker
+        let active_mints: Vec<Pubkey> = self
+            .position_tracker
             .get_all_positions()
             .iter()
             .map(|pos| pos.mint)
             .collect();
-        
-        self.price_history.retain(|mint, _| active_mints.contains(mint));
-        
+
+        self.price_history
+            .retain(|mint, _| active_mints.contains(mint));
+
         // Clear selected mint if position is gone
         if let Some(mint) = self.selected_mint {
             if !self.position_tracker.has_position(&mint) {
@@ -144,15 +147,15 @@ impl MonitoringGui {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("🎯 Solana Sniper Bot - Monitoring Dashboard");
             ui.separator();
-            
+
             // Control Panel
             self.render_control_panel(ui);
             ui.separator();
-            
+
             // Position List
             self.render_position_list(ui);
             ui.separator();
-            
+
             // Selected Position Details + Chart
             if let Some(mint) = self.selected_mint {
                 self.render_position_details(ui, mint);
@@ -167,7 +170,7 @@ impl MonitoringGui {
         ui.horizontal(|ui| {
             let current_state = self.bot_state.load(Ordering::Relaxed);
             let is_running = current_state == 1;
-            
+
             // START/STOP button
             let button_text = if is_running { "⏸ STOP" } else { "▶ START" };
             let button_color = if is_running {
@@ -175,14 +178,17 @@ impl MonitoringGui {
             } else {
                 Color32::from_rgb(100, 255, 100) // Green when stopped (to start)
             };
-            
-            if ui.add(Button::new(button_text).fill(button_color)).clicked() {
+
+            if ui
+                .add(Button::new(button_text).fill(button_color))
+                .clicked()
+            {
                 let new_state = if is_running { 0 } else { 1 };
                 self.bot_state.store(new_state, Ordering::Relaxed);
             }
-            
+
             ui.separator();
-            
+
             // Status indicator
             let (status_text, status_color) = match current_state {
                 0 => ("🔴 STOPPED", Color32::from_rgb(255, 100, 100)),
@@ -191,9 +197,9 @@ impl MonitoringGui {
                 _ => ("⚪ UNKNOWN", Color32::GRAY),
             };
             ui.colored_label(status_color, status_text);
-            
+
             ui.separator();
-            
+
             // Position count
             let position_count = self.position_tracker.position_count();
             ui.label(format!("📊 Active Positions: {}", position_count));
@@ -205,14 +211,14 @@ impl MonitoringGui {
     /// Shows a table with key metrics for each position
     fn render_position_list(&mut self, ui: &mut Ui) {
         ui.heading("Active Positions");
-        
+
         let positions = self.position_tracker.get_all_positions();
-        
+
         if positions.is_empty() {
             ui.label("No active positions");
             return;
         }
-        
+
         egui::Grid::new("position_grid")
             .num_columns(6)
             .striped(true)
@@ -225,32 +231,29 @@ impl MonitoringGui {
                 ui.label("P&L SOL");
                 ui.label("P&L %");
                 ui.end_row();
-                
+
                 // Rows
                 for pos in &positions {
                     let (pnl_sol, pnl_percent) = pos.calculate_pnl(pos.last_seen_price);
-                    
+
                     // Clickable mint (for selection)
                     let mint_str = pos.mint.to_string();
                     let mint_short = if mint_str.len() >= 8 {
-                        format!("{}...{}", 
-                            &mint_str[..4],
-                            &mint_str[mint_str.len()-4..]
-                        )
+                        format!("{}...{}", &mint_str[..4], &mint_str[mint_str.len() - 4..])
                     } else {
                         mint_str.clone()
                     };
-                    
+
                     if ui.button(&mint_short).clicked() {
                         self.selected_mint = Some(pos.mint);
                     }
-                    
+
                     ui.label(format!("{}", pos.remaining_token_amount()));
-                    
+
                     let entry_price = pos.entry_price();
                     ui.label(format!("{:.9} SOL", entry_price));
                     ui.label(format!("{:.9} SOL", pos.last_seen_price));
-                    
+
                     // Color-coded P&L
                     let pnl_color = if pnl_sol >= 0.0 {
                         Color32::GREEN
@@ -259,7 +262,7 @@ impl MonitoringGui {
                     };
                     ui.colored_label(pnl_color, format!("{:+.4} SOL", pnl_sol));
                     ui.colored_label(pnl_color, format!("{:+.2}%", pnl_percent));
-                    
+
                     ui.end_row();
                 }
             });
@@ -270,7 +273,7 @@ impl MonitoringGui {
     /// Shows price chart and detailed metrics
     fn render_position_details(&mut self, ui: &mut Ui, mint: Pubkey) {
         ui.heading("📈 Position Details");
-        
+
         // Get position data
         if let Some(pos) = self.position_tracker.get_position(&mint) {
             // Position info
@@ -283,9 +286,9 @@ impl MonitoringGui {
                 ui.separator();
                 ui.label(format!("Sold: {:.1}%", pos.sold_percent()));
             });
-            
+
             ui.separator();
-            
+
             // Price chart
             if let Some(history) = self.price_history.get(&mint) {
                 if !history.is_empty() {
@@ -294,7 +297,7 @@ impl MonitoringGui {
                         .enumerate()
                         .map(|(i, (_, price))| [i as f64, *price])
                         .collect();
-                    
+
                     Plot::new("price_chart")
                         .view_aspect(2.0)
                         .height(200.0)
@@ -325,16 +328,16 @@ impl eframe::App for MonitoringGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Poll price updates (non-blocking)
         self.poll_price_updates();
-        
+
         // Refresh on interval
         if self.last_update.elapsed() >= GUI_REFRESH_INTERVAL {
             self.refresh_positions();
             self.last_update = Instant::now();
         }
-        
+
         // Request repaint for smooth updates
         ctx.request_repaint_after(GUI_REFRESH_INTERVAL);
-        
+
         // Render UI
         self.render_ui(ctx);
     }
@@ -364,7 +367,7 @@ mod tests {
         let tracker = Arc::new(PositionTracker::new());
         let (tx, rx) = broadcast::channel(100);
         let bot_state = Arc::new(AtomicU8::new(0));
-        
+
         let _gui = MonitoringGui::new(tracker, rx, bot_state);
         // Should create without panic
     }
@@ -374,14 +377,14 @@ mod tests {
         let tracker = Arc::new(PositionTracker::new());
         let (_tx, rx) = broadcast::channel(100);
         let bot_state = Arc::new(AtomicU8::new(0));
-        
+
         let mut gui = MonitoringGui::new(tracker, rx, bot_state);
-        
+
         let mint = Pubkey::new_unique();
         let update = create_test_price_update(mint, 0.01);
-        
+
         gui.update_price_history(update);
-        
+
         assert!(gui.price_history.contains_key(&mint));
         assert_eq!(gui.price_history.get(&mint).unwrap().len(), 1);
     }
@@ -391,21 +394,21 @@ mod tests {
         let tracker = Arc::new(PositionTracker::new());
         let (_tx, rx) = broadcast::channel(100);
         let bot_state = Arc::new(AtomicU8::new(0));
-        
+
         let mut gui = MonitoringGui::new(tracker, rx, bot_state);
-        
+
         let mint = Pubkey::new_unique();
-        
+
         // Add more than MAX_PRICE_HISTORY updates
         for i in 0..(MAX_PRICE_HISTORY + 100) {
             let update = create_test_price_update(mint, 0.01 * (i as f64 + 1.0));
             gui.update_price_history(update);
         }
-        
+
         // Should maintain ring buffer size
         let history = gui.price_history.get(&mint).unwrap();
         assert_eq!(history.len(), MAX_PRICE_HISTORY);
-        
+
         // Should have the latest values
         let last_price = history.back().unwrap().1;
         assert!(last_price > 10.0); // Should be from the later updates
@@ -416,13 +419,13 @@ mod tests {
         let tracker = Arc::new(PositionTracker::new());
         let (_tx, rx) = broadcast::channel(100);
         let bot_state = Arc::new(AtomicU8::new(0)); // Stopped
-        
+
         let _gui = MonitoringGui::new(tracker, rx, Arc::clone(&bot_state));
-        
+
         // Change state to running
         bot_state.store(1, Ordering::Relaxed);
         assert_eq!(bot_state.load(Ordering::Relaxed), 1);
-        
+
         // Change state to paused
         bot_state.store(2, Ordering::Relaxed);
         assert_eq!(bot_state.load(Ordering::Relaxed), 2);
@@ -433,24 +436,24 @@ mod tests {
         let tracker = Arc::new(PositionTracker::new());
         let (_tx, rx) = broadcast::channel(100);
         let bot_state = Arc::new(AtomicU8::new(0));
-        
+
         let mut gui = MonitoringGui::new(tracker.clone(), rx, bot_state);
-        
+
         // Add price history for some mints
         let mint1 = Pubkey::new_unique();
         let mint2 = Pubkey::new_unique();
-        
+
         gui.update_price_history(create_test_price_update(mint1, 0.01));
         gui.update_price_history(create_test_price_update(mint2, 0.02));
-        
+
         assert_eq!(gui.price_history.len(), 2);
-        
+
         // Add only mint1 to position tracker
         tracker.record_buy(mint1, 1_000_000, 10_000_000);
-        
+
         // Refresh should clean up mint2 from price history
         gui.refresh_positions();
-        
+
         assert_eq!(gui.price_history.len(), 1);
         assert!(gui.price_history.contains_key(&mint1));
         assert!(!gui.price_history.contains_key(&mint2));
@@ -461,20 +464,20 @@ mod tests {
         let tracker = Arc::new(PositionTracker::new());
         let (_tx, rx) = broadcast::channel(100);
         let bot_state = Arc::new(AtomicU8::new(0));
-        
+
         let mut gui = MonitoringGui::new(tracker.clone(), rx, bot_state);
-        
+
         let mint = Pubkey::new_unique();
         tracker.record_buy(mint, 1_000_000, 10_000_000);
-        
+
         gui.selected_mint = Some(mint);
-        
+
         // Sell the entire position
         tracker.record_sell(&mint, 1_000_000, 20_000_000);
-        
+
         // Refresh should clear selected mint
         gui.refresh_positions();
-        
+
         assert!(gui.selected_mint.is_none());
     }
 
@@ -483,22 +486,22 @@ mod tests {
         let tracker = Arc::new(PositionTracker::new());
         let (tx, rx) = broadcast::channel(100);
         let bot_state = Arc::new(AtomicU8::new(0));
-        
+
         let mut gui = MonitoringGui::new(tracker, rx, bot_state);
-        
+
         // Send some price updates
         let mint1 = Pubkey::new_unique();
         let mint2 = Pubkey::new_unique();
-        
+
         let _ = tx.send(create_test_price_update(mint1, 0.01));
         let _ = tx.send(create_test_price_update(mint2, 0.02));
-        
+
         // Give broadcast time to propagate
         tokio::time::sleep(Duration::from_millis(10)).await;
-        
+
         // Poll updates
         gui.poll_price_updates();
-        
+
         // Should have received both updates
         assert_eq!(gui.price_history.len(), 2);
         assert!(gui.price_history.contains_key(&mint1));

@@ -18,10 +18,10 @@ use tokio::sync::mpsc;
 pub struct GuiSnapshot {
     /// All active trading positions
     pub active_positions: Vec<PositionSnapshot>,
-    
+
     /// Current bot state (Running, Stopped, Paused)
     pub bot_state: BotState,
-    
+
     /// Timestamp when this snapshot was created
     pub timestamp: Instant,
 }
@@ -34,25 +34,25 @@ pub struct GuiSnapshot {
 pub struct PositionSnapshot {
     /// Token mint address
     pub mint: Pubkey,
-    
+
     /// Entry price in SOL
     pub entry_price_sol: f64,
-    
+
     /// Current market price in SOL
     pub current_price_sol: f64,
-    
+
     /// Amount of tokens held
     pub token_amount: u64,
-    
+
     /// Initial SOL cost (in lamports)
     pub initial_sol_cost: u64,
-    
+
     /// Current value in SOL
     pub current_value_sol: f64,
-    
+
     /// Profit/Loss in SOL
     pub pnl_sol: f64,
-    
+
     /// Profit/Loss as percentage
     pub pnl_percent: f64,
 }
@@ -64,10 +64,10 @@ pub struct PositionSnapshot {
 pub enum BotState {
     /// Bot is actively trading
     Running,
-    
+
     /// Bot is stopped and not processing candidates
     Stopped,
-    
+
     /// Bot is paused temporarily
     Paused,
 }
@@ -79,13 +79,13 @@ pub enum BotState {
 pub struct PriceUpdate {
     /// Token mint address
     pub mint: Pubkey,
-    
+
     /// Current price in SOL
     pub price_sol: f64,
-    
+
     /// Current price in USD (if available)
     pub price_usd: Option<f64>,
-    
+
     /// Timestamp of this update (Unix timestamp in seconds)
     pub timestamp: u64,
 }
@@ -96,13 +96,13 @@ pub struct PriceUpdate {
 /// Provides a non-blocking interface for the GUI to read the latest state.
 pub struct GuiSnapshotProvider {
     /// Latest snapshot available for GUI
-    /// 
+    ///
     /// Uses ArcSwap to provide lock-free atomic updates and reads.
     /// The GUI can read this at any time without blocking the bot.
     latest_snapshot: Arc<ArcSwap<GuiSnapshot>>,
-    
+
     /// Channel for publishing price updates
-    /// 
+    ///
     /// Uses an mpsc channel to send price updates to the GUI.
     /// This is non-blocking for the sender (bot).
     price_tx: mpsc::Sender<PriceUpdate>,
@@ -238,11 +238,11 @@ impl PositionSnapshot {
     ) -> Self {
         // Calculate current value in SOL
         let current_value_sol = (token_amount as f64) * current_price_sol;
-        
+
         // Calculate P&L in SOL
         let initial_sol = initial_sol_cost as f64 / 1_000_000_000.0;
         let pnl_sol = current_value_sol - initial_sol;
-        
+
         // Calculate P&L percentage
         let pnl_percent = if initial_sol > 0.0 {
             (pnl_sol / initial_sol) * 100.0
@@ -288,13 +288,13 @@ mod tests {
         assert_eq!(snapshot.current_price_sol, current_price);
         assert_eq!(snapshot.token_amount, token_amount);
         assert_eq!(snapshot.initial_sol_cost, initial_sol_cost);
-        
+
         // Current value should be 1M tokens * 0.02 SOL = 20,000 SOL
         assert!((snapshot.current_value_sol - 20_000.0).abs() < 0.001);
-        
+
         // P&L should be 20,000 - 0.01 = 19,999.99 SOL
         assert!(snapshot.pnl_sol > 19_999.0);
-        
+
         // P&L percent should be positive and very large (100x gain)
         assert!(snapshot.pnl_percent > 100_000.0);
     }
@@ -303,7 +303,7 @@ mod tests {
     fn test_position_snapshot_zero_price() {
         let mint = Pubkey::new_unique();
         let snapshot = PositionSnapshot::new(mint, 0.01, 0.0, 1_000_000, 10_000_000);
-        
+
         // Should handle zero current price without panicking
         assert_eq!(snapshot.current_value_sol, 0.0);
         assert!(snapshot.pnl_sol < 0.0); // Loss
@@ -312,7 +312,7 @@ mod tests {
     #[test]
     fn test_gui_snapshot_creation() {
         let snapshot = GuiSnapshot::new(BotState::Running);
-        
+
         assert_eq!(snapshot.bot_state, BotState::Running);
         assert!(snapshot.active_positions.is_empty());
     }
@@ -321,12 +321,9 @@ mod tests {
     fn test_gui_snapshot_with_positions() {
         let mint = Pubkey::new_unique();
         let position = PositionSnapshot::new(mint, 0.01, 0.02, 1_000_000, 10_000_000);
-        
-        let snapshot = GuiSnapshot::with_positions(
-            BotState::Running,
-            vec![position.clone()],
-        );
-        
+
+        let snapshot = GuiSnapshot::with_positions(BotState::Running, vec![position.clone()]);
+
         assert_eq!(snapshot.bot_state, BotState::Running);
         assert_eq!(snapshot.active_positions.len(), 1);
         assert_eq!(snapshot.active_positions[0].mint, mint);
@@ -347,7 +344,7 @@ mod tests {
 
         // Read it back
         let read_snapshot = provider.get_snapshot();
-        
+
         assert_eq!(read_snapshot.bot_state, BotState::Running);
         assert_eq!(read_snapshot.active_positions.len(), 1);
         assert_eq!(read_snapshot.active_positions[0].mint, mint);
@@ -383,7 +380,7 @@ mod tests {
         let provider = GuiSnapshotProvider::new(tx);
 
         let mint = Pubkey::new_unique();
-        
+
         // First update should succeed
         let result1 = provider.publish_price(PriceUpdate {
             mint,
