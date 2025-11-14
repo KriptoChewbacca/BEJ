@@ -1355,6 +1355,9 @@ pub struct BuyEngine {
 
     // Task 2: Optional price stream for GUI monitoring
     price_stream: Option<Arc<PriceStreamManager>>,
+
+    // Task 3: Optional position tracker for GUI monitoring
+    position_tracker: Option<Arc<crate::position_tracker::PositionTracker>>,
 }
 
 impl BuyEngine {
@@ -1407,18 +1410,22 @@ impl BuyEngine {
         )
     }
 
-    /// Task 2 & 7: Create BuyEngine with optional Jito bundler and price stream for GUI monitoring
+    /// Task 2, 3 & 7: Create BuyEngine with optional Jito bundler, price stream, and position tracker for GUI monitoring
     ///
     /// # Arguments
     ///
     /// * `bundler` - Optional Arc<dyn Bundler> for MEV-protected bundle submission
     /// * `price_stream` - Optional Arc<PriceStreamManager> for real-time price updates to GUI
+    /// * `position_tracker` - Optional Arc<PositionTracker> for tracking active positions and P&L
     ///
     /// When bundler is provided and available, the engine will prefer bundle submission
     /// over single transaction broadcast for critical operations (buy/sell).
     ///
     /// When price_stream is provided, the engine will publish price updates after each
     /// successful buy/sell operation for GUI monitoring.
+    ///
+    /// When position_tracker is provided, the engine will track all buy/sell operations
+    /// for real-time P&L monitoring in the GUI.
     pub fn new_with_bundler_and_price_stream(
         rpc: Arc<dyn RpcBroadcaster>,
         nonce_manager: Arc<NonceManager>,
@@ -1428,6 +1435,37 @@ impl BuyEngine {
         tx_builder: Option<TransactionBuilder>,
         bundler: Option<Arc<dyn Bundler>>,
         price_stream: Option<Arc<PriceStreamManager>>,
+    ) -> Self {
+        Self::new_with_full_gui_integration(
+            rpc,
+            nonce_manager,
+            candidate_rx,
+            app_state,
+            config,
+            tx_builder,
+            bundler,
+            price_stream,
+            None,
+        )
+    }
+
+    /// Task 3: Create BuyEngine with full GUI integration (bundler, price stream, and position tracker)
+    ///
+    /// # Arguments
+    ///
+    /// * `bundler` - Optional Arc<dyn Bundler> for MEV-protected bundle submission
+    /// * `price_stream` - Optional Arc<PriceStreamManager> for real-time price updates to GUI
+    /// * `position_tracker` - Optional Arc<PositionTracker> for tracking active positions and P&L
+    pub fn new_with_full_gui_integration(
+        rpc: Arc<dyn RpcBroadcaster>,
+        nonce_manager: Arc<NonceManager>,
+        candidate_rx: CandidateReceiver,
+        app_state: Arc<Mutex<AppState>>,
+        config: Config,
+        tx_builder: Option<TransactionBuilder>,
+        bundler: Option<Arc<dyn Bundler>>,
+        price_stream: Option<Arc<PriceStreamManager>>,
+        position_tracker: Option<Arc<crate::position_tracker::PositionTracker>>,
     ) -> Self {
         // Initialize allowed sources for taint tracking
         let allowed_sources = vec![
@@ -1476,6 +1514,7 @@ impl BuyEngine {
             tx_queue: Arc::new(TransactionQueue::new(1000)), // Queue up to 1000 txs
             bundler, // Task 7: Optional Jito bundler
             price_stream, // Task 2: Optional price stream for GUI monitoring
+            position_tracker, // Task 3: Optional position tracker for GUI monitoring
         }
     }
 
@@ -1730,6 +1769,17 @@ impl BuyEngine {
 
                                 // Task 2: Record price for GUI monitoring
                                 self.record_price_for_gui(candidate.mint, exec_price);
+
+                                // Task 3: Record buy for position tracking
+                                // Calculate token amount and SOL cost from buy_amount_sol
+                                let sol_cost_lamports = (self.config.trading.buy_amount_sol * 1_000_000_000.0) as u64;
+                                // Estimate token amount from price (price is per token in SOL)
+                                let token_amount = if exec_price > 0.0 {
+                                    (self.config.trading.buy_amount_sol / exec_price) as u64
+                                } else {
+                                    0
+                                };
+                                self.record_buy_for_gui(candidate.mint, token_amount, sol_cost_lamports);
 
                                 info!(mint=%candidate.mint, price=%exec_price, "Recorded buy price and entered PassiveToken");
 
@@ -2111,6 +2161,17 @@ impl BuyEngine {
                 }).await;
                 self.record_price_for_gui(mint, sell_price);
 
+                // Task 3: Record sell for position tracking
+                // Calculate tokens sold and SOL received based on sell percentage
+                // We need to estimate from the original buy
+                if let Some(position_tracker) = &self.position_tracker {
+                    if let Some(position) = position_tracker.get_position(&mint) {
+                        let tokens_to_sell = (position.remaining_token_amount() as f64 * pct) as u64;
+                        let sol_received = (tokens_to_sell as f64 * sell_price * 1_000_000_000.0) as u64;
+                        self.record_sell_for_gui(&mint, tokens_to_sell, sol_received);
+                    }
+                }
+
                 // Update app state
                 let mut st = self.app_state.lock().await;
                 st.holdings_percent = new_holdings;
@@ -2330,6 +2391,61 @@ impl BuyEngine {
             };
             
             price_stream.publish_price(update);
+        }
+    }
+
+    /// Task 3: Record buy operation for position tracking (non-blocking)
+    ///
+    /// Records a buy transaction in the position tracker if available.
+    /// This allows the GUI to display real-time P&L for active positions.
+    ///
+    /// # Arguments
+    /// * `mint` - Token mint address
+    /// * `token_amount` - Number of tokens purchased (in base units)
+    /// * `sol_cost` - Total SOL spent (in lamports)
+    ///
+    /// # Performance
+    /// This method is lock-free and non-blocking. If the position tracker
+    /// is not available, it's silently ignored.
+    fn record_buy_for_gui(&self, mint: Pubkey, token_amount: u64, sol_cost: u64) {
+        if let Some(position_tracker) = &self.position_tracker {
+            position_tracker.record_buy(mint, token_amount, sol_cost);
+        }
+    }
+
+    /// Task 3: Record sell operation for position tracking (non-blocking)
+    ///
+    /// Updates a position in the tracker when tokens are sold.
+    /// This allows the GUI to display accurate P&L including partial sells.
+    ///
+    /// # Arguments
+    /// * `mint` - Token mint address
+    /// * `token_amount` - Number of tokens sold (in base units)
+    /// * `sol_received` - SOL received from the sale (in lamports)
+    ///
+    /// # Performance
+    /// This method is lock-free and non-blocking. If the position tracker
+    /// is not available, it's silently ignored.
+    fn record_sell_for_gui(&self, mint: &Pubkey, token_amount: u64, sol_received: u64) {
+        if let Some(position_tracker) = &self.position_tracker {
+            position_tracker.record_sell(mint, token_amount, sol_received);
+        }
+    }
+
+    /// Task 3: Update price for position tracking (non-blocking)
+    ///
+    /// Updates the last seen price for a position without recording a transaction.
+    /// Useful for real-time P&L calculations in the GUI.
+    ///
+    /// # Arguments
+    /// * `mint` - Token mint address
+    /// * `price_sol` - Current price in SOL per token
+    ///
+    /// # Performance
+    /// This method is lock-free and non-blocking.
+    fn update_position_price(&self, mint: &Pubkey, price_sol: f64) {
+        if let Some(position_tracker) = &self.position_tracker {
+            position_tracker.update_price(mint, price_sol);
         }
     }
 

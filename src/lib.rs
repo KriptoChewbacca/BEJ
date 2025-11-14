@@ -25,5 +25,8 @@ pub mod tx_builder;
 // Export GUI integration components
 pub mod components;
 
+// Export position tracker module
+pub mod position_tracker;
+
 // Re-export commonly used types
 pub use solana_sdk::{message::VersionedMessage, pubkey::Pubkey, signature::Signature};
