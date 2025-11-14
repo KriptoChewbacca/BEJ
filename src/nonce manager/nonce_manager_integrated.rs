@@ -217,7 +217,7 @@ impl ImprovedNonceAccount {
 
     /// Check if authority rotation is needed (every 100 uses)
     fn needs_rotation(&self) -> bool {
-        self.rotation_counter.load(Ordering::SeqCst) % 100 == 0
+        self.rotation_counter.load(Ordering::SeqCst).is_multiple_of(100)
     }
 
     /// Generate ZK proof for state validation with enhanced zk-SNARK support
@@ -985,7 +985,7 @@ impl UniverseNonceManager {
 
         drop(accounts);
 
-        let account = best_account.ok_or_else(|| NonceError::PoolExhausted(1, 0))?;
+        let account = best_account.ok_or(NonceError::PoolExhausted(1, 0))?;
 
         // Update last_used timestamp (Scalability: track usage for dynamic eviction)
         account.touch();

@@ -120,6 +120,7 @@ mockito = "1.6"
 [[bench]]
 name = "tx_builder_nonce_bench"
 harness = false
+required-features = ["test_utils"]
 
 [[bench]]
 name = "analytics_bench"
@@ -132,6 +133,11 @@ harness = false
 [[bench]]
 name = "prefilter_bench"
 harness = false
+
+# Examples with feature requirements
+[[example]]
+name = "gui_monitoring"
+required-features = ["gui_monitor"]
 
 # Quantum-Inspired Static Pruner binary
 [[bin]]

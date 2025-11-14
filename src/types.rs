@@ -341,6 +341,7 @@ impl Default for PortfolioConfig {
 /// Defines how the bot handles auto-sell operations (TP/SL).
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum TradingMode {
     /// Manual mode - user controls all sell operations via GUI
     Manual,
@@ -349,14 +350,10 @@ pub enum TradingMode {
     Auto,
     
     /// Hybrid mode - auto monitoring with manual confirmation (default)
+    #[default]
     Hybrid,
 }
 
-impl Default for TradingMode {
-    fn default() -> Self {
-        TradingMode::Hybrid
-    }
-}
 
 /// Sell strategy configuration
 ///
@@ -364,6 +361,7 @@ impl Default for TradingMode {
 /// Currently a placeholder for future functionality.
 #[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct SellStrategy {
     /// Stop loss configuration
     pub stop_loss: Option<StopLossConfig>,
@@ -375,15 +373,6 @@ pub struct SellStrategy {
     pub trailing_stop: Option<TrailingStopConfig>,
 }
 
-impl Default for SellStrategy {
-    fn default() -> Self {
-        Self {
-            stop_loss: None,
-            take_profit: None,
-            trailing_stop: None,
-        }
-    }
-}
 
 /// Stop loss configuration
 ///

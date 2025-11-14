@@ -1,6 +1,18 @@
 //! Example demonstrating WebSocket streaming usage
 //!
-//! Run with: cargo run --example websocket_demo --features ws-stream
+//! ## Feature Requirements
+//!
+//! This example requires the `ws-stream` feature (enabled by default).
+//!
+//! ## Usage
+//!
+//! ```bash
+//! # With default features (ws-stream included):
+//! cargo run --example websocket_demo
+//!
+//! # Or explicitly:
+//! cargo run --example websocket_demo --features ws-stream
+//! ```
 
 use bot::streaming::websocket_stream::{WebSocketStream, ProgramUpdate};
 use solana_sdk::pubkey::Pubkey;

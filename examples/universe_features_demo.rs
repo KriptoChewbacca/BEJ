@@ -10,11 +10,11 @@
 use anyhow::Result;
 use bot::components::{
     multi_agent_rl::{
-        AgentType, MarketCondition, MultiAgentRLEngine, PortfolioState, TradeResult,
+        MarketCondition, MultiAgentRLEngine, TradeResult,
         TradingOpportunity,
     },
     provenance_graph::{
-        DID, ProvenanceGraphManager, SignalMetrics, SignalSourceType,
+        DID, ProvenanceGraphManager, SignalSourceType,
     },
     quantum_pruner::PathPruner,
 };
