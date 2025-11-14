@@ -325,6 +325,8 @@ mod tests {
     mod error_conversion_tests;
     mod execution_context_tests;
     mod instruction_ordering_tests;
+    mod migration_tests; // Backward compatibility tests
+    mod multi_token_integration_tests; // Comprehensive multi-token integration tests
     mod multi_token_state_tests; // Multi-token state management tests
     mod nonce_concurrency_tests;
     mod nonce_integration_tests;
