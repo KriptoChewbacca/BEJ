@@ -1748,7 +1748,8 @@ impl TransactionBuilder {
         // Phase 1, Task 1.3: Use try_acquire for atomic, TOCTTOU-safe acquisition
         let ttl = Duration::from_secs(config.nonce_lease_ttl_secs);
         match self.nonce_manager.try_acquire_nonce(ttl, 2000).await {
-            Some(lease) => {
+            #[cfg(feature = "zk_enabled")]
+            Some(mut lease) => {
                 // Record successful nonce acquisition
                 self.nonce_acquire_count.fetch_add(1, Ordering::Relaxed);
 
@@ -1757,11 +1758,9 @@ impl TransactionBuilder {
                 let nonce_authority = Some(self.wallet.pubkey());
 
                 // Extract and verify ZK proof from lease
-                #[cfg(feature = "zk_enabled")]
                 let zk_proof = lease.take_proof();
 
                 // Verify ZK proof if available (abort on low confidence)
-                #[cfg(feature = "zk_enabled")]
                 if let Some(ref proof) = zk_proof {
                     if proof.confidence < 0.5 {
                         warn!(
@@ -1792,7 +1791,6 @@ impl TransactionBuilder {
                     );
                 }
 
-                #[cfg(feature = "zk_enabled")]
                 debug!(
                     nonce_acquire_count = self.nonce_acquire_count.load(Ordering::Relaxed),
                     nonce_pubkey = ?nonce_pubkey,
@@ -1800,7 +1798,24 @@ impl TransactionBuilder {
                     enforce_nonce = true,
                     "Using nonce with enforcement enabled"
                 );
-                #[cfg(not(feature = "zk_enabled"))]
+
+                Ok(ExecutionContext {
+                    blockhash,
+                    nonce_pubkey,
+                    nonce_authority,
+                    nonce_lease: Some(lease),
+                    zk_proof,
+                })
+            }
+            #[cfg(not(feature = "zk_enabled"))]
+            Some(lease) => {
+                // Record successful nonce acquisition
+                self.nonce_acquire_count.fetch_add(1, Ordering::Relaxed);
+
+                let blockhash = lease.nonce_blockhash();
+                let nonce_pubkey = Some(*lease.nonce_pubkey());
+                let nonce_authority = Some(self.wallet.pubkey());
+
                 debug!(
                     nonce_acquire_count = self.nonce_acquire_count.load(Ordering::Relaxed),
                     nonce_pubkey = ?nonce_pubkey,
@@ -1813,8 +1828,6 @@ impl TransactionBuilder {
                     nonce_pubkey,
                     nonce_authority,
                     nonce_lease: Some(lease),
-                    #[cfg(feature = "zk_enabled")]
-                    zk_proof,
                 })
             }
             None => {
@@ -1837,7 +1850,8 @@ impl TransactionBuilder {
         if use_nonce {
             // Critical operation - require nonce lease
             match self.nonce_manager.acquire_nonce().await {
-                Ok(lease) => {
+                #[cfg(feature = "zk_enabled")]
+                Ok(mut lease) => {
                     // Record successful nonce acquisition
                     self.nonce_acquire_count.fetch_add(1, Ordering::Relaxed);
 
@@ -1846,11 +1860,9 @@ impl TransactionBuilder {
                     let nonce_authority = Some(self.wallet.pubkey());
 
                     // Extract and verify ZK proof from lease
-                    #[cfg(feature = "zk_enabled")]
                     let zk_proof = lease.take_proof();
 
                     // Verify ZK proof if available (abort on low confidence)
-                    #[cfg(feature = "zk_enabled")]
                     if let Some(ref proof) = zk_proof {
                         if proof.confidence < 0.5 {
                             warn!(
@@ -1881,14 +1893,30 @@ impl TransactionBuilder {
                         );
                     }
 
-                    #[cfg(feature = "zk_enabled")]
                     debug!(
                         nonce_acquire_count = self.nonce_acquire_count.load(Ordering::Relaxed),
                         nonce_pubkey = ?nonce_pubkey,
                         zk_proof_present = zk_proof.is_some(),
                         "Using nonce for critical operation"
                     );
-                    #[cfg(not(feature = "zk_enabled"))]
+
+                    Ok(ExecutionContext {
+                        blockhash,
+                        nonce_pubkey,
+                        nonce_authority,
+                        nonce_lease: Some(lease),
+                        zk_proof,
+                    })
+                }
+                #[cfg(not(feature = "zk_enabled"))]
+                Ok(lease) => {
+                    // Record successful nonce acquisition
+                    self.nonce_acquire_count.fetch_add(1, Ordering::Relaxed);
+
+                    let blockhash = lease.nonce_blockhash();
+                    let nonce_pubkey = Some(*lease.nonce_pubkey());
+                    let nonce_authority = Some(self.wallet.pubkey());
+
                     debug!(
                         nonce_acquire_count = self.nonce_acquire_count.load(Ordering::Relaxed),
                         nonce_pubkey = ?nonce_pubkey,
@@ -1900,8 +1928,6 @@ impl TransactionBuilder {
                         nonce_pubkey,
                         nonce_authority,
                         nonce_lease: Some(lease),
-                        #[cfg(feature = "zk_enabled")]
-                        zk_proof,
                     })
                 }
                 Err(e) => {
