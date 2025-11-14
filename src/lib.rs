@@ -31,6 +31,9 @@ pub mod position_tracker;
 // Export types module
 pub mod types;
 
+// Export streaming module (WebSocket and Geyser support)
+pub mod streaming;
+
 // Export GUI module (only when gui_monitor feature is enabled)
 #[cfg(feature = "gui_monitor")]
 pub mod gui;
