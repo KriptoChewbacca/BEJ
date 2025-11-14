@@ -337,7 +337,8 @@ impl ImprovedNonceAccount {
     /// - 0.5-0.79: Verification passed, significant staleness
     /// - 0.0-0.49: Verification failed or high staleness (taint recommended)
     async fn verify_zk_proof(&self, proof_data: &ZkProofData, current_slot: u64) -> f64 {
-        let _start = Instant::now();
+        #[cfg(feature = "zk_enabled")]
+        let start = Instant::now();
 
         #[cfg(feature = "zk_enabled")]
         {
